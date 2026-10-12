@@ -277,3 +277,32 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
 html, body { cursor: var(--cur-arrow, default) }
 button, a, label, summary, select { cursor: var(--cur-hand, pointer) }
 input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, text) }
+
+/* ---------- route ---------- */
+.plot { width: 100%; margin-top: 6px; padding: 7px; background: transparent; border: 1px dashed var(--acc); color: var(--acc);
+  font-family: var(--f-dot); font-size: 12.5px; letter-spacing: .14em; cursor: var(--cur-hand, pointer) }
+.plot:hover { background: color-mix(in srgb, var(--acc) 12%, transparent) }
+.route-hint { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 6; display: flex; align-items: center; gap: 10px;
+  max-width: calc(100% - 20px); padding: 6px 8px 6px 12px; background: rgb(0 0 0 / .85); border: 1px solid var(--ink);
+  font-family: var(--f-dot); font-size: 11.5px; letter-spacing: .1em; color: var(--dim); animation: hintblink 1.2s steps(2) infinite }
+.route-hint b { color: var(--ink); font-weight: 400 }
+.route-hint span { min-width: 0 }
+@keyframes hintblink { 50% { border-color: transparent } }
+.route { position: absolute; left: 10px; top: 10px; z-index: 5; width: min(300px, calc(100% - 20px)); max-height: calc(100% - 20px);
+  display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; background: rgb(0 0 0 / .84); backdrop-filter: blur(6px);
+  border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 30%, transparent) }
+.route-head { display: flex; align-items: center; gap: 6px; padding-top: 6px; min-width: 0 }
+.route-t { flex: 1; min-width: 0; font-family: var(--f-dot); font-size: 12px; letter-spacing: .06em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.route-t i { font-style: normal; color: var(--acc) }
+.route-meta { font-size: 10px; color: var(--dim); letter-spacing: .04em; line-height: 1.45 }
+.route-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; display: grid; gap: 6px; scrollbar-width: thin }
+.route-list li { border-left: 2px solid var(--c); padding-left: 8px; display: grid; gap: 1px }
+.rs { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: 9.5px; color: var(--dim); letter-spacing: .06em }
+.rs b { font-family: var(--f-dot); font-weight: 400; color: var(--c) }
+.rp { background: none; border: 0; padding: 0; font-family: var(--f-dot); font-size: 12px; letter-spacing: .05em; color: var(--ink); cursor: var(--cur-hand, pointer); text-align: left }
+.rp:hover { color: var(--c) }
+.rt { display: flex; gap: 6px; background: none; border: 0; padding: 1px 0; text-align: left; font-size: 11px; color: var(--dim); cursor: var(--cur-hand, pointer); min-width: 0 }
+.rt .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.rt:hover, .rt.on { color: var(--ink) }
+.rt.on span:first-child { color: var(--c) }
+.route .play { padding: 7px; font-size: 12.5px }

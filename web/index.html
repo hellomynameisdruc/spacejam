@@ -57,6 +57,15 @@
             <p class="pmsg" id="pMsg" hidden></p>
           </div>
           <button type="button" class="dock-pill" id="dockPill" hidden><span>▶ RESUME</span><b id="pillTitle"></b></button>
+          <div class="route-hint" id="routeHint" hidden><span id="routeHintText"></span><button type="button" class="key" id="routeCancel">CANCEL <kbd>ESC</kbd></button></div>
+          <div class="route" id="routeBox" hidden>
+            <div class="route-head"><span class="dock-k">ROUTE</span><span class="route-t" id="routeTitle"></span>
+              <button type="button" class="dock-btn" id="routeFit" aria-label="Show the whole route">⤢</button>
+              <button type="button" class="dock-btn" id="routeClose" aria-label="Clear route">×</button></div>
+            <div class="route-meta" id="routeMeta"></div>
+            <ol class="route-list" id="routeList"></ol>
+            <button type="button" class="play" id="routePlay">▶ PLAY ROUTE</button>
+          </div>
           <div class="banner" id="sampleBanner" hidden>
             <b>TEST SIGNAL</b> names are made up and videos won't play. The real map appears once the Discogs dump is processed. <u>hide</u>
           </div>

@@ -292,6 +292,7 @@ def main(src, out_dir, min_style, min_label, sample):
     pos = layout_stars(stars, np.array([star_radius[s] for s in stars]), weight, iters=400)
     cen = pos.mean(0)
     stars_out, planets_out, chunks, search_artists = [], [], [], {}
+    sidx = {s: i for i, s in enumerate(stars)}
     for si, s in enumerate(stars):
         sx, sy = pos[si]
         hue = (math.atan2(sy - cen[1], sx - cen[0]) / (2 * math.pi)) + 0.08
@@ -317,7 +318,8 @@ def main(src, out_dir, min_style, min_label, sample):
                 a = i * GOLDEN
                 add(r, v, px + rr * math.cos(a), py + rr * math.sin(a), pidx)
             planets_out.append({"name": p["name"], "s": si, "x": round(px, 1), "y": round(py, 1), "r": round(p["r"], 1),
-                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "o": round(p["o"], 1), "a": round(p["a"], 4), "b": round(p["b"], 1), "t0": t0, "t1": len(ch["yt"])})
+                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "o": round(p["o"], 1), "a": round(p["a"], 4), "b": round(p["b"], 1),
+                                "xs": [[sidx[st], round(c / p["n"], 3)] for st, c in p["side"].most_common(3) if st in sidx], "t0": t0, "t1": len(ch["yt"])})
         for r, v, x, y in belt[s]:
             add(r, v, sx + x, sy + y, -1)
         n_tracks_star = len(ch["yt"])

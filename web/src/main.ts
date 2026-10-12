@@ -14,7 +14,7 @@ import { applyCursors, lockCursor } from "./cursors";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
 type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[]; hull?: number[]; bub?: [number, number, number][]; orb?: number[] };
-type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; o?: number; a?: number; b?: number; t0: number; t1: number };
+type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; o?: number; a?: number; b?: number; xs?: [number, number][]; t0: number; t1: number };
 type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };
 type TrackRef = { s: number; i: number };
@@ -540,6 +540,39 @@ function drawSatellites(t: number) {
     ctx.fillStyle = sc(si, 0.95); ctx.fill(front);
   });
 }
+function drawRoute(t: number) {
+  if (!route) return;
+  const pts = route.stops.map((i) => { const q = planetPos(i, t); return toScreen(q.x, q.y); });
+  ctx.save(); ctx.lineCap = "round";
+  for (let k = 0; k + 1 < pts.length; k++) {
+    const a = pts[k], b = pts[k + 1], ca = planets[route.stops[k]].s, cb = planets[route.stops[k + 1]].s;
+    const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y); g.addColorStop(0, sc(ca, 1)); g.addColorStop(1, sc(cb, 1));
+    ctx.strokeStyle = g; ctx.globalAlpha = 0.18; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.globalAlpha = 0.9; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]); ctx.lineDashOffset = reduce ? 0 : -t / 60;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // a pulse travels the whole route
+  if (!reduce && pts.length > 1) {
+    const segs = pts.slice(1).map((p, k) => Math.hypot(p.x - pts[k].x, p.y - pts[k].y)), tot = segs.reduce((x, y) => x + y, 0) || 1;
+    let d = ((t / 4000) % 1) * tot, k = 0; while (k < segs.length - 1 && d > segs[k]) { d -= segs[k]; k++; }
+    const f = segs[k] ? d / segs[k] : 0, px = pts[k].x + (pts[k + 1].x - pts[k].x) * f, py = pts[k].y + (pts[k + 1].y - pts[k].y) * f;
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = "lighter"; const gs = glowS[planets[route.stops[k]].s];
+    ctx.drawImage(gs, px - 14, py - 14, 28, 28); ctx.globalCompositeOperation = "source-over";
+  }
+  // stop markers
+  ctx.globalAlpha = 1; ctx.font = `11px ${FONT_LBL}`; ctx.textAlign = "center";
+  const cur = route && routeIdx >= 0 ? route.flat[routeIdx] : null;
+  pts.forEach((p, k) => {
+    const pi = route!.stops[k], si = planets[pi].s, r = Math.max(7, planets[pi].r * cam.s + 6);
+    const active = !!cur && chunks[cur.s]?.p[cur.i] === pi;
+    ctx.strokeStyle = sc(si, active ? 1 : 0.85); ctx.lineWidth = active ? 2 : 1;
+    ctx.strokeRect(Math.round(p.x - r) + 0.5, Math.round(p.y - r) + 0.5, Math.round(r * 2), Math.round(r * 2));
+    const tag = pad(k + 1, 2), tw = 18;
+    ctx.fillStyle = sc(si, 1); ctx.fillRect(Math.round(p.x - r), Math.round(p.y - r) - 13, tw, 12);
+    ctx.fillStyle = BG; ctx.fillText(tag, Math.round(p.x - r) + tw / 2, Math.round(p.y - r) - 3);
+  });
+  ctx.restore();
+}
 function drawLive(t: number) {
   tNow = t;
   // While the wheel is turning, let the browser scale the old layer and repaint it only a few times
@@ -558,6 +591,7 @@ function drawLive(t: number) {
   ctx.clearRect(0, 0, W, H);
   LV0 = toWorld(0, 0); LV1 = toWorld(W, H);
   const nPlaced = placed.length; G = ctx;
+  drawRoute(t);
   frameNo++; if (frameNo % 120 === 0) sweepSprites(); if (frameNo % 6 === 0) readout();
   drawPlanets(t);
   drawSatellites(t);
@@ -671,6 +705,10 @@ cv.addEventListener("wheel", (e) => {
 
 // ---------- Вибір ----------
 function select(o: Sel, go = true, autoplay = false) {
+  if (routePick !== null && o && o.kind !== "star") {
+    const pb = o.kind === "planet" ? o.p : chunks[o.s]!.p[o.i];
+    if (pb >= 0 && pb !== routePick) { const pa = routePick; endPick(); buildRoute(pa, pb); return; }
+  }
   sel = o; dirty = true;
   setFollow(o?.kind === "planet" ? o.p : o?.kind === "track" ? chunks[o.s]!.p[o.i] : null);
   if (o?.kind === "star") { const s = stars[o.s]; if (go) fly(s.x, s.y, Math.min(maxS, Math.max(LOD_PLANETS * 1.3, (Math.min(W, H) * 0.46) / s.R))); }
@@ -771,6 +809,142 @@ function drawPulsarHero(g: CanvasRenderingContext2D, w: number, h: number, si: n
   g.fillText(`${bpm[si]} BPM`, w / 2, h - 7);
 }
 
+// ---------- Route: planet → planet ----------
+// Styles are hopped along the strongest links (labels that release both styles are the "bridges");
+// inside one system the route walks through the eras between the two labels.
+type Route = { a: number; b: number; stops: number[]; tracks: TrackRef[][]; flat: TrackRef[]; hops: number[] };
+let route: Route | null = null, routeIdx = -1, routePick: number | null = null;
+const adj: { s: number; w: number }[][] = stars.map(() => []);
+for (const [a, b, w] of links) { adj[a].push({ s: b, w }); adj[b].push({ s: a, w }); }
+function starPath(a: number, b: number): number[] {
+  const dist = stars.map(() => Infinity), prev = stars.map(() => -1), done = stars.map(() => false);
+  dist[a] = 0;
+  for (;;) {
+    let u = -1; for (let i = 0; i < stars.length; i++) if (!done[i] && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
+    if (u < 0 || u === b) break; done[u] = true;
+    for (const { s: v, w } of adj[u]) { const d = dist[u] + 0.6 + 0.08 / Math.max(w, 0.01); if (d < dist[v]) { dist[v] = d; prev[v] = u; } }
+  }
+  if (dist[b] === Infinity) return [a, b];
+  const out = [b]; while (out[0] !== a) out.unshift(prev[out[0]]);
+  return out;
+}
+const midYear = (p: Planet) => (p.yr[0] && p.yr[1] ? (p.yr[0] + p.yr[1]) / 2 : p.yr[1] || 2000);
+const shareOf = (p: Planet, s: number) => p.xs?.find((e) => e[0] === s)?.[1] ?? 0;
+function bridge(inStar: number, toward: number, used: Set<number>): number {
+  let best = -1, bs = 0;
+  for (const i of planetsByStar[inStar]) {
+    if (used.has(i) || planets[i].t1 <= planets[i].t0) continue;
+    const sc_ = shareOf(planets[i], toward) * Math.log(2 + planets[i].n); if (sc_ > bs) { bs = sc_; best = i; }
+  }
+  return best;
+}
+function planRoute(a: number, b: number): Omit<Route, "tracks" | "flat"> {
+  const A = planets[a], B = planets[b], used = new Set([a, b]), stops = [a];
+  const hops = A.s === B.s ? [A.s] : starPath(A.s, B.s);
+  if (hops.length === 1) {
+    // same system: walk through the eras (and orbits) between the two labels
+    const pool = planetsByStar[A.s].filter((i) => !used.has(i) && planets[i].t1 > planets[i].t0);
+    const ns = pool.map((i) => planets[i].n).sort((x, y) => x - y), nMed = ns[ns.length >> 1] ?? 0;
+    const ya = midYear(A), yb = midYear(B), oa = A.o ?? 0, ob = B.o ?? 0;
+    const yspan = Math.max(6, Math.abs(yb - ya)), ospan = Math.max(80, Math.abs(ob - oa));
+    for (const t of [0.25, 0.5, 0.75]) {
+      const ty = ya + (yb - ya) * t, to = oa + (ob - oa) * t;
+      let best = -1, bd = Infinity;
+      for (const i of pool) {
+        if (used.has(i)) continue; const p = planets[i];
+        const d = Math.abs(midYear(p) - ty) / yspan + Math.abs((p.o ?? 0) - to) / ospan + (p.n < nMed ? 0.4 : 0);
+        if (d < bd) { bd = d; best = i; }
+      }
+      if (best >= 0) { stops.push(best); used.add(best); }
+    }
+  } else {
+    const many = hops.length > 5;
+    for (let k = 0; k + 1 < hops.length; k++) {
+      const from = hops[k], to = hops[k + 1];
+      const last = stops[stops.length - 1];
+      if (!(planets[last].s === from && shareOf(planets[last], to) > 0)) {
+        const g = bridge(from, to, used); if (g >= 0) { stops.push(g); used.add(g); }
+      }
+      if (to === B.s && shareOf(B, from) > 0) continue;
+      if (many && to !== B.s) continue;
+      const g = bridge(to, from, used); if (g >= 0) { stops.push(g); used.add(g); }
+    }
+  }
+  stops.push(b);
+  return { a, b, stops, hops };
+}
+async function buildRoute(a: number, b: number) {
+  const plan = planRoute(a, b);
+  await Promise.all([...new Set(plan.stops.map((i) => planets[i].s))].map((s) => loadChunk(s)));
+  const seen = new Set<string>(), per = plan.stops.length <= 4 ? 3 : plan.stops.length <= 7 ? 2 : 1;
+  const tracks = plan.stops.map((pi, k) => {
+    const p = planets[pi], ch = chunks[p.s]!, n = p.t1 - p.t0, want = k === 0 || k === plan.stops.length - 1 ? Math.max(2, per) : per;
+    const out: TrackRef[] = [];
+    for (let j = 0; j < n && out.length < want; j++) {
+      const i = p.t0 + (hash(p.name + ":" + planets[b].name + ":" + j) % n);
+      if (seen.has(ch.yt[i])) continue; seen.add(ch.yt[i]); out.push({ s: p.s, i });
+    }
+    return out;
+  });
+  route = { ...plan, tracks, flat: tracks.flat() }; routeIdx = -1;
+  try { history.replaceState(null, "", `#r${a}-${b}`); } catch { /* */ }
+  renderRoute(); fitRoute(); dirty = true;
+}
+function fitRoute() {
+  if (!route) return;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const i of route.stops) { const q = planetPos(i); x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+  const w = Math.max(200, x1 - x0), h = Math.max(200, y1 - y0);
+  setFollow(null); sel = null; render();
+  // keep the route clear of the route panel on the left (on wide screens)
+  const box = $("routeBox"), pw = W > 700 && !box.hidden ? box.offsetWidth + 20 : 0;
+  const k = Math.max(minS(), Math.min((W - pw) / w, H / h) * 0.78);
+  fly((x0 + x1) / 2 - pw / 2 / k, (y0 + y1) / 2, k, 1600);
+}
+function startPick(a: number) {
+  routePick = a;
+  $("routeHintText").innerHTML = `ROUTE FROM <b>${esc(planets[a].name.toUpperCase())}</b> · CLICK A DESTINATION PLANET`;
+  $("routeHint").hidden = false;
+  fly(cam.x, cam.y, Math.min(cam.s, Math.max(LOD_PLANETS * 1.2, cam.s * 0.35)), 900);
+}
+function endPick() { routePick = null; $("routeHint").hidden = true; }
+function clearRoute() {
+  route = null; routeIdx = -1; $("routeBox").hidden = true; dirty = true;
+  try { if (location.hash.startsWith("#r")) history.replaceState(null, "", location.pathname + location.search); } catch { /* */ }
+}
+function renderRoute() {
+  const box = $("routeBox"); if (!route) { box.hidden = true; return; }
+  const r = route, A = planets[r.a], B = planets[r.b];
+  box.hidden = false; box.style.setProperty("--acc", stars[A.s].color);
+  $("routeTitle").innerHTML = `${esc(A.name.toUpperCase())} <i>→</i> ${esc(B.name.toUpperCase())}`;
+  $("routeMeta").textContent = `${r.stops.length} STOPS · ${r.flat.length} TRACKS · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
+  let k = 0;
+  $("routeList").innerHTML = r.stops.map((pi, si) => {
+    const p = planets[pi], kind = si === 0 ? "ORIGIN" : si === r.stops.length - 1 ? "DESTINATION" : r.hops.length > 1 ? "BRIDGE" : "WAYPOINT";
+    const tr = r.tracks[si].map((t) => {
+      const ch = chunks[t.s]!, idx = k++, on = idx === routeIdx;
+      return `<button class="rt${on ? " on" : ""}" data-k="${idx}"><span>${on ? "◉" : "▸"}</span><span class="t">${esc(ch.an[ch.a[t.i]])} — ${esc(ch.t[t.i])}</span></button>`;
+    }).join("");
+    return `<li style="--c:${stars[p.s].color}"><div class="rs"><b>${pad(si + 1, 2)}</b><button class="rp" data-p="${pi}">${esc(p.name.toUpperCase())}</button><span>${kind} · ${esc(stars[p.s].name.toUpperCase())}</span></div>${tr}</li>`;
+  }).join("");
+  $("routePlay").textContent = routeIdx >= 0 ? "■ STOP ROUTE" : "▶ PLAY ROUTE";
+  $("routePlay").hidden = !!map.meta.sample;
+}
+function playRouteAt(k: number) {
+  if (!route || !route.flat[k]) return;
+  routeIdx = k; renderRoute();
+  select({ kind: "track", ...route.flat[k] }, true, true);
+  $("routeList").querySelector(".rt.on")?.scrollIntoView({ block: "nearest" });
+}
+$("routeList").addEventListener("click", (e) => {
+  const t = (e.target as HTMLElement).closest<HTMLElement>("[data-k],[data-p]"); if (!t) return;
+  if (t.dataset.k) playRouteAt(+t.dataset.k); else select({ kind: "planet", p: +t.dataset.p! });
+});
+$("routePlay").onclick = () => { if (routeIdx >= 0) { routeIdx = -1; renderRoute(); if (player.playing) player.toggle(); } else playRouteAt(0); };
+$("routeClose").onclick = clearRoute;
+$("routeFit").onclick = fitRoute;
+$("routeCancel").onclick = endPick;
+
 function render() {
   refs.length = 0;
   const d = $("detail"); let h = ""; const o = sel; let code = "", title = "";
@@ -824,6 +998,7 @@ function render() {
       <p class="note">${PTYPE_INFO[ptype[o.p]][0][0]}${PTYPE_INFO[ptype[o.p]][0].slice(1).toLowerCase()}: ${PTYPE_INFO[ptype[o.p]][1]}.</p>
       ${hist}
       ${ch && n && !map.meta.sample ? `<button class="play" data-r="${R({ kind: "track", s: p.s, i: p.t0 })}" data-play="1">▶ PLAY THE ORBIT</button>` : ""}
+      <button class="plot" data-route="${o.p}">⟶ PLOT ROUTE FROM HERE</button>
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`;
     const sd = hash(p.name) % 100;
@@ -863,6 +1038,7 @@ function render() {
   if (img) img.onerror = () => { img.remove(); const f = $("hero"); f.classList.remove("thumb"); f.insertAdjacentHTML("afterbegin", "<canvas></canvas>"); f.querySelector(".raster")?.remove(); const c = heroCanvas()!; const ff = fitCanvas(c); const si = sel?.kind === "track" ? sel.s : 0; drawSphere(ff.g, ff.w, ff.h, 7, 0, (a = 1) => sc(si, a), "rocky", false); };
 }
 $("detail").addEventListener("click", (e) => {
+  const pr = (e.target as HTMLElement).closest<HTMLElement>("[data-route]"); if (pr) { startPick(+pr.dataset.route!); return; }
   const b = (e.target as HTMLElement).closest<HTMLElement>("[data-r]"); if (!b) return;
   const o = refs[+b.dataset.r!];
   if (o?.kind === "track") { select(o, true, !!b.dataset.play); return; }
@@ -904,7 +1080,17 @@ function playTrack(ref: TrackRef) {
   $("npTitle").textContent = ch.t[ref.i]; $("npArtist").textContent = ch.an[ch.a[ref.i]];
   seekEl.value = "0"; paintRange(seekEl); $("tCur").textContent = "0:00"; $("tDur").textContent = "0:00";
 }
-function next() { if (!nowPlaying) return; const n = nearestTracks(nowPlaying, 1, played)[0]; if (n) select({ kind: "track", ...n }, true, true); }
+function next() {
+  if (!nowPlaying) return;
+  if (route && routeIdx >= 0) {
+    const cur = route.flat[routeIdx];
+    if (cur && cur.s === nowPlaying.s && cur.i === nowPlaying.i) {
+      if (routeIdx + 1 < route.flat.length) { playRouteAt(routeIdx + 1); return; }
+      routeIdx = -1; renderRoute(); $("routeMeta").textContent = "ROUTE COMPLETE · AUTOPILOT RESUMES";
+    } else { routeIdx = -1; renderRoute(); }
+  }
+  const n = nearestTracks(nowPlaying, 1, played)[0]; if (n) select({ kind: "track", ...n }, true, true);
+}
 $("pNext").onclick = next;
 $("pPrev").onclick = () => { if (hist_.length > 1) { hist_.pop(); const r = hist_.pop()!; select({ kind: "track", ...r }, true, true); } };
 $("pToggle").onclick = () => player.toggle();
@@ -1136,6 +1322,7 @@ $("zin").onclick = () => { cam.s = clampS(cam.s * 1.5); dirty = true; };
 $("zout").onclick = () => { cam.s = clampS(cam.s / 1.5); dirty = true; };
 addEventListener("keydown", (e) => {
   const typing = (e.target as HTMLElement).tagName === "INPUT";
+  if (e.key === "Escape" && routePick !== null) { endPick(); return; }
   if (e.key === "Escape") { if (typing) { q.blur(); res.hidden = true; return; } if (sel?.kind === "track") select({ kind: "star", s: sel.s }); else if (sel) select(null); return; }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const k = e.key.toLowerCase();
@@ -1189,5 +1376,12 @@ if (tm) {
   showDock(); $("npTitle").textContent = "TEST SIGNAL"; $("npArtist").textContent = tm[1];
   player.play(tm[1]);
 }
+function routeFromHash() {
+  const rm = location.hash.match(/^#r(\d+)-(\d+)$/);
+  if (rm && planets[+rm[1]] && planets[+rm[2]] && +rm[1] !== +rm[2] && !(route && route.a === +rm[1] && route.b === +rm[2])) { buildRoute(+rm[1], +rm[2]); return true; }
+  return false;
+}
+routeFromHash();
+addEventListener("hashchange", routeFromHash);
 const m = location.hash.match(/^#t(\d+)-(\d+)$/);
 if (m && +m[1] < stars.length) loadChunk(+m[1]).then((ch) => { if (+m[2] < ch.yt.length) select({ kind: "track", s: +m[1], i: +m[2] }); });
