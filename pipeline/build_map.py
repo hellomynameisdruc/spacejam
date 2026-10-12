@@ -190,6 +190,7 @@ def main(src, out_dir, min_style, min_label, sample):
             "name": name, "star": star, "n": len(rs), "side": side, "tracks": tracks,
             "r": r_pl, "halo": r_pl + 4 + 1.5 * math.sqrt(n_tr),
             "years": [min((r["year"] for r in rs if r["year"]), default=0), max(r["year"] for r in rs)],
+            "active_years": len({r["year"] for r in rs if r["year"]}),
         })
     for r in rel:
         if not r["label"]:
@@ -263,7 +264,7 @@ def main(src, out_dir, min_style, min_label, sample):
                 a = i * GOLDEN
                 add(r, v, px + rr * math.cos(a), py + rr * math.sin(a), pidx)
             planets_out.append({"name": p["name"], "s": si, "x": round(px, 1), "y": round(py, 1), "r": round(p["r"], 1),
-                                "n": p["n"], "yr": p["years"], "t0": t0, "t1": len(ch["yt"])})
+                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "t0": t0, "t1": len(ch["yt"])})
         for r, v, x, y in belt[s]:
             add(r, v, sx + x, sy + y, -1)
         n_tracks_star = len(ch["yt"])

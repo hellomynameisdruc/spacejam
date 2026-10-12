@@ -13,7 +13,7 @@ import { Player } from "./player";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
 type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[] };
-type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; t0: number; t1: number };
+type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; t0: number; t1: number };
 type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };
 type TrackRef = { s: number; i: number };
@@ -32,6 +32,38 @@ const planetsByStar: number[][] = stars.map(() => []);
 planets.forEach((p, i) => planetsByStar[p.s].push(i));
 planetsByStar.forEach((l) => l.sort((a, b) => planets[b].n - planets[a].n));
 const totalTracks = stars.reduce((a, s) => a + s.tracks, 0);
+
+// ---------- Classification: planet types and star classes ----------
+// Planet type comes from the label's history; star size from popularity, glow from how alive the style is now.
+type PType = "giant" | "ringed" | "ancient" | "young" | "rocky";
+const nSorted = planets.map((p) => p.n).sort((a, b) => a - b);
+const giantMin = Math.max(8, nSorted[Math.floor(nSorted.length * 0.85)] ?? Infinity);
+const spanOf = (p: Planet) => (p.yr[0] && p.yr[1] ? p.yr[1] - p.yr[0] : 0);
+// long-runner: 15+ years between first and last release AND releases in at least 10 different years
+const longRun = (p: Planet) => spanOf(p) >= 15 && (p.ay ?? 99) >= 10;
+const ptype: PType[] = planets.map((p) => {
+  if (p.n >= giantMin) return "giant";
+  if (longRun(p)) return "ringed";
+  if (p.yr[1] && p.yr[1] <= 2000) return "ancient";
+  if (p.yr[0] >= 2010) return "young";
+  return "rocky";
+});
+const ringedP = planets.map((p, i) => ptype[i] === "ringed" || (ptype[i] === "giant" && longRun(p)));
+const PTYPE_INFO: Record<PType, [string, string]> = {
+  giant: ["GAS GIANT", "one of the largest labels in the sector"],
+  ringed: ["RINGED WORLD", "a long-runner: 15+ years of releases, in at least 10 different years"],
+  ancient: ["CRATERED", "went quiet before 2001"],
+  young: ["ICE WORLD", "first release in 2010 or later"],
+  rocky: ["TERRESTRIAL", "a regular label"],
+};
+const nMax = Math.max(1, ...stars.map((s) => s.n));
+const starRel = stars.map((s) => Math.sqrt(s.n / nMax));
+const starIdx = new Map(stars.map((s, i) => [s, i] as [Star, number]));
+const recentShare = stars.map((s) => { const yh = s.yh || []; const tot = yh.reduce((a, b) => a + b, 0) || 1; return yh.slice(-10).reduce((a, b) => a + b, 0) / tot; });
+const lum = (() => { const mx = Math.max(0.0001, ...recentShare); return recentShare.map((r) => r / mx); })();
+const CLASSES = ["O", "B", "A", "F", "G", "K", "M"];
+const sclass: string[] = [];
+stars.map((_, i) => i).sort((a, b) => stars[b].n - stars[a].n).forEach((si, k) => { sclass[si] = CLASSES[Math.min(6, Math.floor(k / stars.length * 7))]; });
 
 // ---------- Ліниве завантаження треків по зорях ----------
 const chunks: (Chunk | null)[] = stars.map(() => null);
@@ -98,11 +130,11 @@ function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: numbe
   // dotted halo, like a planet's satellite ring; breathes with the beat
   const hr = s * (1.75 + 0.18 * p), rot = (reduce ? 0 : t / 1000) * 0.2 * (si % 2 ? 1 : -1) + phase0[si] * 6.283;
   const nDots = Math.max(16, Math.min(48, Math.round(hr * 1.4))), dsz = Math.max(1, Math.round(s * 0.09));
-  c.fillStyle = sc(si, 0.55 + 0.35 * p);
+  c.fillStyle = sc(si, 0.3 + 0.35 * lum[si] + 0.3 * p);
   for (let k = 0; k < nDots; k++) { const a = rot + k * 6.283 / nDots; c.fillRect(Math.round(x + Math.cos(a) * hr - dsz / 2), Math.round(y + Math.sin(a) * hr - dsz / 2), dsz, dsz); }
   // glow
   c.globalCompositeOperation = "lighter";
-  const gR = s * (2.4 + 2.2 * p); c.globalAlpha = 0.45 + 0.5 * p; c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2); c.globalAlpha = 1;
+  const gR = s * (1.8 + 1.4 * lum[si] + 2.2 * p); c.globalAlpha = Math.min(1, 0.2 + 0.45 * lum[si] + 0.45 * p); c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2); c.globalAlpha = 1;
   c.globalCompositeOperation = prev;
   // dithered sphere, lit from inside
   const r = s * (1 + 0.1 * p);
@@ -186,7 +218,7 @@ function getDither(si: number) {
 }
 let V0 = { x: 0, y: 0 }, V1 = { x: 0, y: 0 };
 const inView = (x: number, y: number, r: number) => x + r > V0.x && x - r < V1.x && y + r > V0.y && y - r < V1.y;
-const starSize = (s: Star) => Math.max(6, Math.min(40, s.core * cam.s * 0.8));
+const starSize = (s: Star) => { const k = starRel[starIdx.get(s)!]; return Math.max(3.5 + 8 * k, Math.min(54, (12 + 44 * k) * cam.s)); };
 
 // Просторова сітка треків: швидко знаходимо точки у видимій області
 const CELL = 48;
@@ -207,6 +239,43 @@ function eachTrack(si: number, x0: number, y0: number, x1: number, y1: number, f
   if (x0 > x1 || y0 > y1) return;
   for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++)
     for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy++) { const a = g.get(gkey(cx, cy)); if (a) for (const i of a) fn(i); }
+}
+
+// Planet look by type: banded giants, ringed long-runners, cratered retired labels, icy newcomers
+function drawPlanetBody(i: number, x: number, y: number, r: number) {
+  const pl = planets[i], si = pl.s, ty = ptype[i], h = hash(pl.name), ringed = ringedP[i];
+  const tilt = -0.5 + (h % 100) / 100 * 0.45, rx = r * 1.95, ry = r * 0.5;
+  if (ringed) { lc.strokeStyle = sc(si, 0.5); lc.lineWidth = Math.max(1, r * 0.12); lc.beginPath(); lc.ellipse(x, y, rx, ry, tilt, Math.PI, Math.PI * 2); lc.stroke(); }
+  lc.save(); lc.beginPath(); lc.arc(x, y, r, 0, 7); lc.clip();
+  lc.fillStyle = BG; lc.fillRect(x - r, y - r, r * 2, r * 2);
+  lc.globalAlpha = ty === "young" ? 0.35 : 1; lc.fillStyle = getDither(si); lc.fillRect(x - r, y - r, r * 2, r * 2); lc.globalAlpha = 1;
+  if (ty === "giant") {
+    const nb = 5;
+    for (let k = 0; k < nb; k++) {
+      const yy = y - r + (k + 0.5) * (2 * r / nb) + Math.sin(k * 1.7 + h) * r * 0.06;
+      lc.fillStyle = sc(si, k % 2 ? 0.9 : 0.3); lc.fillRect(x - r, yy - r * 0.1, r * 2, r * (k % 2 ? 0.2 : 0.13));
+    }
+  }
+  if (ty === "ancient") {
+    lc.globalAlpha = 0.55; lc.fillStyle = BG; lc.fillRect(x - r, y - r, r * 2, r * 2); lc.globalAlpha = 1;
+    lc.strokeStyle = sc(si, 0.85); lc.lineWidth = 1;
+    for (let k = 0; k < 4; k++) {
+      const a = ((h >>> (k * 3)) % 628) / 100, d = r * 0.12 + (((h >>> (k * 5)) % 100) / 100) * r * 0.55, cr = r * (0.12 + ((h >>> (k * 2)) % 10) / 70);
+      lc.beginPath(); lc.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, cr, 0, 7); lc.stroke();
+    }
+  } else {
+    lc.fillStyle = sc(si, 0.95); lc.beginPath(); lc.arc(x - r * 0.35, y - r * 0.35, r * (ty === "young" ? 0.45 : 0.62), 0, 7); lc.fill();
+    lc.globalAlpha = 0.55; lc.fillStyle = BG; lc.beginPath(); lc.arc(x + r * 0.05, y + r * 0.05, r * 0.72, 0, 7); lc.fill(); lc.globalAlpha = 1;
+  }
+  lc.restore();
+  lc.strokeStyle = sc(si, 0.95); lc.lineWidth = 1;
+  if (ty === "young") lc.setLineDash([2, 2]);
+  lc.beginPath(); lc.arc(x, y, r, 0, 7); lc.stroke(); lc.setLineDash([]);
+  if (ringed) { lc.strokeStyle = sc(si, 0.95); lc.lineWidth = Math.max(1, r * 0.12); lc.beginPath(); lc.ellipse(x, y, rx, ry, tilt, 0, Math.PI); lc.stroke(); }
+  if (ty === "young" && r > 5) {
+    const sx = x - r * 0.42, sy = y - r * 0.42, k = Math.max(1, Math.round(r * 0.08));
+    lc.fillStyle = "#fff"; lc.fillRect(sx - k * 3, sy - k / 2, k * 6, k); lc.fillRect(sx - k / 2, sy - k * 3, k, k * 6);
+  }
 }
 
 // Статичний шар: перемальовується лише коли рухається камера або змінюється вибір
@@ -285,13 +354,7 @@ function drawStatic() {
     for (const i of vis) {
       const pl = planets[i], p = toScreen(pl.x, pl.y), r = Math.max(1.5, pl.r * cam.s);
       if (r < 3) { lc.fillStyle = sc(pl.s, 0.95); lc.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
-      lc.save(); lc.beginPath(); lc.arc(p.x, p.y, r, 0, 7); lc.clip();
-      lc.fillStyle = BG; lc.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-      lc.fillStyle = getDither(pl.s); lc.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-      lc.fillStyle = sc(pl.s, 0.95); lc.beginPath(); lc.arc(p.x - r * 0.35, p.y - r * 0.35, r * 0.62, 0, 7); lc.fill();
-      lc.globalAlpha = 0.55; lc.fillStyle = BG; lc.beginPath(); lc.arc(p.x + r * 0.05, p.y + r * 0.05, r * 0.72, 0, 7); lc.fill(); lc.globalAlpha = 1;
-      lc.restore();
-      lc.strokeStyle = sc(pl.s, 0.95); lc.lineWidth = 1; lc.beginPath(); lc.arc(p.x, p.y, r, 0, 7); lc.stroke();
+      drawPlanetBody(i, p.x, p.y, r);
     }
     vis.sort((a, b) => planets[b].n - planets[a].n);
     for (const i of vis) {
@@ -457,7 +520,7 @@ function fitCanvas(c: HTMLCanvasElement) {
 }
 // Дизерована куля (упорядкований растр Байєра)
 const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-function drawSphere(g: CanvasRenderingContext2D, w: number, h: number, seedN: number, t: number, col: (a?: number) => string = ph) {
+function drawSphere(g: CanvasRenderingContext2D, w: number, h: number, seedN: number, t: number, col: (a?: number) => string = ph, type: PType = "rocky", ringed = true) {
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
   const px = 3, cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.36, rot = t / 4000 + seedN;
   const lx = Math.cos(rot) * 0.7, ly = -0.5, lz = Math.sqrt(Math.max(0, 1 - lx * lx - ly * ly));
@@ -468,9 +531,15 @@ function drawSphere(g: CanvasRenderingContext2D, w: number, h: number, seedN: nu
     const nz = Math.sqrt(1 - d);
     let l = Math.max(0, nx * lx + ny * ly + nz * lz);
     l *= 0.85 + 0.15 * Math.sin((ny * 6 + seedN) * 2 + Math.sin(nx * 3));
+    if (type === "giant") l *= Math.sin(ny * 9 + seedN + Math.sin(nx * 2 + t / 3000) * 0.4) > 0 ? 1.1 : 0.45;
+    if (type === "young") l *= 0.62;
+    if (type === "ancient") {
+      l *= 0.8;
+      for (let k = 0; k < 5; k++) { const ax = Math.sin(seedN * 3.1 + k * 2.3) * 0.55, ay = Math.cos(seedN * 1.7 + k * 1.9) * 0.55, cr = 0.12 + (k % 3) * 0.06, dd = Math.hypot(nx - ax, ny - ay); if (dd < cr) l *= dd > cr * 0.75 ? 1.4 : 0.25; }
+    }
     if (l * 16 > BAYER[(y / px) & 3][(x / px) & 3] + 0.5) g.fillRect(x, y, px - 1, px - 1);
   }
-  g.strokeStyle = col(0.6); g.beginPath(); g.ellipse(cx, cy, r * 1.45, r * 0.32, -0.35, 0, Math.PI * 2); g.setLineDash([2, 3]); g.stroke(); g.setLineDash([]);
+  if (ringed) { g.strokeStyle = col(0.8); g.lineWidth = 1.5; g.beginPath(); g.ellipse(cx, cy, r * 1.55, r * 0.36, -0.35, 0, Math.PI * 2); g.stroke(); g.lineWidth = 1; }
 }
 function drawRadar(g: CanvasRenderingContext2D, w: number, h: number, t: number) {
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
@@ -521,6 +590,7 @@ function render() {
         <div class="ident"><span class="code">OBSERVATORY // 01</span><h2 id="dosTitle"></h2><span class="stamp">${map.meta.sample ? "TEST SIGNAL" : "LIVE CATALOGUE"}</span></div></div>
       <div class="rows">${row("STARS / STYLES", fmt(stars.length))}${row("PLANETS / LABELS", fmt(planets.length))}${row("SATELLITES / TRACKS", fmt(map.meta.tracks))}${row("RELEASES", fmt(map.meta.releases))}${row("SOURCE", "DISCOGS · CC0")}</div>
       <p class="lede">Every <b>star</b> is a style. Its orbits hold <b>label planets</b>, circled by <b>track satellites</b>: older ones sit closer in. The dotted lines show how often two styles share a release.</p>
+      <div class="bars"><div class="ph-sub">PLANET TYPES</div>${(Object.keys(PTYPE_INFO) as PType[]).map((k) => { const c = ptype.filter((x) => x === k).length; return meter(PTYPE_INFO[k][0], c / Math.max(1, planets.length), fmt(c)); }).join("")}<p class="note">Giants are the biggest labels, ringed worlds are long-runners (15+ years), cratered ones went quiet before 2001, ice worlds started after 2010.</p></div>
       <div class="bars"><div class="ph-sub">STAR SYSTEMS // BY TRACK COUNT</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }), s.color)).join("")}</div>`;
     dosAnim = (t) => { const c = heroCanvas(); if (c) { const f = (c as any)._f || ((c as any)._f = fitCanvas(c)); drawRadar(f.g, f.w, f.h, t); } };
   } else if (o.kind === "star") {
@@ -528,8 +598,8 @@ function render() {
     code = `STAR // ST-${pad(o.s, 2)}`; title = s.name.toUpperCase();
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">ST-${pad(o.s, 2)} // STYLE</span><h2 id="dosTitle"></h2><span class="stamp">${(s.tracks * 100 / totalTracks).toFixed(1)}% OF SECTOR</span></div></div>
-      <div class="rows">${row("RELEASES", fmt(s.n))}${row("PLANETS / LABELS", fmt(pl.length))}${row("TRACKS", fmt(s.tracks))}${row("PULSE", `≈ ${bpm[o.s]} BPM`)}${row("PEAK YEAR", String(peakYear[o.s]))}</div>
-      <p class="note">The star pulses at the tempo typical for its style and sheds a shell once every bar.</p>
+      <div class="rows">${row("RELEASES", fmt(s.n))}${row("PLANETS / LABELS", fmt(pl.length))}${row("TRACKS", fmt(s.tracks))}${row("CLASS", `${sclass[o.s]} · ${starRel[o.s] > 0.75 ? "SUPERGIANT" : starRel[o.s] > 0.5 ? "GIANT" : starRel[o.s] > 0.3 ? "MAIN SEQUENCE" : "DWARF"}`)}${row("LUMINOSITY", `${Math.round(recentShare[o.s] * 100)}% RELEASES IN LAST 10 YRS`)}${row("PULSE", `≈ ${bpm[o.s]} BPM`)}${row("PEAK YEAR", String(peakYear[o.s]))}</div>
+      <p class="note">Size shows how many releases the style has; glow shows how alive it is today. The star pulses at the tempo typical for its style and sheds a shell once every bar.</p>
       ${s.yh?.length ? `<div class="hist"><div class="ph-sub">ACTIVITY // RELEASES PER YEAR</div><div class="cols">${s.yh.map((c, k) => `<i style="height:${(c / Math.max(1, ...s.yh!) * 100).toFixed(1)}%" title="${Y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${Y0}</span><span>${Y0 + Math.round((s.yh.length - 1) / 2)}</span><span>${Y0 + s.yh.length - 1}</span></div></div>` : ""}
       ${nb.length ? `<div class="bars"><div class="ph-sub">GRAVITATIONAL LINKS</div>${nb.map((n) => meter(stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), stars[n.s].color)).join("")}</div>` : ""}
       <div><div class="ph-sub">PLANETS IN ORBIT</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(planets[p].name)}</span><span class="y">${fmt(planets[p].n)} REL</span></button>`).join("")}</div>
@@ -555,7 +625,8 @@ function render() {
     }
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">PL-${pad(o.p, 4)} // LABEL</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
-      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("MASS", `${p.r.toFixed(1)} U`)}</div>
+      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", PTYPE_INFO[ptype[o.p]][0] + (ptype[o.p] === "giant" && ringedP[o.p] ? " · RINGED" : ""))}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
+      <p class="note">${PTYPE_INFO[ptype[o.p]][0][0]}${PTYPE_INFO[ptype[o.p]][0].slice(1).toLowerCase()}: ${PTYPE_INFO[ptype[o.p]][1]}.</p>
       ${hist}
       ${ch && n && !map.meta.sample ? `<button class="play" data-r="${R({ kind: "track", s: p.s, i: p.t0 })}" data-play="1">▶ PLAY THE ORBIT</button>` : ""}
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
@@ -566,7 +637,7 @@ function render() {
       if (reduce && drawn) return;
       const c = heroCanvas(); if (!c) return; const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
       if (((t / 66) | 0) === (c as any)._last) return; (c as any)._last = (t / 66) | 0;
-      drawSphere(f.g, f.w, f.h, sd, t, (a = 1) => sc(p.s, a)); drawn = true;
+      drawSphere(f.g, f.w, f.h, sd, t, (a = 1) => sc(p.s, a), ptype[o.p], ringedP[o.p]); drawn = true;
     };
   } else {
     const ch = chunks[o.s]!, s = stars[o.s], pi = ch.p[o.i], p = pi >= 0 ? planets[pi] : null, yt = ch.yt[o.i];
@@ -594,7 +665,7 @@ function render() {
   d.innerHTML = h; d.scrollTop = 0;
   scramble($("dosId"), code); scramble(document.getElementById("dosTitle"), title);
   const img = d.querySelector<HTMLImageElement>(".thumb img");
-  if (img) img.onerror = () => { img.remove(); const f = $("hero"); f.classList.remove("thumb"); f.insertAdjacentHTML("afterbegin", "<canvas></canvas>"); f.querySelector(".raster")?.remove(); const c = heroCanvas()!; const ff = fitCanvas(c); const si = sel?.kind === "track" ? sel.s : 0; drawSphere(ff.g, ff.w, ff.h, 7, 0, (a = 1) => sc(si, a)); };
+  if (img) img.onerror = () => { img.remove(); const f = $("hero"); f.classList.remove("thumb"); f.insertAdjacentHTML("afterbegin", "<canvas></canvas>"); f.querySelector(".raster")?.remove(); const c = heroCanvas()!; const ff = fitCanvas(c); const si = sel?.kind === "track" ? sel.s : 0; drawSphere(ff.g, ff.w, ff.h, 7, 0, (a = 1) => sc(si, a), "rocky", false); };
 }
 $("detail").addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>("[data-r]"); if (!b) return;
