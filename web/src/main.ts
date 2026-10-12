@@ -86,43 +86,36 @@ function pulseOf(si: number, t: number) {
   const beat = (t / 1000) * bpm[si] / 60 + phase0[si];
   return { p: reduce ? 0.4 : Math.exp(-(beat % 1) * 6), bar: reduce ? 0.3 : (beat / 4) % 1 };
 }
+// Star in the same visual language as the planets: a dithered sphere with an outline, but lit from
+// within, ringed by a dotted halo. Flashes on every beat, sheds a nova shell once per bar.
+const starDither = stars.map((_, si) => sprite(3, 3, (g) => { g.fillStyle = sc(si, 1); g.fillRect(0, 0, 1, 1); g.fillRect(2, 1, 1, 1); g.fillStyle = sc(si, 0.5); g.fillRect(1, 2, 1, 1); }));
 function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: number, s: number, t: number) {
-  // Star as seen through the observatory telescope: dot-matrix diffraction spikes, a square pixel core
-  // and a rotating gauge ring. It still flashes on every beat and sheds a nova shell once per bar.
   const { p, bar } = pulseOf(si, t);
   const prev = c.globalCompositeOperation;
   // nova shell — once per bar
-  c.strokeStyle = sc(si, 0.55 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.12 * (1 - bar));
-  c.beginPath(); c.arc(x, y, s * (1.4 + 7 * bar), 0, 7); c.stroke();
-  // gauge ring with ticks, slowly rotating
-  const rr = s * 2.1, rot = (reduce ? 0 : t / 1000) * 0.25 * (si % 2 ? 1 : -1) + phase0[si] * 6.283;
-  c.strokeStyle = sc(si, 0.4); c.lineWidth = 1;
-  c.beginPath(); c.arc(x, y, rr, rot, rot + Math.PI * 1.55); c.stroke();
-  c.beginPath();
-  for (let k = 0; k < 12; k++) {
-    const a = rot + k * Math.PI / 6, l = k % 3 === 0 ? s * 0.45 : s * 0.22;
-    c.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); c.lineTo(x + Math.cos(a) * (rr + l), y + Math.sin(a) * (rr + l));
-  }
-  c.stroke();
-  c.globalCompositeOperation = "lighter";
+  c.strokeStyle = sc(si, 0.55 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.1 * (1 - bar));
+  c.beginPath(); c.arc(x, y, s * (1.3 + 6 * bar), 0, 7); c.stroke();
+  // dotted halo, like a planet's satellite ring; breathes with the beat
+  const hr = s * (1.75 + 0.18 * p), rot = (reduce ? 0 : t / 1000) * 0.2 * (si % 2 ? 1 : -1) + phase0[si] * 6.283;
+  const nDots = Math.max(16, Math.min(48, Math.round(hr * 1.4))), dsz = Math.max(1, Math.round(s * 0.09));
+  c.fillStyle = sc(si, 0.55 + 0.35 * p);
+  for (let k = 0; k < nDots; k++) { const a = rot + k * 6.283 / nDots; c.fillRect(Math.round(x + Math.cos(a) * hr - dsz / 2), Math.round(y + Math.sin(a) * hr - dsz / 2), dsz, dsz); }
   // glow
-  const gR = s * (2.8 + 2.6 * p); c.globalAlpha = 0.5 + 0.5 * p; c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2); c.globalAlpha = 1;
-  // dot-matrix diffraction spikes: 4 long, 4 short diagonal; they shoot out on each beat
-  const dot = Math.max(1, Math.round(s * 0.16)), gap = dot + Math.max(1, Math.round(s * 0.12));
-  const spikes: [number, number, number][] = [[0, -1, 1], [0, 1, 1], [-1, 0, 1], [1, 0, 1], [-0.707, -0.707, 0.45], [0.707, -0.707, 0.45], [-0.707, 0.707, 0.45], [0.707, 0.707, 0.45]];
-  for (const [dx, dy, k] of spikes) {
-    const L = s * k * (4.2 + 4.5 * p), n = Math.max(2, Math.floor(L / gap));
-    for (let j = 1; j <= n; j++) {
-      const f = j / n, d = s * 0.5 + j * gap;
-      c.fillStyle = j < 3 ? `rgba(255,255,255,${(1 - f) * (0.5 + 0.5 * p)})` : sc(si, (1 - f) ** 1.3 * (0.55 + 0.45 * p));
-      c.fillRect(Math.round(x + dx * d - dot / 2), Math.round(y + dy * d - dot / 2), dot, dot);
-    }
-  }
+  c.globalCompositeOperation = "lighter";
+  const gR = s * (2.4 + 2.2 * p); c.globalAlpha = 0.45 + 0.5 * p; c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2); c.globalAlpha = 1;
   c.globalCompositeOperation = prev;
-  // square pixel core
-  const cs = Math.max(2, Math.round(s * (0.42 + 0.3 * p)));
-  c.fillStyle = sc(si, 1); c.fillRect(Math.round(x - cs / 2) - 1, Math.round(y - cs / 2) - 1, cs + 2, cs + 2);
-  c.fillStyle = "#fff"; c.fillRect(Math.round(x - cs / 2), Math.round(y - cs / 2), cs, cs);
+  // dithered sphere, lit from inside
+  const r = s * (1 + 0.1 * p);
+  c.save(); c.beginPath(); c.arc(x, y, r, 0, 7); c.clip();
+  c.fillStyle = BG; c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.fillStyle = c.createPattern(starDither[si], "repeat")!; c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.globalCompositeOperation = "lighter";
+  const g = c.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, `rgba(255,255,255,${0.85 + 0.15 * p})`); g.addColorStop(0.35 + 0.15 * p, sc(si, 0.9)); g.addColorStop(1, sc(si, 0));
+  c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.restore();
+  // outline, like the planets
+  c.strokeStyle = sc(si, 0.95); c.lineWidth = 1; c.beginPath(); c.arc(x, y, r, 0, 7); c.stroke();
 }
 
 // ---------- Канвас і камера ----------
@@ -193,7 +186,7 @@ function getDither(si: number) {
 }
 let V0 = { x: 0, y: 0 }, V1 = { x: 0, y: 0 };
 const inView = (x: number, y: number, r: number) => x + r > V0.x && x - r < V1.x && y + r > V0.y && y - r < V1.y;
-const starSize = (s: Star) => Math.max(5, Math.min(26, s.core * cam.s * 0.5));
+const starSize = (s: Star) => Math.max(6, Math.min(40, s.core * cam.s * 0.8));
 
 // Просторова сітка треків: швидко знаходимо точки у видимій області
 const CELL = 48;
