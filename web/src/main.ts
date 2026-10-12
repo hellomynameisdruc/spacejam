@@ -61,6 +61,8 @@ const starRel = stars.map((s) => Math.sqrt(s.n / nMax));
 const starIdx = new Map(stars.map((s, i) => [s, i] as [Star, number]));
 const recentShare = stars.map((s) => { const yh = s.yh || []; const tot = yh.reduce((a, b) => a + b, 0) || 1; return yh.slice(-10).reduce((a, b) => a + b, 0) / tot; });
 const lum = (() => { const mx = Math.max(0.0001, ...recentShare); return recentShare.map((r) => r / mx); })();
+const starRank: number[] = [];
+stars.map((_, i) => i).sort((a, b) => stars[b].n - stars[a].n).forEach((si, k) => { starRank[si] = k; });
 const CLASSES = ["O", "B", "A", "F", "G", "K", "M"];
 const sclass: string[] = [];
 stars.map((_, i) => i).sort((a, b) => stars[b].n - stars[a].n).forEach((si, k) => { sclass[si] = CLASSES[Math.min(6, Math.floor(k / stars.length * 7))]; });
@@ -368,7 +370,7 @@ function drawStatic() {
   stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
     const p = toScreen(s.x, s.y);
-    label(s.name.toUpperCase(), p.x, p.y - starSize(s) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", true);
+    label(s.name.toUpperCase(), p.x, p.y - starSize(s) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", starRank[si] < 12);
   });
   for (const t of titles) label(t.t, t.x + 6, t.y + 4, 11, sc(t.si, 0.75), "left");
 

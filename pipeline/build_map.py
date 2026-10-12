@@ -53,7 +53,7 @@ def layout_stars(names, radius, weight, iters=900):
     for it in range(iters):
         step = 0.25 * (1 - it / iters) + 0.02
         d = pos[:, None, :] - pos[None, :, :]
-        dist = np.linalg.norm(d, axis=2) + np.eye(n)
+        dist = np.maximum(np.linalg.norm(d, axis=2), 1e-3) + np.eye(n)
         unit = d / dist[..., None]
         want = r[:, None] + r[None, :] + 60 + 900 * (1 - np.clip(w * 3, 0, 1))
         force = np.zeros_like(pos)
@@ -68,7 +68,11 @@ def layout_stars(names, radius, weight, iters=900):
         force += (unit * push[..., None]).sum(1)
         # слабка гравітація до центру, щоб острови не розліталися
         force -= pos * 0.002
-        pos += force * step
+        # clamp each move so the simulation can't blow up with many stars
+        disp = np.nan_to_num(force) * step
+        lim = 20 + 180 * (1 - it / iters)
+        norm = np.linalg.norm(disp, axis=1, keepdims=True)
+        pos += np.where(norm > lim, disp / np.maximum(norm, 1e-9) * lim, disp)
     # остаточно прибираємо перекриття
     for _ in range(300):
         moved = False
@@ -183,7 +187,10 @@ def main(src, out_dir, min_style, min_label, sample):
         hs = Counter(r["home"] for r in rs)
         star = hs.most_common(1)[0][0]
         side = Counter(s for r in rs for s in r["styles"] if s in star_set and s != star)
-        tracks = sorted(((r, v) for r in rs for v in r["videos"]), key=lambda rv: (rv[0]["year"] or 9999))[:C.MAX_TRACKS_PER_PLANET]
+        tracks = sorted(((r, v) for r in rs for v in r["videos"]), key=lambda rv: (rv[0]["year"] or 9999))
+        if len(tracks) > C.MAX_TRACKS_PER_PLANET:  # even sample across the label's whole history
+            step = len(tracks) / C.MAX_TRACKS_PER_PLANET
+            tracks = [tracks[int(k * step)] for k in range(C.MAX_TRACKS_PER_PLANET)]
         n_tr = len(tracks)
         r_pl = min(26, 3 + 1.25 * math.sqrt(len(rs)))
         planets.append({
