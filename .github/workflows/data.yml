@@ -13,7 +13,7 @@ on:
         default: false
   push:
     branches: [main]
-    paths: ["pipeline/**"]
+    paths: ["pipeline/**", ".github/workflows/data.yml"]
 
 permissions:
   contents: write
