@@ -671,7 +671,7 @@ cv.addEventListener("wheel", (e) => {
 function select(o: Sel, go = true, autoplay = false) {
   sel = o; dirty = true;
   setFollow(o?.kind === "planet" ? o.p : o?.kind === "track" ? chunks[o.s]!.p[o.i] : null);
-  if (o?.kind === "star") { const s = stars[o.s]; if (go) fly(s.x, s.y, Math.min(maxS, (Math.min(W, H) * 0.46) / s.R)); }
+  if (o?.kind === "star") { const s = stars[o.s]; if (go) fly(s.x, s.y, Math.min(maxS, Math.max(LOD_PLANETS * 1.3, (Math.min(W, H) * 0.46) / s.R))); }
   else if (o?.kind === "planet") { const p = planets[o.p], q = planetPos(o.p); if (go) fly(q.x, q.y, Math.max(LOD_TRACKS * 1.6, Math.min(8, Math.min(W, H) * 0.16 / (p.r + 4 + 1.5 * Math.sqrt(p.t1 - p.t0))))); }
   else if (o?.kind === "track") { const ch = chunks[o.s]!; if (go) { const pi = ch.p[o.i]; if (pi >= 0) { const pl = planets[pi], q = planetPos(pi); fly(q.x, q.y, Math.max(LOD_TITLES * 1.1, Math.min(8, Math.min(W, H) * 0.42 / orbitR(pl)))); } else fly(ch.x[o.i], ch.y[o.i], Math.max(cam.s, LOD_TITLES * 1.3)); } if (autoplay) playTrack(o); try { history.replaceState(null, "", `#t${o.s}-${o.i}`); } catch { /* */ } }
   render();
