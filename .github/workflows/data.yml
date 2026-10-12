@@ -1,0 +1,67 @@
+# Збирає мапу з дампу Discogs на сервері GitHub (дамп читається потоком, на диск не пишеться)
+# і кладе результат у реліз «data-latest». Після цього сайт перевикладається сам.
+name: Зібрати мапу з Discogs
+
+on:
+  schedule:
+    - cron: "17 4 * * 1"        # щопонеділка перевіряє, чи вийшов новий дамп
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Перебудувати, навіть якщо дамп не змінився"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["pipeline/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  build-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r pipeline/requirements.txt
+
+      - name: Який дамп найсвіжіший
+        id: src
+        working-directory: pipeline
+        run: |
+          url=$(python -c "from remote import latest_releases_url; print(latest_releases_url())")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          prev=$(gh release view data-latest --json body -q .body 2>/dev/null || true)
+          if [ "$prev" = "$url" ] && [ "${{ inputs.force }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Мапа вже зібрана з $url — пропускаю."
+          fi
+
+      - name: Відібрати хаус-релізи з YouTube-відео
+        if: steps.src.outputs.skip != 'true'
+        working-directory: pipeline
+        run: python -u parse.py --src "${{ steps.src.outputs.url }}"
+
+      - name: Розрахувати космос
+        if: steps.src.outputs.skip != 'true'
+        working-directory: pipeline
+        run: python -u build_map.py
+
+      - name: Опублікувати дані
+        if: steps.src.outputs.skip != 'true'
+        run: |
+          tar -czf map-data.tar.gz -C web/public data
+          ls -lh map-data.tar.gz
+          gh release view data-latest >/dev/null 2>&1 || gh release create data-latest --title "Дані мапи" --notes "${{ steps.src.outputs.url }}" --latest=false
+          gh release edit data-latest --notes "${{ steps.src.outputs.url }}"
+          gh release upload data-latest map-data.tar.gz --clobber

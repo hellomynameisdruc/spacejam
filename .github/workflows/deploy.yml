@@ -1,0 +1,56 @@
+# Збирає сайт і викладає на GitHub Pages. Якщо справжні дані вже зібрані — бере їх,
+# інакше показує тестову мапу.
+name: Викласти сайт
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Зібрати мапу з Discogs"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Підставити справжні дані, якщо вони є
+        run: |
+          if gh release download data-latest -p map-data.tar.gz -D /tmp 2>/dev/null; then
+            rm -rf web/public/data && tar -xzf /tmp/map-data.tar.gz -C web/public
+            echo "Справжня мапа: $(du -sh web/public/data | cut -f1)"
+          else
+            echo "Справжніх даних ще немає — викладаю тестову мапу."
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: web
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

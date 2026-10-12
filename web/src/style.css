@@ -1,0 +1,82 @@
+:root {
+  --void: #080a17; --panel: rgba(14, 17, 38, .88); --line: rgba(170, 175, 230, .16);
+  --fg: #ebe9f5; --dim: #9a9cc0; --signal: #ffb547; --signal-ink: #1b1206; --warn: #ff8a7a;
+  --f-display: "Unbounded", "Manrope", system-ui, sans-serif;
+  --f-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --console-w: 360px;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; overflow: hidden }
+body { background: var(--void); color: var(--fg); font-family: var(--f-body); font-size: 14px }
+canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab }
+canvas.drag { cursor: grabbing }
+button { font: inherit; color: inherit }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px }
+
+.top { position: fixed; left: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); width: min(380px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 10px; z-index: 3 }
+.brand { display: flex; align-items: baseline; gap: 10px }
+.brand h1 { font-family: var(--f-display); font-weight: 800; font-size: 18px; letter-spacing: .02em; margin: 0 }
+.brand span { font-family: var(--f-mono); font-size: 11px; color: var(--dim); letter-spacing: .08em; text-transform: uppercase }
+.banner { cursor: pointer;  background: rgba(255, 138, 122, .12); border: 1px solid rgba(255, 138, 122, .35); color: #ffd2cb; border-radius: 10px; padding: 8px 12px; font-size: 12.5px; line-height: 1.45 }
+.search { position: relative }
+.search input { width: 100%; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; color: var(--fg); padding: 10px 12px; font: inherit; backdrop-filter: blur(10px) }
+.search input::placeholder { color: var(--dim) }
+.results { position: absolute; left: 0; right: 0; top: calc(100% + 6px); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(12px); max-height: 320px; overflow: auto; padding: 4px }
+.results button { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; background: none; border: 0; padding: 8px 10px; border-radius: 7px; cursor: pointer }
+.results button:hover, .results button.on { background: rgba(255, 181, 71, .12) }
+.kind { font-family: var(--f-mono); font-size: 10px; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; width: 56px; flex: none }
+
+.console { position: fixed; right: 16px; top: calc(16px + env(safe-area-inset-top, 0px)); bottom: 16px; width: var(--console-w); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(14px); display: flex; flex-direction: column; z-index: 3; overflow: hidden }
+.console .body { padding: 18px; overflow: auto; display: flex; flex-direction: column; gap: 16px; min-height: 0; flex: 1 }
+.player { border-bottom: 1px solid var(--line); flex: none }
+.video { aspect-ratio: 16 / 9; background: #000; max-width: 100% }
+.video iframe, .video > div { width: 100%; height: 100%; display: block; border: 0 }
+.pbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px }
+.pbar button { background: none; border: 1px solid var(--line); border-radius: 8px; width: 36px; height: 32px; cursor: pointer }
+.pbar button:hover { border-color: rgba(255, 181, 71, .5) }
+.auto { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--dim); cursor: pointer }
+.auto input { accent-color: var(--signal) }
+.pmsg { margin: 0; padding: 0 12px 10px; font-size: 12.5px; color: var(--warn) }
+
+.eyebrow { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); display: flex; align-items: center; gap: 8px }
+.dot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block }
+.console h2 { font-family: var(--f-display); font-weight: 600; font-size: 21px; line-height: 1.2; margin: 0; text-wrap: balance; overflow-wrap: anywhere }
+.console h2 small { display: block; font-family: var(--f-body); font-weight: 500; font-size: 14px; color: var(--dim); margin-top: 4px }
+.console p { margin: 0; line-height: 1.55; color: #cfcde3 }
+.meta { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; margin: 0 }
+.meta dt { color: var(--dim); font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding-top: 2px }
+.meta dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere }
+.linkish { background: none; border: 0; padding: 0; color: var(--fg); text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; cursor: pointer; text-align: left }
+.linkish:hover { text-decoration-color: var(--signal) }
+.listh { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 6px !important }
+.rows { display: flex; flex-direction: column }
+.rows button { display: flex; justify-content: space-between; gap: 10px; background: none; border: 0; border-top: 1px solid var(--line); padding: 9px 0; text-align: left; cursor: pointer }
+.rows button:hover .t { color: var(--signal) }
+.rows button.now .t { color: var(--signal) }
+.rows .t { min-width: 0; overflow-wrap: anywhere }
+.rows .y { font-family: var(--f-mono); font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; flex: none }
+.play { display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--signal); color: var(--signal-ink); border: 0; border-radius: 10px; padding: 12px 14px; font-weight: 700; cursor: pointer; text-decoration: none }
+.play:hover { filter: brightness(1.08) }
+.note { font-size: 12px; color: var(--dim); line-height: 1.5 }
+.stats { display: flex; gap: 18px; font-family: var(--f-mono); font-size: 12px; color: var(--dim) }
+.stats b { display: block; font-family: var(--f-display); font-size: 18px; color: var(--fg); font-weight: 600 }
+.log { border-top: 1px solid var(--line); padding: 12px 18px 14px; max-height: 24%; overflow: auto; flex: none }
+.log .rows button { border-top: 0; padding: 5px 0; font-size: 13px }
+
+.controls { position: fixed; left: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 8px; z-index: 3; flex-wrap: wrap }
+.controls button { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px; cursor: pointer; backdrop-filter: blur(10px) }
+.controls button:hover { border-color: rgba(255, 181, 71, .5) }
+.controls .warp { background: var(--signal); color: var(--signal-ink); border-color: transparent; font-weight: 700 }
+.scale { position: fixed; left: 16px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); font-family: var(--f-mono); font-size: 11px; color: var(--dim); z-index: 3; letter-spacing: .06em }
+
+@media (max-width: 760px) {
+  .console { left: 0; right: 0; top: auto; bottom: 0; width: auto; height: 46%; border-radius: 16px 16px 0 0; border-bottom: 0; padding-bottom: env(safe-area-inset-bottom, 0px) }
+  .console .body { padding: 14px 16px }
+  .player .video { max-height: 30vh; margin: 0 auto }
+  .log { display: none }
+  .banner { font-size: 11.5px; padding: 6px 10px }
+  .controls { bottom: calc(46% + 12px) }
+  .scale { display: none }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important } }

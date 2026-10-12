@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Звуковий космос</title>
+  <meta name="description" content="Мапа хаус-музики у вигляді космосу: стилі — зорі, лейбли — планети, треки — супутники.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Manrope:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head>
+<body>
+  <canvas id="sky" aria-label="Мапа стилів, лейблів і треків"></canvas>
+
+  <div class="top">
+    <div class="brand"><h1>Звуковий космос</h1><span id="sector">сектор: House</span></div>
+    <div class="search">
+      <input id="q" type="search" placeholder="Стиль, лейбл або артист" autocomplete="off" aria-label="Пошук">
+      <div class="results" id="results" hidden></div>
+    </div>
+    <div class="banner" id="sampleBanner" hidden>Тестові дані: назви вигадані, відео не грають. Справжня мапа з'явиться після кроку «Зібрати дані». <u>Сховати</u></div>
+  </div>
+
+  <aside class="console">
+    <div class="player" id="playerBox" hidden>
+      <div class="video"><div id="yt"></div></div>
+      <div class="pbar">
+        <button id="pPrev" type="button" aria-label="Попередній">⏮</button>
+        <button id="pToggle" type="button" aria-label="Пауза">⏸</button>
+        <button id="pNext" type="button" aria-label="Наступний поруч">⏭</button>
+        <label class="auto"><input id="autopilot" type="checkbox" checked> Автопілот</label>
+      </div>
+      <p class="pmsg" id="pMsg" hidden></p>
+    </div>
+    <div class="body" id="detail"></div>
+    <div class="log"><p class="listh">Бортовий журнал</p><div class="rows" id="log"></div></div>
+  </aside>
+
+  <div class="scale" id="scale"></div>
+  <div class="controls">
+    <button class="warp" id="warp" type="button">Червоточина</button>
+    <button id="home" type="button">Весь сектор</button>
+    <button id="zin" type="button" aria-label="Наблизити">+</button>
+    <button id="zout" type="button" aria-label="Віддалити">−</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
