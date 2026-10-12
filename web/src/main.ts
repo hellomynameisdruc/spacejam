@@ -12,9 +12,9 @@ import "./style.css";
 import { Player } from "./player";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
-type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string };
+type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[] };
 type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; t0: number; t1: number };
-type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
+type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };
 type TrackRef = { s: number; i: number };
 type Sel = { kind: "star"; s: number } | { kind: "planet"; p: number } | { kind: "track"; s: number; i: number } | null;
@@ -50,7 +50,7 @@ function readPhosphor() {
   const cs = getComputedStyle(document.documentElement);
   PH = cs.getPropertyValue("--ph").trim().split(/\s+/).map(Number);
   BG = cs.getPropertyValue("--bg").trim() || BG;
-  ditherPat = null; dirty = true;
+  dirty = true;
 }
 function setPhosphor(name: string) {
   document.documentElement.dataset.phosphor = name;
@@ -60,22 +60,38 @@ function setPhosphor(name: string) {
 }
 document.querySelectorAll<HTMLButtonElement>(".phos button").forEach((b) => (b.onclick = () => setPhosphor(b.dataset.ph!)));
 
-// ---------- Піксельні гліфи зір (симетричний 7×7 малюнок з назви) ----------
-const glyphs = stars.map((s) => {
-  let h = hash(s.name); const g: boolean[][] = [];
-  for (let y = 0; y < 7; y++) { g.push([]); for (let x = 0; x < 4; x++) { h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0; g[y][x] = (h & 7) < 3; } }
-  g[3][3] = true; g[2][3] = true; g[4][3] = true; g[3][2] = true; // ядро
-  return g.map((r) => [r[0], r[1], r[2], r[3], r[2], r[1], r[0]]);
-});
-function drawGlyph(c: CanvasRenderingContext2D, s: number, cx: number, cy: number, cell: number, a = 1) {
-  const g = glyphs[s], o = 3.5 * cell;
-  c.fillStyle = ph(a);
-  for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) if (g[y][x]) c.fillRect(Math.round(cx - o + x * cell), Math.round(cy - o + y * cell), Math.ceil(cell - (cell > 3 ? 1 : 0)), Math.ceil(cell - (cell > 3 ? 1 : 0)));
+// ---------- Кольори систем і «корони» зір ----------
+// Кожна зоря має свій колір (сусідні стилі — схожі відтінки). Корона зорі — радіальний еквалайзер:
+// кожен промінь — рік, довжина — скільки релізів у стилю вийшло того року.
+const SC = stars.map((s) => { const h = s.color.replace("#", ""); return [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)); });
+const sc = (si: number, a = 1) => `rgba(${SC[si][0]},${SC[si][1]},${SC[si][2]},${a})`;
+const Y0 = map.meta.years?.[0] ?? 1980;
+const yhNorm = stars.map((s) => { const yh = s.yh || []; const mx = Math.max(1, ...yh); return yh.map((v) => Math.pow(v / mx, 0.75)); });
+const peakYear = stars.map((s) => { const yh = s.yh || []; let b = 0; yh.forEach((v, i) => { if (v > yh[b]) b = i; }); return Y0 + b; });
+function drawCorona(c: CanvasRenderingContext2D, si: number, cx: number, cy: number, r0: number, len: number, a = 1, rot = 0, hi = -1) {
+  const v = yhNorm[si], n = v.length || 1, step = (Math.PI * 2) / n;
+  c.lineWidth = Math.max(1, Math.min(4, (Math.PI * 2 * r0 / n) * 0.55));
+  c.lineCap = "butt";
+  for (let k = 0; k < n; k++) {
+    const ang = -Math.PI / 2 + rot + k * step, l = v[k] * len;
+    if (l < 0.5) continue;
+    c.strokeStyle = k === hi ? `rgba(255,255,255,${a})` : sc(si, a * (0.45 + 0.55 * v[k]));
+    c.beginPath(); c.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0); c.lineTo(cx + Math.cos(ang) * (r0 + l), cy + Math.sin(ang) * (r0 + l)); c.stroke();
+  }
+  c.strokeStyle = sc(si, a * 0.25); c.lineWidth = 1; c.setLineDash([1, 3]);
+  c.beginPath(); c.arc(cx, cy, r0 + len, 0, 7); c.stroke(); c.setLineDash([]);
+  // ядро
+  const g = c.createRadialGradient(cx, cy, 0, cx, cy, r0 * 0.95);
+  g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.35, sc(si, a)); g.addColorStop(1, sc(si, 0));
+  c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r0 * 0.95, 0, 7); c.fill();
+  // мітка «нуль років» (1980) зверху
+  c.strokeStyle = sc(si, a * 0.7); c.lineWidth = 1; c.beginPath(); c.moveTo(cx, cy - r0 + 1); c.lineTo(cx, cy - r0 - Math.min(4, len * 0.2)); c.stroke();
 }
 
 // ---------- Канвас і камера ----------
 const vp = $("viewport"), cv = $<HTMLCanvasElement>("sky"), ctx = cv.getContext("2d")!;
-let W = 0, H = 0, dirty = true, ditherPat: CanvasPattern | null = null;
+let W = 0, H = 0, dirty = true;
+const ditherPats: (CanvasPattern | null)[] = [];
 function resize() {
   const r = vp.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
   W = Math.max(1, r.width); H = Math.max(1, r.height);
@@ -110,7 +126,7 @@ const dust = Array.from({ length: 420 }, () => ({ x: rnd(), y: rnd(), d: 0.15 + 
 
 const FONT_LBL = "DotGothic16, 'Martian Mono', monospace";
 const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
-function label(txt: string, x: number, y: number, size: number, a: number, align: CanvasTextAlign = "center", force = false, inv = false) {
+function label(txt: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = "center", force = false, inv = false) {
   ctx.font = `${size}px ${FONT_LBL}`;
   const w = ctx.measureText(txt).width, h = size + 2;
   const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
@@ -118,26 +134,29 @@ function label(txt: string, x: number, y: number, size: number, a: number, align
   if (!force && placed.some((p) => p.x0 < r.x1 && p.x1 > r.x0 && p.y0 < r.y1 && p.y1 > r.y0)) return false;
   placed.push(r);
   ctx.textAlign = align;
-  if (inv) { ctx.fillStyle = ph(1); ctx.fillRect(r.x0 - 2, r.y0 + 1, r.x1 - r.x0 + 4, h + 4); ctx.fillStyle = BG; ctx.shadowBlur = 0; }
-  else { ctx.fillStyle = ph(a); ctx.shadowColor = ph(0.7); ctx.shadowBlur = 6; }
+  if (inv) { ctx.fillStyle = color; ctx.fillRect(r.x0 - 2, r.y0 + 1, r.x1 - r.x0 + 4, h + 4); ctx.fillStyle = BG; ctx.shadowBlur = 0; }
+  else { ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 6; }
   ctx.fillText(txt, x, y); ctx.shadowBlur = 0;
   return true;
 }
-function brackets(x: number, y: number, r: number, a = 1, len = 6) {
-  ctx.strokeStyle = ph(a); ctx.lineWidth = 1.2; ctx.beginPath();
+function brackets(x: number, y: number, r: number, color: string, len = 6) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath();
   for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     const cx = x + sx * r, cy = y + sy * r;
     ctx.moveTo(cx, cy - sy * len); ctx.lineTo(cx, cy); ctx.lineTo(cx - sx * len, cy);
   }
   ctx.stroke();
 }
-function getDither() {
-  if (ditherPat) return ditherPat;
+function getDither(si: number) {
+  if (ditherPats[si]) return ditherPats[si]!;
   const c = document.createElement("canvas"); c.width = c.height = 3;
-  const g = c.getContext("2d")!; g.fillStyle = ph(0.95); g.fillRect(0, 0, 1, 1); g.fillStyle = ph(0.45); g.fillRect(2, 2, 1, 1);
-  return (ditherPat = ctx.createPattern(c, "repeat"));
+  const g = c.getContext("2d")!; g.fillStyle = sc(si, 0.95); g.fillRect(0, 0, 1, 1); g.fillStyle = sc(si, 0.45); g.fillRect(2, 2, 1, 1);
+  return (ditherPats[si] = ctx.createPattern(c, "repeat"))!;
 }
 function inView(x: number, y: number, r: number) { const a = toWorld(0, 0), b = toWorld(W, H); return x + r > a.x && x - r < b.x && y + r > a.y && y - r < b.y; }
+// розмір корони на екрані
+const coronaR = (s: Star) => Math.max(4, Math.min(34, s.core * cam.s * 0.55));
+const coronaL = (s: Star) => Math.max(7, Math.min(70, s.core * cam.s * 1.25));
 
 function draw() {
   placed.length = 0;
@@ -152,110 +171,118 @@ function draw() {
   for (let y = Math.floor(v0.y / st) * st; y < v1.y; y += st) { const p = toScreen(0, y).y; ctx.moveTo(0, Math.round(p) + 0.5); ctx.lineTo(W, Math.round(p) + 0.5); }
   ctx.stroke();
 
+  // туманності систем
+  stars.forEach((s, si) => {
+    if (!inView(s.x, s.y, s.R)) return;
+    const p = toScreen(s.x, s.y), R = s.R * cam.s;
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+    g.addColorStop(0, sc(si, 0.10)); g.addColorStop(0.6, sc(si, 0.04)); g.addColorStop(1, sc(si, 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, 7); ctx.fill();
+  });
+
   // пил
   for (const d of dust) {
     let x = (d.x * W * 4 - cam.x * cam.s * d.d * 0.04) % W, y = (d.y * H * 4 - cam.y * cam.s * d.d * 0.04) % H;
     if (x < 0) x += W; if (y < 0) y += H;
-    ctx.fillStyle = ph(0.12 + d.b * 0.35);
+    ctx.fillStyle = ph(0.1 + d.b * 0.3);
     if (warpFx > 0.05) { ctx.fillRect(x, y, 1 + (x - W / 2) * warpFx * 0.25, 1); }
     else ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
   }
 
-  // межі систем і гравітаційні зв'язки
+  // межі систем і гравітаційні зв'язки (градієнт між кольорами стилів)
   ctx.setLineDash([1, 5]); ctx.lineWidth = 1;
-  for (const s of stars) if (inView(s.x, s.y, s.R)) { const p = toScreen(s.x, s.y); ctx.strokeStyle = ph(0.16); ctx.beginPath(); ctx.arc(p.x, p.y, s.R * cam.s, 0, 7); ctx.stroke(); }
+  stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) { const p = toScreen(s.x, s.y); ctx.strokeStyle = sc(si, 0.22); ctx.beginPath(); ctx.arc(p.x, p.y, s.R * cam.s, 0, 7); ctx.stroke(); } });
+  ctx.setLineDash([2, 5]);
   for (const [a, b, w] of links) {
-    const A = toScreen(stars[a].x, stars[a].y), B = toScreen(stars[b].x, stars[b].y);
-    ctx.strokeStyle = ph(Math.min(0.55, 0.08 + w * 1.2)); ctx.lineWidth = w > 0.15 ? 1.5 : 1;
+    const A = toScreen(stars[a].x, stars[a].y), B = toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);
+    const g = ctx.createLinearGradient(A.x, A.y, B.x, B.y); g.addColorStop(0, sc(a, al)); g.addColorStop(1, sc(b, al));
+    ctx.strokeStyle = g; ctx.lineWidth = w > 0.15 ? 1.6 : 1;
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
   }
   ctx.setLineDash([]);
 
-  // треки
-  let titles: { x: number; y: number; t: string }[] = [];
+  // треки — кольором своєї зорі
+  let titles: { x: number; y: number; t: string; si: number }[] = [];
   if (cam.s >= LOD_TRACKS) {
     const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9)));
-    ctx.fillStyle = ph(0.85);
     stars.forEach((s, si) => {
       if (!inView(s.x, s.y, s.R)) return;
       const ch = chunks[si]; if (!ch) { loadChunk(si); return; }
+      ctx.fillStyle = sc(si, 0.9);
       for (let i = 0; i < ch.x.length; i++) {
         const x = ch.x[i], y = ch.y[i];
         if (x < v0.x || x > v1.x || y < v0.y || y > v1.y) continue;
         const p = toScreen(x, y);
         ctx.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz / 2), sz, sz);
-        if (cam.s >= LOD_TITLES && titles.length < 240) titles.push({ x: p.x, y: p.y, t: ch.t[i] });
+        if (cam.s >= LOD_TITLES && titles.length < 240) titles.push({ x: p.x, y: p.y, t: ch.t[i], si });
       }
     });
   } else {
     for (const p of planets) if (inView(p.x, p.y, 60)) {
       const q = toScreen(p.x, p.y), rr = (p.r + 4 + 1.5 * Math.sqrt(p.t1 - p.t0)) * cam.s;
-      if (rr > 2) { ctx.strokeStyle = ph(0.25); ctx.setLineDash([1, 2]); ctx.beginPath(); ctx.arc(q.x, q.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+      if (rr > 2) { ctx.strokeStyle = sc(p.s, 0.3); ctx.setLineDash([1, 2]); ctx.beginPath(); ctx.arc(q.x, q.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
     }
   }
 
-  // планети: дизерована куля з контуром
+  // планети: дизерована куля кольору системи
   if (cam.s >= LOD_PLANETS) {
     const vis = planets.map((_, i) => i).filter((i) => inView(planets[i].x, planets[i].y, planets[i].r * 3));
-    const pat = getDither();
     for (const i of vis) {
       const pl = planets[i], p = toScreen(pl.x, pl.y), r = Math.max(1.5, pl.r * cam.s);
-      if (r < 3) { ctx.fillStyle = ph(0.9); ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
+      if (r < 3) { ctx.fillStyle = sc(pl.s, 0.95); ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
       ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
       ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.clip();
-      ctx.fillStyle = pat!; ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-      ctx.fillStyle = ph(0.9); ctx.beginPath(); ctx.arc(p.x - r * 0.35, p.y - r * 0.35, r * 0.62, 0, 7); ctx.fill();
+      ctx.fillStyle = getDither(pl.s); ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      ctx.fillStyle = sc(pl.s, 0.95); ctx.beginPath(); ctx.arc(p.x - r * 0.35, p.y - r * 0.35, r * 0.62, 0, 7); ctx.fill();
       ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(p.x + r * 0.05, p.y + r * 0.05, r * 0.72, 0, 7); ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
       ctx.restore();
-      ctx.strokeStyle = ph(0.9); ctx.lineWidth = 1; ctx.shadowColor = ph(0.6); ctx.shadowBlur = 6;
+      ctx.strokeStyle = sc(pl.s, 0.95); ctx.lineWidth = 1; ctx.shadowColor = sc(pl.s, 0.7); ctx.shadowBlur = 6;
       ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
     }
     for (const i of vis.slice().sort((a, b) => planets[b].n - planets[a].n)) {
       const pl = planets[i], r = pl.r * cam.s; if (r < 4) continue;
       const p = toScreen(pl.x, pl.y);
-      label(pl.name.toUpperCase(), p.x, p.y + r + 14, 11, 0.8);
+      label(pl.name.toUpperCase(), p.x, p.y + r + 14, 11, sc(pl.s, 0.85));
     }
   }
 
-  // зорі: піксельний гліф + приціл
+  // зорі: корона-еквалайзер по роках
   stars.forEach((s, si) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
-    const p = toScreen(s.x, s.y), cell = Math.max(2, Math.min(7, Math.round(s.core * cam.s / 4)));
-    ctx.shadowColor = ph(0.9); ctx.shadowBlur = 12; drawGlyph(ctx, si, p.x, p.y, cell); ctx.shadowBlur = 0;
-    const r = cell * 4.5;
-    ctx.strokeStyle = ph(0.35); ctx.beginPath();
-    ctx.moveTo(p.x - r - 6, p.y); ctx.lineTo(p.x - r - 2, p.y); ctx.moveTo(p.x + r + 2, p.y); ctx.lineTo(p.x + r + 6, p.y);
-    ctx.moveTo(p.x, p.y - r - 6); ctx.lineTo(p.x, p.y - r - 2); ctx.moveTo(p.x, p.y + r + 2); ctx.lineTo(p.x, p.y + r + 6); ctx.stroke();
+    const p = toScreen(s.x, s.y);
+    ctx.shadowColor = sc(si, 0.9); ctx.shadowBlur = 10;
+    drawCorona(ctx, si, p.x, p.y, coronaR(s), coronaL(s));
+    ctx.shadowBlur = 0;
   });
   stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
-    const p = toScreen(s.x, s.y), cell = Math.max(2, Math.min(7, Math.round(s.core * cam.s / 4)));
-    label(s.name.toUpperCase(), p.x, p.y - cell * 4.5 - 12, W < 600 ? 12 : 14, 1);
+    const p = toScreen(s.x, s.y);
+    label(s.name.toUpperCase(), p.x, p.y - coronaR(s) - coronaL(s) - 8, W < 600 ? 12 : 14, sc(si, 1));
   });
 
-  for (const t of titles) label(t.t, t.x + 6, t.y + 4, 11, 0.7, "left");
+  for (const t of titles) label(t.t, t.x + 6, t.y + 4, 11, sc(t.si, 0.75), "left");
 
   // виділення, наведення, відтворення
   const marker = (o: Sel, strong: boolean) => {
     if (!o) return;
-    let x = 0, y = 0, r = 8, name = "";
-    if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = Math.max(14, Math.min(7, Math.round(s.core * cam.s / 4)) * 4.5 + 8); name = s.name; }
-    else if (o.kind === "planet") { const pl = planets[o.p], p = toScreen(pl.x, pl.y); x = p.x; y = p.y; r = Math.max(9, pl.r * cam.s + 6); name = pl.name; }
-    else { const ch = chunks[o.s]; if (!ch) return; const p = toScreen(ch.x[o.i], ch.y[o.i]); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; }
-    brackets(x, y, r, strong ? 1 : 0.6, strong ? 7 : 4);
+    let x = 0, y = 0, r = 8, name = "", si = 0;
+    if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = coronaR(s) + coronaL(s) + 6; name = `ПІК ${peakYear[o.s]}`; si = o.s; }
+    else if (o.kind === "planet") { const pl = planets[o.p], p = toScreen(pl.x, pl.y); x = p.x; y = p.y; r = Math.max(9, pl.r * cam.s + 6); name = pl.name; si = pl.s; }
+    else { const ch = chunks[o.s]; if (!ch) return; const p = toScreen(ch.x[o.i], ch.y[o.i]); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; si = o.s; }
+    brackets(x, y, r, sc(si, strong ? 1 : 0.65), strong ? 7 : 4);
     if (strong) {
       const lx = x + r + 26, ly = y - r - 18;
-      ctx.strokeStyle = ph(0.9); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x + r + 12, ly + 4); ctx.lineTo(lx - 4, ly + 4); ctx.stroke();
-      label(name.toUpperCase(), lx, ly + 8, 12, 1, "left", true, true);
+      ctx.strokeStyle = sc(si, 0.95); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x + r + 12, ly + 4); ctx.lineTo(lx - 4, ly + 4); ctx.stroke();
+      label(name.toUpperCase(), lx, ly + 8, 12, sc(si, 1), "left", true, true);
     }
   };
-  if (nowPlaying) { const ch = chunks[nowPlaying.s]; if (ch) { const p = toScreen(ch.x[nowPlaying.i], ch.y[nowPlaying.i]); const t = performance.now() / 300; ctx.strokeStyle = ph(0.8); ctx.beginPath(); ctx.arc(p.x, p.y, 10 + (t % 6) * 3, 0, 7); ctx.globalAlpha = 1 - (t % 6) / 6; ctx.stroke(); ctx.globalAlpha = 1; dirty = true; } }
+  if (nowPlaying) { const ch = chunks[nowPlaying.s]; if (ch) { const p = toScreen(ch.x[nowPlaying.i], ch.y[nowPlaying.i]); const t = performance.now() / 300; ctx.strokeStyle = sc(nowPlaying.s, 0.9); ctx.beginPath(); ctx.arc(p.x, p.y, 10 + (t % 6) * 3, 0, 7); ctx.globalAlpha = 1 - (t % 6) / 6; ctx.stroke(); ctx.globalAlpha = 1; dirty = true; } }
   if (hover && !same(hover, sel)) marker(hover, false);
   marker(sel, true);
 
   // показники
   const c = toWorld(W / 2, H / 2);
-  const sg = (n: number) => (n < 0 ? "−" : "+") + pad(Math.abs(n).toFixed(1) as unknown as number, 6);
+  const sg = (n: number) => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1).padStart(6, "0");
   $("readout").textContent = `X ${sg(c.x)}  Y ${sg(c.y)}  ×${cam.s.toFixed(2)}  СІТКА ${st >= 1 ? st : st.toFixed(1)}`;
   $("scaleName").textContent = cam.s < LOD_PLANETS ? "ГАЛАКТИКА" : cam.s < LOD_TRACKS ? "СИСТЕМИ" : cam.s < LOD_TITLES ? "ОРБІТИ" : "СИГНАЛИ";
 }
@@ -336,8 +363,8 @@ const refs: Sel[] = [];
 const R = (o: Sel) => { refs.push(o); return refs.length - 1; };
 const neighbours = (s: number) => links.filter((l) => l[0] === s || l[1] === s).map((l) => ({ s: l[0] === s ? l[1] : l[0], w: l[2] })).sort((a, b) => b.w - a.w).slice(0, 6);
 const row = (k: string, v: string) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
-const meter = (k: string, frac: number, val: string, ref?: number) =>
-  `<div class="bar-r${ref !== undefined ? " click" : ""}"${ref !== undefined ? ` data-r="${ref}"` : ""}><span>${esc(k)}</span><span class="meter"><i style="width:${Math.max(2, Math.min(100, frac * 100)).toFixed(1)}%"></i></span><span>${val}</span></div>`;
+const meter = (k: string, frac: number, val: string, ref?: number, color?: string) =>
+  `<div class="bar-r${ref !== undefined ? " click" : ""}"${ref !== undefined ? ` data-r="${ref}"` : ""}${color ? ` style="--c:${color}"` : ""}><span>${esc(k)}</span><span class="meter"><i style="width:${Math.max(2, Math.min(100, frac * 100)).toFixed(1)}%"></i></span><span>${val}</span></div>`;
 const trackItem = (s: number, i: number, n: number) => {
   const ch = chunks[s]!, now = nowPlaying && nowPlaying.s === s && nowPlaying.i === i;
   return `<button data-r="${R({ kind: "track", s, i })}" class="${now ? "now" : ""}"><span class="n">${pad(n, 3)}</span><span class="t">${esc(ch.an[ch.a[i]])} — ${esc(ch.t[i])}</span><span class="y">${ch.yr[i] || "----"}</span></button>`;
@@ -365,11 +392,11 @@ function fitCanvas(c: HTMLCanvasElement) {
 }
 // Дизерована куля (упорядкований растр Байєра)
 const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-function drawSphere(g: CanvasRenderingContext2D, w: number, h: number, seedN: number, t: number) {
+function drawSphere(g: CanvasRenderingContext2D, w: number, h: number, seedN: number, t: number, col: (a?: number) => string = ph) {
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
   const px = 3, cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.36, rot = t / 4000 + seedN;
   const lx = Math.cos(rot) * 0.7, ly = -0.5, lz = Math.sqrt(Math.max(0, 1 - lx * lx - ly * ly));
-  g.fillStyle = ph(1);
+  g.fillStyle = col(1);
   for (let y = 0; y < h; y += px) for (let x = 0; x < w; x += px) {
     const nx = (x - cx) / r, ny = (y - cy) / r, d = nx * nx + ny * ny;
     if (d > 1) continue;
@@ -378,7 +405,7 @@ function drawSphere(g: CanvasRenderingContext2D, w: number, h: number, seedN: nu
     l *= 0.85 + 0.15 * Math.sin((ny * 6 + seedN) * 2 + Math.sin(nx * 3));
     if (l * 16 > BAYER[(y / px) & 3][(x / px) & 3] + 0.5) g.fillRect(x, y, px - 1, px - 1);
   }
-  g.strokeStyle = ph(0.6); g.beginPath(); g.ellipse(cx, cy, r * 1.45, r * 0.32, -0.35, 0, Math.PI * 2); g.setLineDash([2, 3]); g.stroke(); g.setLineDash([]);
+  g.strokeStyle = col(0.6); g.beginPath(); g.ellipse(cx, cy, r * 1.45, r * 0.32, -0.35, 0, Math.PI * 2); g.setLineDash([2, 3]); g.stroke(); g.setLineDash([]);
 }
 function drawRadar(g: CanvasRenderingContext2D, w: number, h: number, t: number) {
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
@@ -389,16 +416,16 @@ function drawRadar(g: CanvasRenderingContext2D, w: number, h: number, t: number)
   const a = (t / 1600) % (Math.PI * 2);
   for (let k = 0; k < 24; k++) { g.strokeStyle = ph(0.5 * (1 - k / 24)); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a - k * 0.03) * r, cy + Math.sin(a - k * 0.03) * r); g.stroke(); }
   const s = Math.max(bounds.w, bounds.h) / 2 / r;
-  stars.forEach((st) => { const x = cx + (st.x - bounds.x) / s, y = cy + (st.y - bounds.y) / s; g.fillStyle = ph(0.95); g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3); });
+  stars.forEach((st, si) => { const x = cx + (st.x - bounds.x) / s, y = cy + (st.y - bounds.y) / s; g.fillStyle = sc(si, 1); g.shadowColor = sc(si, 1); g.shadowBlur = 5; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3); g.shadowBlur = 0; });
 }
-function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, seedN: number, live: boolean) {
+function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, seedN: number, live: boolean, col: (a?: number) => string = ph) {
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
   g.strokeStyle = ph(0.12); g.lineWidth = 1; g.beginPath();
   for (let x = 0; x < w; x += 12) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); }
   for (let y = 0; y < h; y += 12) { g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); }
   g.stroke();
   const amp = live ? 0.36 : 0.08, f1 = 2 + (seedN % 5), f2 = 7 + (seedN % 11), sp = live ? t / 280 : t / 1400;
-  g.strokeStyle = ph(1); g.lineWidth = 1.5; g.shadowColor = ph(0.8); g.shadowBlur = 6; g.beginPath();
+  g.strokeStyle = col(1); g.lineWidth = 1.5; g.shadowColor = col(0.8); g.shadowBlur = 6; g.beginPath();
   for (let x = 0; x <= w; x += 2) {
     const u = x / w * Math.PI * 2;
     const y = h / 2 + h * amp * (Math.sin(u * f1 + sp) * 0.7 + Math.sin(u * f2 - sp * 1.7) * 0.3) * (live ? 0.75 + 0.25 * Math.sin(sp * 0.3) : 1);
@@ -407,10 +434,23 @@ function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, 
   g.stroke(); g.shadowBlur = 0;
 }
 
+// Велика корона в досьє: промінь-«курсор» по черзі підсвічує роки
+function drawCoronaHero(g: CanvasRenderingContext2D, w: number, h: number, si: number, t: number) {
+  g.fillStyle = BG; g.fillRect(0, 0, w, h);
+  const yh = stars[si].yh || [], n = yh.length || 1, k = reduce ? yh.indexOf(Math.max(...yh)) : Math.floor(t / 260) % n;
+  g.shadowColor = sc(si, 0.8); g.shadowBlur = 8;
+  drawCorona(g, si, w / 2, h / 2 - 6, w * 0.13, w * 0.27, 1, 0, k);
+  g.shadowBlur = 0;
+  g.font = `10px ${FONT_LBL}`; g.textAlign = "center"; g.fillStyle = sc(si, 1);
+  g.fillText(`${Y0 + k} · ${yh[k] ?? 0} РЕЛ`, w / 2, h - 7);
+}
+
 function render() {
   refs.length = 0;
   const d = $("detail"); let h = ""; const o = sel; let code = "", title = "";
   dosAnim = null;
+  const accSi = !o ? -1 : o.kind === "planet" ? planets[o.p].s : o.s;
+  document.querySelector<HTMLElement>(".dossier")!.style.setProperty("--acc", accSi >= 0 ? stars[accSi].color : "");
   if (!o) {
     code = `СЕКТОР // ${map.meta.sector.toUpperCase()}`; title = `СЕКТОР ${map.meta.sector.toUpperCase()}`;
     const top = stars.map((s, i) => ({ s, i })).sort((a, b) => b.s.tracks - a.s.tracks);
@@ -419,23 +459,23 @@ function render() {
         <div class="ident"><span class="code">ОБСЕРВАТОРІЯ // 01</span><h2 id="dosTitle"></h2><span class="stamp">${map.meta.sample ? "ТЕСТОВИЙ СИГНАЛ" : "ЖИВИЙ КАТАЛОГ"}</span></div></div>
       <div class="rows">${row("ЗІР / СТИЛІВ", fmt(stars.length))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(planets.length))}${row("СУПУТНИКІВ / ТРЕКІВ", fmt(map.meta.tracks))}${row("РЕЛІЗІВ", fmt(map.meta.releases))}${row("ДЖЕРЕЛО", "DISCOGS · CC0")}</div>
       <p class="lede">Кожна <b>зоря</b> — стиль. На її орбітах — <b>планети-лейбли</b>, довкола них <b>супутники-треки</b>: старіші ближче до центру. Пунктир між зорями — як часто стилі звучать на одних релізах.</p>
-      <div class="bars"><div class="ph-sub">ЗОРЯНІ СИСТЕМИ // ЗА КІЛЬКІСТЮ ТРЕКІВ</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }))).join("")}</div>`;
+      <div class="bars"><div class="ph-sub">ЗОРЯНІ СИСТЕМИ // ЗА КІЛЬКІСТЮ ТРЕКІВ</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }), s.color)).join("")}</div>`;
     dosAnim = (t) => { const c = heroCanvas(); if (c) { const f = (c as any)._f || ((c as any)._f = fitCanvas(c)); drawRadar(f.g, f.w, f.h, t); } };
   } else if (o.kind === "star") {
     const s = stars[o.s], pl = planetsByStar[o.s], nb = neighbours(o.s);
     code = `ЗОРЯ // ST-${pad(o.s, 2)}`; title = s.name.toUpperCase();
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">ST-${pad(o.s, 2)} // СТИЛЬ</span><h2 id="dosTitle"></h2><span class="stamp">${(s.tracks * 100 / totalTracks).toFixed(1)}% СЕКТОРУ</span></div></div>
-      <div class="rows">${row("РЕЛІЗІВ", fmt(s.n))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(pl.length))}${row("ТРЕКІВ", fmt(s.tracks))}${row("РАДІУС СИСТЕМИ", fmt(Math.round(s.R)))}</div>
-      ${nb.length ? `<div class="bars"><div class="ph-sub">ГРАВІТАЦІЙНІ ЗВ'ЯЗКИ</div>${nb.map((n) => meter(stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }))).join("")}</div>` : ""}
+      <div class="rows">${row("РЕЛІЗІВ", fmt(s.n))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(pl.length))}${row("ТРЕКІВ", fmt(s.tracks))}${row("ПІК АКТИВНОСТІ", String(peakYear[o.s]))}</div>
+      ${s.yh?.length ? `<div class="hist"><div class="ph-sub">КОРОНА // РЕЛІЗИ ПО РОКАХ</div><div class="cols">${s.yh.map((c, k) => `<i style="height:${(c / Math.max(1, ...s.yh!) * 100).toFixed(1)}%" title="${Y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${Y0}</span><span>${Y0 + Math.round((s.yh.length - 1) / 2)}</span><span>${Y0 + s.yh.length - 1}</span></div></div>` : ""}
+      ${nb.length ? `<div class="bars"><div class="ph-sub">ГРАВІТАЦІЙНІ ЗВ'ЯЗКИ</div>${nb.map((n) => meter(stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), stars[n.s].color)).join("")}</div>` : ""}
       <div><div class="ph-sub">ПЛАНЕТИ НА ОРБІТІ</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(planets[p].name)}</span><span class="y">${fmt(planets[p].n)} РЕЛ</span></button>`).join("")}</div>
       ${pl.length > 40 ? `<div class="more">…і ще ${fmt(pl.length - 40)}</div>` : ""}</div>`;
     const si = o.s;
     dosAnim = (t) => {
       const c = heroCanvas(); if (!c) return; const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
-      f.g.fillStyle = BG; f.g.fillRect(0, 0, f.w, f.h);
-      const cell = Math.floor(f.w / 11), pulse = reduce ? 1 : 0.75 + 0.25 * Math.sin(t / 500);
-      f.g.shadowColor = ph(0.9); f.g.shadowBlur = 10 * pulse; drawGlyph(f.g, si, f.w / 2, f.h / 2, cell, pulse); f.g.shadowBlur = 0;
+      if (((t / 130) | 0) === (c as any)._last) return; (c as any)._last = (t / 130) | 0;
+      drawCoronaHero(f.g, f.w, f.h, si, t);
     };
   } else if (o.kind === "planet") {
     const p = planets[o.p], s = stars[p.s], ch = chunks[p.s];
@@ -464,7 +504,7 @@ function render() {
       if (reduce && drawn) return;
       const c = heroCanvas(); if (!c) return; const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
       if (((t / 66) | 0) === (c as any)._last) return; (c as any)._last = (t / 66) | 0;
-      drawSphere(f.g, f.w, f.h, sd, t); drawn = true;
+      drawSphere(f.g, f.w, f.h, sd, t, (a = 1) => sc(p.s, a)); drawn = true;
     };
   } else {
     const ch = chunks[o.s]!, s = stars[o.s], pi = ch.p[o.i], p = pi >= 0 ? planets[pi] : null, yt = ch.yt[o.i];
@@ -486,13 +526,13 @@ function render() {
       const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
       const live = !!(nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i && player.playing);
       if (reduce && (c as any)._done) return; (c as any)._done = true;
-      drawWave(f.g, f.w, f.h, t, sd, live);
+      drawWave(f.g, f.w, f.h, t, sd, live, (a = 1) => sc(o.s, a));
     };
   }
   d.innerHTML = h; d.scrollTop = 0;
   scramble($("dosId"), code); scramble(document.getElementById("dosTitle"), title);
   const img = d.querySelector<HTMLImageElement>(".thumb img");
-  if (img) img.onerror = () => { img.remove(); const f = $("hero"); f.classList.remove("thumb"); f.insertAdjacentHTML("afterbegin", "<canvas></canvas>"); f.querySelector(".raster")?.remove(); const c = heroCanvas()!; const ff = fitCanvas(c); drawSphere(ff.g, ff.w, ff.h, 7, 0); };
+  if (img) img.onerror = () => { img.remove(); const f = $("hero"); f.classList.remove("thumb"); f.insertAdjacentHTML("afterbegin", "<canvas></canvas>"); f.querySelector(".raster")?.remove(); const c = heroCanvas()!; const ff = fitCanvas(c); const si = sel?.kind === "track" ? sel.s : 0; drawSphere(ff.g, ff.w, ff.h, 7, 0, (a = 1) => sc(si, a)); };
 }
 $("detail").addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest<HTMLElement>("[data-r]"); if (!b) return;
@@ -568,7 +608,7 @@ function ticker() {
   let np = "ЕФІР: ТИША";
   if (nowPlaying && chunks[nowPlaying.s]) { const ch = chunks[nowPlaying.s]!; np = `ЕФІР: <b>${esc(ch.an[ch.a[nowPlaying.i]])} — ${esc(ch.t[nowPlaying.i])}</b>${player.playing ? "" : " [ПАУЗА]"}`; }
   const parts = [np, `ЗІР <b>${stars.length}</b>`, `ПЛАНЕТ <b>${fmt(planets.length)}</b>`, `СУПУТНИКІВ <b>${fmt(map.meta.tracks)}</b>`, `РЕЛІЗІВ <b>${fmt(map.meta.releases)}</b>`,
-    `НАЙБІЛЬША СИСТЕМА <b>${esc(stars.slice().sort((a, b) => b.tracks - a.tracks)[0]?.name.toUpperCase() || "—")}</b>`, `ЗВ'ЯЗКІВ <b>${links.length}</b>`, `ПРОСЛУХАНО <b>${log.length}</b>`, `ДЖЕРЕЛО <b>DISCOGS CC0</b>`];
+    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `НАЙБІЛЬША СИСТЕМА <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `ЗВ'ЯЗКІВ <b>${links.length}</b>`, `ПРОСЛУХАНО <b>${log.length}</b>`, `ДЖЕРЕЛО <b>DISCOGS CC0</b>`];
   const one = parts.map((p) => `<span>${p}</span>`).join("");
   $("ticker").innerHTML = one + one;
 }
@@ -603,19 +643,19 @@ addEventListener("keydown", (e) => {
 const q = $<HTMLInputElement>("q"), res = $("results");
 let artists: [string, number, number][] | null = null;
 q.addEventListener("focus", () => { if (!artists) fetch("./data/artists.json").then((r) => r.json()).then((a) => { artists = a; }); }, { once: true });
-let hits: { label: string; kind: string; go: () => void }[] = [], cur = 0;
+let hits: { label: string; kind: string; color?: string; go: () => void }[] = [], cur = 0;
 q.addEventListener("input", () => {
   const s = q.value.trim().toLowerCase();
   if (s.length < 2) { res.hidden = true; return; }
   hits = [];
-  stars.forEach((st, i) => { if (st.name.toLowerCase().includes(s)) hits.push({ label: st.name, kind: "ЗОРЯ", go: () => select({ kind: "star", s: i }) }); });
-  for (let i = 0; i < planets.length && hits.length < 14; i++) if (planets[i].name.toLowerCase().includes(s)) hits.push({ label: planets[i].name, kind: "ПЛАНЕТА", go: () => select({ kind: "planet", p: i }) });
+  stars.forEach((st, i) => { if (st.name.toLowerCase().includes(s)) hits.push({ label: st.name, kind: "ЗОРЯ", color: st.color, go: () => select({ kind: "star", s: i }) }); });
+  for (let i = 0; i < planets.length && hits.length < 14; i++) if (planets[i].name.toLowerCase().includes(s)) hits.push({ label: planets[i].name, kind: "ПЛАНЕТА", color: stars[planets[i].s].color, go: () => select({ kind: "planet", p: i }) });
   if (artists) for (let i = 0; i < artists.length && hits.length < 24; i++) {
     const [name, st, ti] = artists[i];
     if (name.toLowerCase().includes(s)) hits.push({ label: name, kind: "АРТИСТ", go: () => loadChunk(st).then(() => select({ kind: "track", s: st, i: ti })) });
   }
   cur = 0; res.hidden = false;
-  res.innerHTML = hits.length ? hits.map((h, i) => `<button data-h="${i}" class="${i === 0 ? "on" : ""}"><span class="k">${h.kind}</span><span>${esc(h.label)}</span></button>`).join("") : `<p class="note" style="padding:8px 10px">НІЧОГО НЕ ЗНАЙДЕНО В ЦЬОМУ СЕКТОРІ.</p>`;
+  res.innerHTML = hits.length ? hits.map((h, i) => `<button data-h="${i}" class="${i === 0 ? "on" : ""}"><span class="k">${h.kind}</span>${h.color ? `<i class="sw" style="background:${h.color}"></i>` : ""}<span>${esc(h.label)}</span></button>`).join("") : `<p class="note" style="padding:8px 10px">НІЧОГО НЕ ЗНАЙДЕНО В ЦЬОМУ СЕКТОРІ.</p>`;
 });
 q.addEventListener("keydown", (e) => {
   if (res.hidden || !hits.length) return;

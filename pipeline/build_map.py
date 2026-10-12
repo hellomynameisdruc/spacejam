@@ -148,6 +148,17 @@ def main(src, out_dir, min_style, min_label, sample):
         w = c / math.sqrt(style_n[a] * style_n[b])
         weight[(a, b)] = weight[(b, a)] = w
 
+    # Скільки релізів зі стилем виходило щороку (для «корони» зорі)
+    years_all = [r["year"] for r in rel if r["year"]]
+    Y1 = max(years_all) if years_all else 2025
+    Y0 = min(1980, Y1 - 1)
+    year_hist = {s: [0] * (Y1 - Y0 + 1) for s in stars}
+    for r in rel:
+        y = r["year"]
+        if Y0 <= y <= Y1:
+            for st in star_set.intersection(r["styles"]):
+                year_hist[st][y - Y0] += 1
+
     # «Дім» релізу — найвужчий (найрідкісніший) з його стилів-зір
     def home(r):
         ss = [s for s in r["styles"] if s in star_set]
@@ -230,7 +241,7 @@ def main(src, out_dir, min_style, min_label, sample):
     for si, s in enumerate(stars):
         sx, sy = pos[si]
         hue = (math.atan2(sy - cen[1], sx - cen[0]) / (2 * math.pi)) + 0.08
-        color = hsl_hex(hue, 0.85, 0.68)
+        color = hsl_hex(hue, 0.9, 0.66)
         ch = {"yt": [], "t": [], "a": [], "yr": [], "p": [], "x": [], "y": []}
         artists, a_idx = [], {}
 
@@ -259,14 +270,15 @@ def main(src, out_dir, min_style, min_label, sample):
         ch["an"] = artists
         chunks.append(ch)
         stars_out.append({"name": s, "x": round(float(sx), 1), "y": round(float(sy), 1), "core": round(star_core[s], 1),
-                          "R": round(star_radius[s], 1), "n": style_n[s], "tracks": n_tracks_star, "color": color})
+                          "R": round(star_radius[s], 1), "n": style_n[s], "tracks": n_tracks_star, "color": color,
+                          "yh": year_hist[s]})
 
     links = [[stars.index(a), stars.index(b), round(w, 4)] for (a, b), w in weight.items() if a < b and w >= 0.03]
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "tracks").mkdir(exist_ok=True)
     for f in (out_dir / "tracks").glob("*.json"):
         f.unlink()
-    meta = {"sector": "House", "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks)}
+    meta = {"sector": "House", "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [Y0, Y1]}
     json.dump({"meta": meta, "stars": stars_out, "links": links, "planets": planets_out},
               open(out_dir / "map.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     for i, ch in enumerate(chunks):

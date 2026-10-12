@@ -26,6 +26,10 @@ GRAPH = {
     "Techno": ["Tech House", "Minimal", "Acid House"],
     "Disco": ["House", "Garage House", "Italo-Disco"],
 }
+# умовна «епоха» кожного стилю, щоб тестова мапа виглядала правдоподібно
+ERA = {"House": 1990, "Deep House": 1996, "Tech House": 2006, "Garage House": 1993, "Acid House": 1988,
+       "Ghetto House": 1997, "UK Garage": 1999, "Speed Garage": 1997, "Italo House": 1990, "Euro House": 1993,
+       "Hip-House": 1989, "Progressive House": 2001, "Minimal": 2007, "Techno": 1995, "Disco": 1980}
 CORE = [s for s in GRAPH if s not in ("Minimal", "Techno", "Disco")]
 SYL = ["ka", "lo", "mi", "ra", "ven", "tor", "sun", "deep", "jax", "ol", "ne", "bri", "cas", "dor", "phi", "zu", "mo", "trax"]
 
@@ -46,7 +50,9 @@ def release(i):
     pool = labels[s]
     lab = pool[min(len(pool) - 1, int(random.paretovariate(1.3)) - 1)] if random.random() > 0.12 else "Not On Label (Self-released)"
     artist = f"{name()} {name(1)}" if random.random() < .7 else f"DJ {name()}"
-    year = random.randint(1986, 2025)
+    peak = ERA.get(s, 2005)
+    year = int(random.gauss(peak, 4.5 if random.random() < .8 else 10))
+    year = 1984 + abs(year - 1984) if year < 1984 else 2025 - abs(2025 - year) if year > 2025 else year
     tracks = [f"{name()} {random.choice(['Dub', 'Mix', 'Groove', 'Jam', 'Vision', 'Night'])}" for _ in range(random.randint(1, 4))]
     vids = "".join(
         f'<video src="https://www.youtube.com/watch?v={"".join(random.choice(ytchars) for _ in range(11))}" duration="{random.randint(200, 600)}" embed="true"><title>{escape(artist)} - {escape(t)}</title></video>'
