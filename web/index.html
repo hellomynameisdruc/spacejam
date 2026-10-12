@@ -45,13 +45,20 @@
       <aside class="panel dossier" aria-label="Dossier">
         <div class="ph-head"><span id="dosId">DOSSIER // SECTOR</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
         <div class="player" id="playerBox" hidden>
+          <!-- YouTube's rules: the player stays visible (≥200px), nothing is drawn over it -->
           <div class="video" id="videoWrap"><div id="yt"></div></div>
+          <div class="np"><span class="np-k">NOW PLAYING</span><span class="np-t" id="npTitle">—</span></div>
+          <div class="seek">
+            <span class="tc" id="tCur">0:00</span>
+            <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+            <span class="tc" id="tDur">0:00</span>
+          </div>
           <div class="pbar">
             <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
-            <button type="button" class="key sq" id="pToggle" aria-label="Pause">❚❚</button>
+            <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
             <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
+            <label class="vol"><span>VOL</span><input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume"></label>
             <label class="tog"><input id="autopilot" type="checkbox" checked><span>AUTOPILOT</span></label>
-            <label class="tog"><input id="tint" type="checkbox" checked><span>PHOSPHOR</span></label>
           </div>
           <p class="pmsg" id="pMsg" hidden></p>
         </div>

@@ -172,15 +172,26 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 
 /* ---------- плеєр ---------- */
 .player { border-bottom: 1px solid var(--line); flex: none; padding: 10px 10px 8px }
-.video { aspect-ratio: 16 / 9; background: #000; border: 1px solid var(--line); position: relative; max-width: 100% }
+/* YouTube player: kept visible, at least 200×200, and lifted above the CRT scanlines so nothing covers it */
+.video { aspect-ratio: 16 / 9; min-height: 200px; min-width: 200px; max-width: 100%; background: #000; outline: 1px solid var(--line); position: relative; z-index: 60 }
 .video iframe, .video > div { width: 100%; height: 100%; display: block; border: 0 }
-.video.tinted iframe { filter: grayscale(1) sepia(1) hue-rotate(var(--hue, 210deg)) saturate(2.2) contrast(1.15) brightness(.95) }
-:root[data-phosphor="green"] .video { --hue: 85deg }
-:root[data-phosphor="amber"] .video { --hue: -5deg }
-.video::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(to bottom, rgb(0 0 0 / .3) 0 1px, transparent 1px 3px) }
+.np { display: flex; gap: 10px; align-items: baseline; padding-top: 9px; min-width: 0 }
+.np-k { font-family: var(--f-dot); font-size: 10px; letter-spacing: .14em; color: var(--dim); flex: none }
+.np-t { color: var(--acc); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0 }
+.seek { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding-top: 7px }
+.tc { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 34px }
+.tc:last-child { text-align: right }
+input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 14px; margin: 0; cursor: pointer; width: 100% }
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; border: 1px solid var(--line); background: linear-gradient(90deg, var(--acc) var(--p, 0%), transparent var(--p, 0%)) }
+input[type="range"]::-moz-range-track { height: 6px; border: 1px solid var(--line); background: transparent }
+input[type="range"]::-moz-range-progress { height: 6px; background: var(--acc) }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 6px; height: 14px; margin-top: -5px; background: var(--ink); box-shadow: var(--glow); border: 0 }
+input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: var(--ink); border: 0; border-radius: 0 }
+.vol { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; color: var(--dim); margin-left: 6px }
+.vol input { width: 72px }
 .pbar { display: flex; align-items: center; gap: 6px; padding-top: 8px; flex-wrap: wrap }
 .tog { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; cursor: pointer; color: var(--dim) }
-.tog:first-of-type { margin-left: auto }
+.tog { margin-left: auto }
 .tog input { appearance: none; width: 11px; height: 11px; border: 1px solid var(--ink); margin: 0; display: grid; place-content: center }
 .tog input:checked { background: var(--ink); box-shadow: var(--glow) }
 .tog input:checked + span { color: var(--ink) }
@@ -237,7 +248,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
   .hero { grid-template-columns: 96px minmax(0, 1fr) }
   .ident h2 { font-size: 17px }
   .player { padding: 8px }
-  .video { max-height: 26vh; margin: 0 auto }
+  .np, .vol { display: none }
 }
 @media (prefers-reduced-motion: reduce) {
   body::after, .prompt { animation: none }

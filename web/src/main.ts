@@ -625,15 +625,29 @@ function playTrack(ref: TrackRef) {
   if (!last || last.i !== ref.i || last.s !== ref.s) hist_.push(ref);
   $("playerBox").hidden = false; $("pMsg").hidden = true;
   player.play(ch.yt[ref.i]); logTrack(ref); ticker(); dirty = true;
+  $("npTitle").textContent = `${ch.an[ch.a[ref.i]]} — ${ch.t[ref.i]}`;
+  seekEl.value = "0"; paintRange(seekEl); $("tCur").textContent = "0:00"; $("tDur").textContent = "0:00";
 }
 function next() { if (!nowPlaying) return; const n = nearestTracks(nowPlaying, 1, played)[0]; if (n) select({ kind: "track", ...n }, true, true); }
 $("pNext").onclick = next;
 $("pPrev").onclick = () => { if (hist_.length > 1) { hist_.pop(); const r = hist_.pop()!; select({ kind: "track", ...r }, true, true); } };
 $("pToggle").onclick = () => player.toggle();
-const tint = $<HTMLInputElement>("tint");
-const applyTint = () => { $("videoWrap").classList.toggle("tinted", tint.checked); try { localStorage.setItem("kosmos-tint", tint.checked ? "1" : "0"); } catch { /* */ } };
-try { if (localStorage.getItem("kosmos-tint") === "0") tint.checked = false; } catch { /* */ }
-tint.onchange = applyTint; applyTint();
+// Transport: seek bar, time, volume (the YouTube player itself stays visible above)
+const seekEl = $<HTMLInputElement>("seek"), volEl = $<HTMLInputElement>("vol");
+const mmss = (t: number) => `${Math.floor(t / 60)}:${pad(Math.floor(t % 60), 2)}`;
+let seeking = false;
+const paintRange = (el: HTMLInputElement) => el.style.setProperty("--p", `${(+el.value - +el.min) / (+el.max - +el.min) * 100}%`);
+seekEl.addEventListener("input", () => { seeking = true; paintRange(seekEl); $("tCur").textContent = mmss(+seekEl.value / 1000 * player.duration()); });
+seekEl.addEventListener("change", () => { player.seek(+seekEl.value / 1000 * player.duration()); seeking = false; });
+try { const v = localStorage.getItem("kosmos-vol"); if (v !== null) volEl.value = v; } catch { /* */ }
+const applyVol = () => { player.setVolume(+volEl.value); paintRange(volEl); try { localStorage.setItem("kosmos-vol", volEl.value); } catch { /* */ } };
+volEl.addEventListener("input", applyVol); applyVol();
+setInterval(() => {
+  if ($("playerBox").hidden || seeking) return;
+  const d = player.duration(), t = player.time();
+  seekEl.value = String(d ? Math.round(t / d * 1000) : 0); paintRange(seekEl);
+  $("tCur").textContent = mmss(t); $("tDur").textContent = d ? mmss(d) : "0:00";
+}, 250);
 
 // ---------- Журнал ----------
 const LOGKEY = "kosmos-log2";
@@ -863,5 +877,11 @@ if (map.meta.sample) { const b = $("sampleBanner"); b.hidden = false; b.onclick 
 cam.s = homeScale();
 render(); renderLog(); ticker(); requestAnimationFrame(frame);
 document.fonts?.ready.then(() => { dirty = true; });
+// Test hook: #test-<videoId> plays one YouTube video through the transport (works with the test map too)
+const tm = location.hash.match(/^#test-([A-Za-z0-9_-]{11})$/);
+if (tm) {
+  $("playerBox").hidden = false; $("npTitle").textContent = `TEST // ${tm[1]}`;
+  player.play(tm[1]);
+}
 const m = location.hash.match(/^#t(\d+)-(\d+)$/);
 if (m && +m[1] < stars.length) loadChunk(+m[1]).then((ch) => { if (+m[2] < ch.yt.length) select({ kind: "track", s: +m[1], i: +m[2] }); });

@@ -38,9 +38,10 @@ export class Player {
       this.pending = videoId;
       this.yt = new window.YT.Player(this.mountId, {
         width: "100%", height: "100%", videoId,
-        playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+        // controls: 0 — the terminal has its own transport; the video itself stays visible
+        playerVars: { autoplay: 1, playsinline: 1, rel: 0, controls: 0, iv_load_policy: 3, modestbranding: 1 },
         events: {
-          onReady: (e: any) => { if (this.pending && this.pending !== videoId) e.target.loadVideoById(this.pending); e.target.playVideo(); },
+          onReady: (e: any) => { e.target.setVolume(this.volume); if (this.pending && this.pending !== videoId) e.target.loadVideoById(this.pending); e.target.playVideo(); },
           onStateChange: (e: any) => {
             const S = window.YT.PlayerState;
             if (e.data === S.ENDED) this.ev.onEnded();
@@ -56,6 +57,13 @@ export class Player {
     this.pending = videoId;
     if (this.yt.loadVideoById) this.yt.loadVideoById(videoId);
   }
+
+  get ready() { return !!this.yt?.getCurrentTime; }
+  time(): number { return this.ready ? this.yt.getCurrentTime() || 0 : 0; }
+  duration(): number { return this.ready ? this.yt.getDuration() || 0 : 0; }
+  seek(sec: number) { if (this.ready) this.yt.seekTo(sec, true); }
+  setVolume(v: number) { this.volume = v; if (this.yt?.setVolume) this.yt.setVolume(v); }
+  volume = 80;
 
   toggle() {
     if (!this.yt?.getPlayerState) return;
