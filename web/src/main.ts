@@ -10,6 +10,7 @@ import "@fontsource/martian-mono/latin-600.css";
 import "@fontsource/martian-mono/cyrillic-600.css";
 import "./style.css";
 import { Player } from "./player";
+import { applyCursors, lockCursor } from "./cursors";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
 type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[]; hull?: number[]; bub?: [number, number, number][]; orb?: number[] };
@@ -84,6 +85,7 @@ function readPhosphor() {
   const cs = getComputedStyle(document.documentElement);
   PH = cs.getPropertyValue("--ph").trim().split(/\s+/).map(Number);
   BG = cs.getPropertyValue("--bg").trim() || BG;
+  applyCursors(`rgb(${PH.join(",")})`, BG);
   dirty = true;
 }
 function setPhosphor(name: string) {
@@ -648,7 +650,7 @@ cv.addEventListener("pointermove", (e) => {
   const L = local(e);
   if (!ptrs.has(e.pointerId)) {
     const now = performance.now(); if (now - hoverT < 40) return; hoverT = now;
-    const h = pick(L.x, L.y); if (!same(h, hover)) { if (h?.kind === "star" || hover?.kind === "star") dirty = true; hover = h; cv.style.cursor = h ? "pointer" : ""; }
+    const h = pick(L.x, L.y); if (!same(h, hover)) { if (h?.kind === "star" || hover?.kind === "star") dirty = true; hover = h; cv.style.cursor = h ? lockCursor(sc(h.kind === "planet" ? planets[h.p].s : h.s)) : ""; }
     return;
   }
   const prev = ptrs.get(e.pointerId)!, dx = L.x - prev.x, dy = L.y - prev.y; ptrs.set(e.pointerId, L);

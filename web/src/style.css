@@ -59,7 +59,7 @@ body::after {
 @keyframes tick { from { transform: translateX(0) } to { transform: translateX(-50%) } }
 .sys { display: flex; align-items: center; gap: 12px; flex: none }
 .phos { display: flex; gap: 4px }
-.phos button { width: 14px; height: 14px; border: 1px solid var(--line); padding: 0; cursor: pointer; background: transparent; position: relative }
+.phos button { width: 14px; height: 14px; border: 1px solid var(--line); padding: 0; cursor: var(--cur-hand, pointer); background: transparent; position: relative }
 .phos button::after { content: ""; position: absolute; inset: 3px }
 .phos [data-ph="violet"]::after { background: rgb(190 184 255) }
 .phos [data-ph="green"]::after { background: rgb(120 255 170) }
@@ -89,11 +89,11 @@ body::after {
 
 /* ---------- сканер ---------- */
 .viewport { position: relative; flex: 1; min-height: 0; overflow: hidden }
-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair }
-canvas.drag { cursor: grabbing }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: var(--cur-cross, crosshair) }
+canvas.drag { cursor: var(--cur-move, grabbing) }
 #skyBg { inset: auto; left: -200px; top: -200px; width: calc(100% + 400px); height: calc(100% + 400px); pointer-events: none; will-change: transform; transform-origin: 0 0 }
 .banner {
-  position: absolute; left: 10px; top: 10px; max-width: min(420px, calc(100% - 20px)); z-index: 2; cursor: pointer;
+  position: absolute; left: 10px; top: 10px; max-width: min(420px, calc(100% - 20px)); z-index: 2; cursor: var(--cur-hand, pointer);
   border: 1px dashed var(--line); background: rgb(0 0 0 / .7); padding: 7px 10px; font-size: 11px; line-height: 1.55; color: var(--dim)
 }
 .banner b { color: var(--ink); font-weight: 400; font-family: var(--f-dot); letter-spacing: .1em; margin-right: 6px }
@@ -101,7 +101,7 @@ canvas.drag { cursor: grabbing }
 .ctrl { display: flex; gap: 6px; flex-wrap: wrap }
 .key {
   display: inline-flex; align-items: center; gap: 7px; background: transparent; border: 1px solid var(--line);
-  padding: 5px 9px; cursor: pointer; font-family: var(--f-dot); font-size: 12px; letter-spacing: .1em; line-height: 1; white-space: nowrap
+  padding: 5px 9px; cursor: var(--cur-hand, pointer); font-family: var(--f-dot); font-size: 12px; letter-spacing: .1em; line-height: 1; white-space: nowrap
 }
 .key:hover { border-color: var(--ink); background: var(--wash) }
 .key.hot, .key:active { background: var(--ink); color: var(--inv-ink); text-shadow: none; box-shadow: var(--glow) }
@@ -115,7 +115,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .dbody { flex: 1; min-height: 0; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin; scrollbar-color: var(--line) transparent }
 .hero { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 10px }
 .frame { border: 1px solid color-mix(in srgb, var(--acc) 60%, transparent); position: relative; aspect-ratio: 1; overflow: hidden; background: #000 }
-.frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: default }
+.frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: var(--cur-arrow, default) }
 .frame::after { content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
     linear-gradient(var(--acc), var(--acc)) left top / 8px 1px no-repeat, linear-gradient(var(--acc), var(--acc)) left top / 1px 8px no-repeat,
@@ -134,7 +134,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 2px; border-bottom: 1px solid var(--line); min-width: 0 }
 .row > span:first-child { font-family: var(--f-dot); font-size: 12px; letter-spacing: .1em; color: var(--dim); flex: none }
 .row > span:last-child, .row > button { text-align: right; min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums }
-.link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--acc); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--acc) 45%, transparent); text-underline-offset: 3px; text-align: right }
+.link { background: none; border: 0; padding: 0; cursor: var(--cur-hand, pointer); color: var(--acc); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--acc) 45%, transparent); text-underline-offset: 3px; text-align: right }
 .link:hover { text-decoration-color: var(--ink) }
 
 .bars { display: flex; flex-direction: column; gap: 4px }
@@ -144,7 +144,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .meter { height: 9px; border: 1px solid var(--line); padding: 1px; display: flex }
 .meter i { display: block; height: 100%; background: repeating-linear-gradient(90deg, var(--c, var(--acc)) 0 3px, transparent 3px 4px); box-shadow: 0 0 6px color-mix(in srgb, var(--c, var(--acc)) 45%, transparent) }
 .bar-r[style] > span:first-child { color: var(--c) }
-.bar-r.click { cursor: pointer }
+.bar-r.click { cursor: var(--cur-hand, pointer) }
 .bar-r.click:hover > span:first-child { color: var(--ink) }
 
 .hist { border: 1px solid var(--line); padding: 8px 8px 4px; background-image: linear-gradient(var(--wash) 1px, transparent 1px), linear-gradient(90deg, var(--wash) 1px, transparent 1px); background-size: 12px 12px }
@@ -152,10 +152,10 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .hist .cols i { flex: 1; background: var(--acc); min-height: 1px; box-shadow: 0 0 4px color-mix(in srgb, var(--acc) 50%, transparent) }
 .hist .axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); padding-top: 4px; font-variant-numeric: tabular-nums }
 .scope-c { border: 1px solid var(--line); height: 74px; position: relative }
-.scope-c canvas { cursor: default }
+.scope-c canvas { cursor: var(--cur-arrow, default) }
 
 .play { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 9px; font-family: var(--f-dot); font-size: 14px; letter-spacing: .16em;
-  background: var(--acc); color: var(--inv-ink); text-shadow: none; border: 0; cursor: pointer; box-shadow: var(--acc-glow) }
+  background: var(--acc); color: var(--inv-ink); text-shadow: none; border: 0; cursor: var(--cur-hand, pointer); box-shadow: var(--acc-glow) }
 .play:hover { filter: brightness(1.1) }
 .out { font-size: 11px; color: var(--dim); text-decoration: none; border-bottom: 1px dotted var(--faint); align-self: flex-start }
 .out:hover { color: var(--ink) }
@@ -164,7 +164,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .lede b { color: var(--ink); font-weight: 400 }
 
 .list { display: flex; flex-direction: column }
-.list button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; background: none; border: 0; border-bottom: 1px dotted var(--faint); padding: 5px 2px; text-align: left; cursor: pointer; font-size: 11.5px }
+.list button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; background: none; border: 0; border-bottom: 1px dotted var(--faint); padding: 5px 2px; text-align: left; cursor: var(--cur-hand, pointer); font-size: 11.5px }
 .list button:hover, .list button.now { background: var(--acc); color: var(--inv-ink); text-shadow: none }
 .list button:hover .n, .list button:hover .y, .list button.now .n, .list button.now .y { color: var(--inv-ink) }
 .list .n { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 10px }
@@ -180,11 +180,11 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .dock::before, .dock::after { content: ""; position: absolute; width: 9px; height: 9px; border: 1px solid var(--acc) }
 .dock::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0 }
 .dock::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0 }
-.dock-head { display: flex; align-items: center; gap: 6px; padding: 5px 0; cursor: grab; user-select: none; touch-action: none }
-.dock-head:active { cursor: grabbing }
+.dock-head { display: flex; align-items: center; gap: 6px; padding: 5px 0; cursor: var(--cur-move, grab); user-select: none; touch-action: none }
+.dock-head:active { cursor: var(--cur-move, grabbing) }
 .dock-k { font-family: var(--f-dot); font-size: 10px; letter-spacing: .14em; color: var(--dim) }
 .grip { margin-left: auto; color: var(--faint); font-size: 12px }
-.dock-btn { background: none; border: 1px solid var(--line); width: 20px; height: 18px; line-height: 1; padding: 0 0 6px; cursor: pointer; font-family: var(--f-dot) }
+.dock-btn { background: none; border: 1px solid var(--line); width: 20px; height: 18px; line-height: 1; padding: 0 0 6px; cursor: var(--cur-hand, pointer); font-family: var(--f-dot) }
 .dock-btn:hover { border-color: var(--acc); color: var(--acc) }
 .live { color: var(--faint); font-size: 10px }
 .live.on { color: #ff4d6d; text-shadow: 0 0 6px #ff4d6d; animation: blink 1.1s steps(1) infinite }
@@ -196,7 +196,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .seek { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 6px }
 .tc { font-size: 9.5px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 26px }
 .tc:last-child { text-align: right }
-input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 14px; margin: 0; cursor: pointer; width: 100% }
+input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 14px; margin: 0; cursor: var(--cur-hand, pointer); width: 100% }
 input[type="range"]::-webkit-slider-runnable-track { height: 6px; border: 1px solid var(--line); background: linear-gradient(90deg, var(--acc) var(--p, 0%), transparent var(--p, 0%)) }
 input[type="range"]::-moz-range-track { height: 6px; border: 1px solid var(--line); background: transparent }
 input[type="range"]::-moz-range-progress { height: 6px; background: var(--acc) }
@@ -205,13 +205,13 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
 .pbar { display: flex; align-items: center; gap: 4px; padding-top: 6px }
 .pbar .key.sq { min-width: 26px; padding: 4px 5px; font-size: 10px }
 #vol { width: 54px; flex: none; margin-left: 4px }
-.tog { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .08em; cursor: pointer; color: var(--dim); margin-left: auto }
+.tog { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .08em; cursor: var(--cur-hand, pointer); color: var(--dim); margin-left: auto }
 .tog input { appearance: none; width: 10px; height: 10px; border: 1px solid var(--ink); margin: 0 }
 .tog input:checked { background: var(--acc); border-color: var(--acc) }
 .tog input:checked + span { color: var(--acc) }
 .pmsg { margin: 6px 0 0; font-size: 10px; color: #ff8a9b }
 .dock-pill { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; gap: 8px; align-items: baseline; max-width: min(320px, calc(100% - 20px));
-  background: rgb(0 0 0 / .85); border: 1px solid var(--acc); padding: 6px 10px; cursor: pointer; font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; color: var(--acc); box-shadow: 0 0 12px color-mix(in srgb, var(--acc) 35%, transparent) }
+  background: rgb(0 0 0 / .85); border: 1px solid var(--acc); padding: 6px 10px; cursor: var(--cur-hand, pointer); font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; color: var(--acc); box-shadow: 0 0 12px color-mix(in srgb, var(--acc) 35%, transparent) }
 .dock-pill b { font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .04em; min-width: 0 }
 .dock-pill:hover { background: color-mix(in srgb, var(--acc) 18%, #000) }
 .dock, .dock-pill { --acc-glow: 0 0 8px color-mix(in srgb, var(--acc) 65%, transparent) }
@@ -219,7 +219,7 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
 /* ---------- журнал ---------- */
 .log { border-top: 1px solid var(--line); padding: 8px 10px; max-height: 22%; overflow: auto; flex: none; scrollbar-width: thin; scrollbar-color: var(--line) transparent }
 .loglines { display: flex; flex-direction: column; font-size: 11px }
-.loglines button { display: flex; gap: 10px; background: none; border: 0; padding: 2px 0; cursor: pointer; text-align: left; min-width: 0 }
+.loglines button { display: flex; gap: 10px; background: none; border: 0; padding: 2px 0; cursor: var(--cur-hand, pointer); text-align: left; min-width: 0 }
 .loglines button:hover { color: var(--ink) }
 .loglines time { color: var(--dim); flex: none; font-variant-numeric: tabular-nums }
 .loglines span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
@@ -233,7 +233,7 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
 .cmdfield input::placeholder { color: var(--faint) }
 .cmdfield input::-webkit-search-cancel-button { display: none }
 .results { position: absolute; left: -10px; right: -10px; bottom: calc(100% + 13px); background: var(--bg); border: 1px solid var(--ink); max-height: 50vh; overflow: auto; z-index: 10; box-shadow: var(--glow) }
-.results button { display: flex; gap: 12px; align-items: baseline; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px dotted var(--faint); padding: 6px 10px; cursor: pointer }
+.results button { display: flex; gap: 12px; align-items: baseline; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px dotted var(--faint); padding: 6px 10px; cursor: var(--cur-hand, pointer) }
 .results button.on, .results button:hover { background: var(--ink); color: var(--inv-ink); text-shadow: none }
 .results .sw { width: 8px; height: 8px; flex: none; box-shadow: 0 0 6px currentColor; align-self: center }
 .results .k { font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; width: 64px; flex: none; opacity: .7 }
@@ -272,3 +272,8 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
   body::after, .prompt { animation: none }
   .ticker-in { animation: none }
 }
+
+/* pixel cursors (set from code in the phosphor colour) */
+html, body { cursor: var(--cur-arrow, default) }
+button, a, label, summary, select { cursor: var(--cur-hand, pointer) }
+input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, text) }
