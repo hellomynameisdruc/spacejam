@@ -705,7 +705,8 @@ function playTrack(ref: TrackRef) {
   nowPlaying = ref; played.add(ch.yt[ref.i]);
   const last = hist_[hist_.length - 1];
   if (!last || last.i !== ref.i || last.s !== ref.s) hist_.push(ref);
-  $("playerBox").hidden = false; $("pMsg").hidden = true;
+  showDock(); $("pMsg").hidden = true;
+  for (const id of ["playerBox", "dockPill"]) $(id).style.setProperty("--acc", stars[ref.s].color);
   player.play(ch.yt[ref.i]); logTrack(ref); ticker(); dirty = true;
   $("npTitle").textContent = ch.t[ref.i]; $("npArtist").textContent = ch.an[ch.a[ref.i]];
   seekEl.value = "0"; paintRange(seekEl); $("tCur").textContent = "0:00"; $("tDur").textContent = "0:00";
@@ -714,6 +715,35 @@ function next() { if (!nowPlaying) return; const n = nearestTracks(nowPlaying, 1
 $("pNext").onclick = next;
 $("pPrev").onclick = () => { if (hist_.length > 1) { hist_.pop(); const r = hist_.pop()!; select({ kind: "track", ...r }, true, true); } };
 $("pToggle").onclick = () => player.toggle();
+// Floating dock: minimise = pause + collapse to a pill (audio never plays from a hidden player)
+const dock = $("playerBox"), pill = $("dockPill");
+function showDock() { dock.hidden = false; pill.hidden = true; }
+$("dockMin").onclick = () => {
+  if (player.playing) player.toggle();
+  dock.hidden = true; pill.hidden = false;
+  $("pillTitle").textContent = $("npTitle").textContent;
+};
+pill.onclick = () => { showDock(); if (!player.playing) player.toggle(); };
+{ // drag the dock by its header, kept inside the map
+  let start: { x: number; y: number; l: number; t: number } | null = null;
+  const head = $("dockHead");
+  head.addEventListener("pointerdown", (e) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    const r = dock.getBoundingClientRect(), v = vp.getBoundingClientRect();
+    start = { x: e.clientX, y: e.clientY, l: r.left - v.left, t: r.top - v.top };
+    head.setPointerCapture(e.pointerId);
+  });
+  head.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    const v = vp.getBoundingClientRect();
+    const l = Math.max(0, Math.min(v.width - dock.offsetWidth, start.l + e.clientX - start.x));
+    const t = Math.max(0, Math.min(v.height - dock.offsetHeight, start.t + e.clientY - start.y));
+    Object.assign(dock.style, { left: `${l}px`, top: `${t}px`, right: "auto", bottom: "auto" });
+  });
+  const end = () => { start = null; };
+  head.addEventListener("pointerup", end); head.addEventListener("pointercancel", end);
+}
+
 // Transport: seek bar, time, volume (the YouTube player itself stays visible above)
 const seekEl = $<HTMLInputElement>("seek"), volEl = $<HTMLInputElement>("vol");
 const mmss = (t: number) => `${Math.floor(t / 60)}:${pad(Math.floor(t % 60), 2)}`;
@@ -729,7 +759,6 @@ setInterval(() => {
   const d = player.duration(), t = player.time();
   seekEl.value = String(d ? Math.round(t / d * 1000) : 0); paintRange(seekEl);
   $("tCur").textContent = mmss(t); $("tDur").textContent = d ? mmss(d) : "0:00";
-  $("tBig").textContent = mmss(t); $("tBigDur").textContent = `/ ${d ? mmss(d) : "0:00"}`;
 }, 250);
 
 // ---------- Журнал ----------
@@ -963,7 +992,7 @@ document.fonts?.ready.then(() => { dirty = true; });
 // Test hook: #test-<videoId> plays one YouTube video through the transport (works with the test map too)
 const tm = location.hash.match(/^#test-([A-Za-z0-9_-]{11})$/);
 if (tm) {
-  $("playerBox").hidden = false; $("npTitle").textContent = "TEST SIGNAL"; $("npArtist").textContent = tm[1];
+  showDock(); $("npTitle").textContent = "TEST SIGNAL"; $("npArtist").textContent = tm[1];
   player.play(tm[1]);
 }
 const m = location.hash.match(/^#t(\d+)-(\d+)$/);

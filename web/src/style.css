@@ -20,6 +20,7 @@
 :root[data-phosphor="amber"] { --ph: 255 184 92; --bg: #0b0704; --inv-ink: #140b02 }
 
 * { box-sizing: border-box }
+[hidden] { display: none !important }
 html, body { height: 100%; margin: 0; overflow: hidden }
 body {
   background: var(--bg); color: var(--ink); font-family: var(--f-mono); font-size: 12px; font-weight: 400;
@@ -171,30 +172,28 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .more { font-size: 11px; color: var(--dim); padding-top: 4px }
 
 /* ---------- плеєр ---------- */
-.player { border-bottom: 1px solid var(--line); flex: none; padding: 10px 10px 8px }
-/* YouTube player: kept visible, at least 200×200, and lifted above the CRT scanlines so nothing covers it */
-/* The video stays untouched (YouTube forbids overlays/filters on it); the style lives in the bezel around it */
-.deck-p { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: stretch }
-.monitor { border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); padding: 0 5px 5px; position: relative;
-  background: repeating-linear-gradient(to bottom, rgb(var(--ph) / .06) 0 1px, transparent 1px 3px);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--acc) 35%, transparent), inset 0 0 10px color-mix(in srgb, var(--acc) 20%, transparent) }
-.monitor::before, .monitor::after { content: ""; position: absolute; width: 9px; height: 9px; border: 1px solid var(--acc) }
-.monitor::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0 }
-.monitor::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0 }
-.mon-head { display: flex; justify-content: space-between; gap: 8px; font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .12em; color: var(--dim); padding: 4px 1px }
-.live { color: var(--dim) }
+/* Floating player over the map: the YouTube video stays visible (200x200, nothing drawn over it) */
+.dock { position: absolute; right: 10px; bottom: 10px; z-index: 5; width: 222px; padding: 0 10px 8px; background: rgb(0 0 0 / .82);
+  border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); backdrop-filter: blur(6px);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 30%, transparent) }
+.dock::before, .dock::after { content: ""; position: absolute; width: 9px; height: 9px; border: 1px solid var(--acc) }
+.dock::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0 }
+.dock::after { right: -4px; bottom: -4px; border-left: 0; border-top: 0 }
+.dock-head { display: flex; align-items: center; gap: 6px; padding: 5px 0; cursor: grab; user-select: none; touch-action: none }
+.dock-head:active { cursor: grabbing }
+.dock-k { font-family: var(--f-dot); font-size: 10px; letter-spacing: .14em; color: var(--dim) }
+.grip { margin-left: auto; color: var(--faint); font-size: 12px }
+.dock-btn { background: none; border: 1px solid var(--line); width: 20px; height: 18px; line-height: 1; padding: 0 0 6px; cursor: pointer; font-family: var(--f-dot) }
+.dock-btn:hover { border-color: var(--acc); color: var(--acc) }
+.live { color: var(--faint); font-size: 10px }
 .live.on { color: #ff4d6d; text-shadow: 0 0 6px #ff4d6d; animation: blink 1.1s steps(1) infinite }
 .video { width: 200px; height: 200px; background: #000; position: relative; z-index: 60 }
 .video iframe, .video > div { width: 100%; height: 100%; display: block; border: 0 }
-.np { display: flex; flex-direction: column; gap: 5px; min-width: 0; padding-top: 2px }
-.np-k { font-family: var(--f-dot); font-size: 10px; letter-spacing: .14em; color: var(--dim) }
-.np-t { font-family: var(--f-dot); color: var(--acc); font-size: 16px; line-height: 1.25; overflow-wrap: anywhere; text-shadow: var(--acc-glow) }
-.np-a { font-size: 11.5px; color: var(--ink); overflow-wrap: anywhere }
-.np-time { margin-top: auto; display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums }
-.np-time b { font-family: var(--f-dot); font-weight: 400; font-size: 26px; color: var(--acc); text-shadow: var(--acc-glow); letter-spacing: .04em }
-.np-time span { font-size: 11px; color: var(--dim) }
-.seek { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding-top: 7px }
-.tc { font-size: 10.5px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 34px }
+.dock-np { display: flex; flex-direction: column; gap: 2px; padding-top: 7px; min-width: 0 }
+.np-t { font-family: var(--f-dot); color: var(--acc); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--acc-glow) }
+.np-a { font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.seek { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 6px }
+.tc { font-size: 9.5px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 26px }
 .tc:last-child { text-align: right }
 input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 14px; margin: 0; cursor: pointer; width: 100% }
 input[type="range"]::-webkit-slider-runnable-track { height: 6px; border: 1px solid var(--line); background: linear-gradient(90deg, var(--acc) var(--p, 0%), transparent var(--p, 0%)) }
@@ -202,15 +201,19 @@ input[type="range"]::-moz-range-track { height: 6px; border: 1px solid var(--lin
 input[type="range"]::-moz-range-progress { height: 6px; background: var(--acc) }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 6px; height: 14px; margin-top: -5px; background: var(--ink); box-shadow: var(--glow); border: 0 }
 input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: var(--ink); border: 0; border-radius: 0 }
-.vol { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; color: var(--dim); margin-left: 6px }
-.vol input { width: 72px }
-.pbar { display: flex; align-items: center; gap: 6px; padding-top: 8px; flex-wrap: wrap }
-.tog { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; cursor: pointer; color: var(--dim) }
-.tog { margin-left: auto }
-.tog input { appearance: none; width: 11px; height: 11px; border: 1px solid var(--ink); margin: 0; display: grid; place-content: center }
-.tog input:checked { background: var(--ink); box-shadow: var(--glow) }
-.tog input:checked + span { color: var(--ink) }
-.pmsg { margin: 6px 0 0; font-size: 11px }
+.pbar { display: flex; align-items: center; gap: 4px; padding-top: 6px }
+.pbar .key.sq { min-width: 26px; padding: 4px 5px; font-size: 10px }
+#vol { width: 54px; flex: none; margin-left: 4px }
+.tog { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .08em; cursor: pointer; color: var(--dim); margin-left: auto }
+.tog input { appearance: none; width: 10px; height: 10px; border: 1px solid var(--ink); margin: 0 }
+.tog input:checked { background: var(--acc); border-color: var(--acc) }
+.tog input:checked + span { color: var(--acc) }
+.pmsg { margin: 6px 0 0; font-size: 10px; color: #ff8a9b }
+.dock-pill { position: absolute; right: 10px; bottom: 10px; z-index: 5; display: flex; gap: 8px; align-items: baseline; max-width: min(320px, calc(100% - 20px));
+  background: rgb(0 0 0 / .85); border: 1px solid var(--acc); padding: 6px 10px; cursor: pointer; font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; color: var(--acc); box-shadow: 0 0 12px color-mix(in srgb, var(--acc) 35%, transparent) }
+.dock-pill b { font-weight: 400; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .04em; min-width: 0 }
+.dock-pill:hover { background: color-mix(in srgb, var(--acc) 18%, #000) }
+.dock, .dock-pill { --acc-glow: 0 0 8px color-mix(in srgb, var(--acc) 65%, transparent) }
 
 /* ---------- журнал ---------- */
 .log { border-top: 1px solid var(--line); padding: 8px 10px; max-height: 22%; overflow: auto; flex: none; scrollbar-width: thin; scrollbar-color: var(--line) transparent }
@@ -238,7 +241,7 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
 
 .wormhole { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; display: none }
 /* during a wormhole jump every text field flickers with an RGB split */
-.term.glitching :is(.bar, .ph-head, .ph-foot, .dbody, .log, .cmd, .pbar) { animation: glitch .16s steps(2) infinite }
+.term.glitching :is(.bar, .ph-head, .ph-foot, .dbody, .log, .cmd, .dock-np, .dock-head) { animation: glitch .16s steps(2) infinite }
 .term.glitching .dbody { animation-duration: .11s }
 @keyframes glitch {
   0% { opacity: 1; transform: translate(0, 0); text-shadow: 0 0 5px rgb(var(--ph) / .45) }
@@ -262,10 +265,7 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
   .key { padding: 5px 7px; font-size: 11px }
   .hero { grid-template-columns: 96px minmax(0, 1fr) }
   .ident h2 { font-size: 17px }
-  .player { padding: 8px }
-  .vol { display: none }
-  .np-time b { font-size: 20px }
-  .np-t { font-size: 13px }
+  .dock { right: 6px; bottom: 6px }
 }
 @media (prefers-reduced-motion: reduce) {
   body::after, .prompt { animation: none }

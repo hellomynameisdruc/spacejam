@@ -27,6 +27,31 @@
         <div class="ph-head"><span>SCANNER<span class="long"> // STAR MAP</span></span><span id="scaleName">GALAXY</span></div>
         <div class="viewport" id="viewport">
           <canvas id="sky" aria-label="Map of styles, labels and tracks"></canvas>
+          <!-- Floating player. YouTube's rules: visible while playing (>=200px), nothing drawn over the video.
+               Minimising pauses playback, so audio never plays from a hidden player. -->
+          <div class="dock" id="playerBox" hidden>
+            <div class="dock-head" id="dockHead">
+              <span class="live" id="live">●</span><span class="dock-k">ON AIR</span>
+              <span class="grip" aria-hidden="true">⠿</span>
+              <button type="button" class="dock-btn" id="dockMin" aria-label="Minimise and pause">_</button>
+            </div>
+            <div class="video" id="videoWrap"><div id="yt"></div></div>
+            <div class="dock-np"><span class="np-t" id="npTitle">—</span><span class="np-a" id="npArtist"></span></div>
+            <div class="seek">
+              <span class="tc" id="tCur">0:00</span>
+              <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
+              <span class="tc" id="tDur">0:00</span>
+            </div>
+            <div class="pbar">
+              <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
+              <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
+              <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
+              <input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume">
+              <label class="tog" title="Autopilot: fly to the nearest unheard track when this one ends"><input id="autopilot" type="checkbox" checked><span>AUTO</span></label>
+            </div>
+            <p class="pmsg" id="pMsg" hidden></p>
+          </div>
+          <button type="button" class="dock-pill" id="dockPill" hidden><span>▶ RESUME</span><b id="pillTitle"></b></button>
           <div class="banner" id="sampleBanner" hidden>
             <b>TEST SIGNAL</b> names are made up and videos won't play. The real map appears once the Discogs dump is processed. <u>hide</u>
           </div>
@@ -44,34 +69,6 @@
 
       <aside class="panel dossier" aria-label="Dossier">
         <div class="ph-head"><span id="dosId">DOSSIER // SECTOR</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
-        <div class="player" id="playerBox" hidden>
-          <!-- YouTube's rules: the player stays visible (≥200px), nothing is drawn over it -->
-          <div class="deck-p">
-            <div class="monitor">
-              <div class="mon-head"><span>FEED // YOUTUBE</span><span class="live" id="live">● LIVE</span></div>
-              <div class="video" id="videoWrap"><div id="yt"></div></div>
-            </div>
-            <div class="np">
-              <span class="np-k">NOW PLAYING</span>
-              <span class="np-t" id="npTitle">—</span>
-              <span class="np-a" id="npArtist"></span>
-              <span class="np-time"><b id="tBig">0:00</b><span id="tBigDur">/ 0:00</span></span>
-            </div>
-          </div>
-          <div class="seek">
-            <span class="tc" id="tCur">0:00</span>
-            <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
-            <span class="tc" id="tDur">0:00</span>
-          </div>
-          <div class="pbar">
-            <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
-            <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
-            <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
-            <label class="vol"><span>VOL</span><input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume"></label>
-            <label class="tog"><input id="autopilot" type="checkbox" checked><span>AUTOPILOT</span></label>
-          </div>
-          <p class="pmsg" id="pMsg" hidden></p>
-        </div>
         <div class="dbody" id="detail"></div>
         <div class="log">
           <div class="ph-sub">FLIGHT LOG</div>
