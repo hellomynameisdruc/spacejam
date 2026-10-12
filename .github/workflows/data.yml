@@ -1,19 +1,15 @@
-# Збирає мапу з дампу Discogs на сервері GitHub (дамп читається потоком, на диск не пишеться)
-# і кладе результат у реліз «data-latest». Після цього сайт перевикладається сам.
+# ВИМКНЕНО для автоматичного запуску: з 2026 року data.discogs.com не пускає сервери GitHub
+# (перевірка Cloudflare на бота). Дамп обробляється у браузері — див. pipeline/browser_parse.js.
+# Процес лишається для ручного запуску на випадок, якщо доступ повернуть.
 name: Зібрати мапу з Discogs
 
 on:
-  schedule:
-    - cron: "17 4 * * 1"        # щопонеділка перевіряє, чи вийшов новий дамп
   workflow_dispatch:
     inputs:
       force:
         description: "Перебудувати, навіть якщо дамп не змінився"
         type: boolean
         default: false
-  push:
-    branches: [main]
-    paths: ["pipeline/**", ".github/workflows/data.yml"]
 
 permissions:
   contents: write
