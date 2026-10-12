@@ -61,8 +61,8 @@ function setPhosphor(name: string) {
 document.querySelectorAll<HTMLButtonElement>(".phos button").forEach((b) => (b.onclick = () => setPhosphor(b.dataset.ph!)));
 
 // ---------- Кольори систем і пульсари ----------
-// Кожен стиль має свій колір (сусідні стилі — схожі відтінки). Зоря — пульсар: спалахує в типовому
-// для стилю темпі, раз на такт (4 удари) скидає оболонку-нову, промені повільно обертаються.
+// Кожен стиль має свій колір (сусідні стилі — схожі відтінки). Зоря спалахує в типовому
+// для стилю темпі й раз на такт (4 удари) скидає оболонку-нову.
 const SC = stars.map((s) => { const h = s.color.replace("#", ""); return [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)); });
 const sc = (si: number, a = 1) => `rgba(${SC[si][0]},${SC[si][1]},${SC[si][2]},${a})`;
 const Y0 = map.meta.years?.[0] ?? 1980;
@@ -82,31 +82,47 @@ const glowS = stars.map((_, si) => sprite(64, 64, (g) => {
   gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.16, sc(si, 1)); gr.addColorStop(0.42, sc(si, 0.32)); gr.addColorStop(1, sc(si, 0));
   g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
 }));
-const beamS = stars.map((_, si) => sprite(256, 16, (g) => {
-  const gr = g.createLinearGradient(0, 0, 256, 0); gr.addColorStop(0, sc(si, 0.95)); gr.addColorStop(0.35, sc(si, 0.35)); gr.addColorStop(1, sc(si, 0));
-  g.fillStyle = gr; g.beginPath(); g.moveTo(0, 8); g.lineTo(256, 1); g.lineTo(256, 15); g.closePath(); g.fill();
-}));
 function pulseOf(si: number, t: number) {
   const beat = (t / 1000) * bpm[si] / 60 + phase0[si];
   return { p: reduce ? 0.4 : Math.exp(-(beat % 1) * 6), bar: reduce ? 0.3 : (beat / 4) % 1 };
 }
 function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: number, s: number, t: number) {
+  // Star as seen through the observatory telescope: dot-matrix diffraction spikes, a square pixel core
+  // and a rotating gauge ring. It still flashes on every beat and sheds a nova shell once per bar.
   const { p, bar } = pulseOf(si, t);
   const prev = c.globalCompositeOperation;
-  // оболонка нової — раз на такт
-  c.strokeStyle = sc(si, 0.6 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.14 * (1 - bar));
-  c.beginPath(); c.arc(x, y, s * (1.2 + 7 * bar), 0, 7); c.stroke();
+  // nova shell — once per bar
+  c.strokeStyle = sc(si, 0.55 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.12 * (1 - bar));
+  c.beginPath(); c.arc(x, y, s * (1.4 + 7 * bar), 0, 7); c.stroke();
+  // gauge ring with ticks, slowly rotating
+  const rr = s * 2.1, rot = (reduce ? 0 : t / 1000) * 0.25 * (si % 2 ? 1 : -1) + phase0[si] * 6.283;
+  c.strokeStyle = sc(si, 0.4); c.lineWidth = 1;
+  c.beginPath(); c.arc(x, y, rr, rot, rot + Math.PI * 1.55); c.stroke();
+  c.beginPath();
+  for (let k = 0; k < 12; k++) {
+    const a = rot + k * Math.PI / 6, l = k % 3 === 0 ? s * 0.45 : s * 0.22;
+    c.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); c.lineTo(x + Math.cos(a) * (rr + l), y + Math.sin(a) * (rr + l));
+  }
+  c.stroke();
   c.globalCompositeOperation = "lighter";
-  // промені пульсара
-  const rot = (reduce ? 0 : t / 1000) * (0.3 + (si % 4) * 0.08) + phase0[si] * 6.283, L = s * (5 + 3 * p);
-  c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = 0.3 + 0.55 * p;
-  c.drawImage(beamS[si], 0, -s * 0.45, L, s * 0.9); c.rotate(Math.PI); c.drawImage(beamS[si], 0, -s * 0.45, L, s * 0.9);
-  c.restore();
-  // світіння
-  const gR = s * (3.4 + 3 * p); c.globalAlpha = 0.55 + 0.45 * p; c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2);
-  c.globalAlpha = 1; c.globalCompositeOperation = prev;
-  // ядро
-  c.fillStyle = "#fff"; c.beginPath(); c.arc(x, y, Math.max(1.2, s * 0.26 * (1 + 0.6 * p)), 0, 7); c.fill();
+  // glow
+  const gR = s * (2.8 + 2.6 * p); c.globalAlpha = 0.5 + 0.5 * p; c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2); c.globalAlpha = 1;
+  // dot-matrix diffraction spikes: 4 long, 4 short diagonal; they shoot out on each beat
+  const dot = Math.max(1, Math.round(s * 0.16)), gap = dot + Math.max(1, Math.round(s * 0.12));
+  const spikes: [number, number, number][] = [[0, -1, 1], [0, 1, 1], [-1, 0, 1], [1, 0, 1], [-0.707, -0.707, 0.45], [0.707, -0.707, 0.45], [-0.707, 0.707, 0.45], [0.707, 0.707, 0.45]];
+  for (const [dx, dy, k] of spikes) {
+    const L = s * k * (4.2 + 4.5 * p), n = Math.max(2, Math.floor(L / gap));
+    for (let j = 1; j <= n; j++) {
+      const f = j / n, d = s * 0.5 + j * gap;
+      c.fillStyle = j < 3 ? `rgba(255,255,255,${(1 - f) * (0.5 + 0.5 * p)})` : sc(si, (1 - f) ** 1.3 * (0.55 + 0.45 * p));
+      c.fillRect(Math.round(x + dx * d - dot / 2), Math.round(y + dy * d - dot / 2), dot, dot);
+    }
+  }
+  c.globalCompositeOperation = prev;
+  // square pixel core
+  const cs = Math.max(2, Math.round(s * (0.42 + 0.3 * p)));
+  c.fillStyle = sc(si, 1); c.fillRect(Math.round(x - cs / 2) - 1, Math.round(y - cs / 2) - 1, cs + 2, cs + 2);
+  c.fillStyle = "#fff"; c.fillRect(Math.round(x - cs / 2), Math.round(y - cs / 2), cs, cs);
 }
 
 // ---------- Канвас і камера ----------
