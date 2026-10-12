@@ -810,8 +810,7 @@ function drawPulsarHero(g: CanvasRenderingContext2D, w: number, h: number, si: n
 }
 
 // ---------- Route: planet → planet ----------
-// Styles are hopped along the strongest links (labels that release both styles are the "bridges");
-// inside one system the route walks through the eras between the two labels.
+// Styles are hopped along the strongest links; see the rules above planRoute.
 type Route = { a: number; b: number; stops: number[]; tracks: TrackRef[][]; flat: TrackRef[]; hops: number[] };
 let route: Route | null = null, routeIdx = -1, routePick: number | null = null;
 const adj: { s: number; w: number }[][] = stars.map(() => []);
@@ -830,61 +829,104 @@ function starPath(a: number, b: number): number[] {
 }
 const midYear = (p: Planet) => (p.yr[0] && p.yr[1] ? (p.yr[0] + p.yr[1]) / 2 : p.yr[1] || 2000);
 const shareOf = (p: Planet, s: number) => p.xs?.find((e) => e[0] === s)?.[1] ?? 0;
-function bridge(inStar: number, toward: number, used: Set<number>): number {
-  let best = -1, bs = 0;
-  for (const i of planetsByStar[inStar]) {
-    if (used.has(i) || planets[i].t1 <= planets[i].t0) continue;
-    const sc_ = shareOf(planets[i], toward) * Math.log(2 + planets[i].n); if (sc_ > bs) { bs = sc_; best = i; }
+// Route rules:
+//  • every system on the way is crossed through at least 3 planets: in through an outer "gate" planet
+//    facing the previous system, a dive past the star, out through an outer gate facing the next one;
+//  • gates prefer labels that release both neighbouring styles;
+//  • inside a single system the route is a tour around the star, from the older label's era to the newer's;
+//  • at least 20 tracks, spread over the stops and across each label's years.
+// Planning uses the catalogue positions (orbits at t=0), so the same pair always gives the same route.
+function poolOf(st: number, used: Set<number>) { return planetsByStar[st].filter((i) => !used.has(i) && planets[i].t1 > planets[i].t0); }
+const medianN = (pool: number[]) => { const ns = pool.map((i) => planets[i].n).sort((x, y) => x - y); return ns[ns.length >> 1] ?? 0; };
+function gate(inStar: number, toward: number, used: Set<number>): number {
+  const S = stars[inStar], T = stars[toward], dx = T.x - S.x, dy = T.y - S.y, dl = Math.hypot(dx, dy) || 1;
+  const pool = poolOf(inStar, used); if (!pool.length) return -1;
+  const os = pool.map((i) => planets[i].o ?? 0).sort((x, y) => x - y), oCut = os[Math.floor(os.length * 0.55)] ?? 0;
+  let best = -1, bs = -Infinity;
+  for (const i of pool) {
+    const p = planets[i]; if ((p.o ?? 0) < oCut) continue;
+    const px = p.x - S.x, py = p.y - S.y, facing = (px * dx + py * dy) / ((Math.hypot(px, py) || 1) * dl);
+    const score = facing + Math.min(1, shareOf(p, toward) * 4) * 0.8 + Math.log10(2 + p.n) * 0.15;
+    if (score > bs) { bs = score; best = i; }
+  }
+  return best;
+}
+// waypoint near a point on the arc from planet `a` to planet `b` around their star
+// (polar interpolation; `dip` pulls the arc toward the star; `sweep` forces the long way round)
+function via(st: number, a: number, b: number, t: number, used: Set<number>, dip = 0.35, sweep = false, era?: [number, number]): number {
+  const S = stars[st], A = planets[a], B = planets[b];
+  const ra = Math.hypot(A.x - S.x, A.y - S.y), rb = Math.hypot(B.x - S.x, B.y - S.y);
+  const ta = Math.atan2(A.y - S.y, A.x - S.x), tb = Math.atan2(B.y - S.y, B.x - S.x);
+  let d = ((tb - ta + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  if (sweep && Math.abs(d) < Math.PI * 0.75) d = d >= 0 ? d - Math.PI * 2 : d + Math.PI * 2;
+  const rr = (ra + (rb - ra) * t) * (1 - dip * Math.sin(Math.PI * t)), th = ta + d * t;
+  const tx = S.x + Math.cos(th) * rr, ty = S.y + Math.sin(th) * rr, scale = Math.max(80, (ra + rb) / 2);
+  const pool = poolOf(st, used); if (!pool.length) return -1;
+  const nMed = medianN(pool);
+  let best = -1, bd = Infinity;
+  for (const i of pool) {
+    const p = planets[i];
+    let dd = Math.hypot(p.x - tx, p.y - ty) / scale + (p.n < nMed ? 0.18 : 0);
+    if (era) dd += Math.abs(midYear(p) - (era[0] + (era[1] - era[0]) * t)) / Math.max(8, Math.abs(era[1] - era[0])) * 0.6;
+    if (dd < bd) { bd = dd; best = i; }
   }
   return best;
 }
 function planRoute(a: number, b: number): Omit<Route, "tracks" | "flat"> {
-  const A = planets[a], B = planets[b], used = new Set([a, b]), stops = [a];
+  const A = planets[a], B = planets[b], used = new Set([a, b]);
   const hops = A.s === B.s ? [A.s] : starPath(A.s, B.s);
+  const take = (i: number) => { if (i >= 0) used.add(i); return i; };
   if (hops.length === 1) {
-    // same system: walk through the eras (and orbits) between the two labels
-    const pool = planetsByStar[A.s].filter((i) => !used.has(i) && planets[i].t1 > planets[i].t0);
-    const ns = pool.map((i) => planets[i].n).sort((x, y) => x - y), nMed = ns[ns.length >> 1] ?? 0;
-    const ya = midYear(A), yb = midYear(B), oa = A.o ?? 0, ob = B.o ?? 0;
-    const yspan = Math.max(6, Math.abs(yb - ya)), ospan = Math.max(80, Math.abs(ob - oa));
-    for (const t of [0.25, 0.5, 0.75]) {
-      const ty = ya + (yb - ya) * t, to = oa + (ob - oa) * t;
-      let best = -1, bd = Infinity;
-      for (const i of pool) {
-        if (used.has(i)) continue; const p = planets[i];
-        const d = Math.abs(midYear(p) - ty) / yspan + Math.abs((p.o ?? 0) - to) / ospan + (p.n < nMed ? 0.4 : 0);
-        if (d < bd) { bd = d; best = i; }
-      }
-      if (best >= 0) { stops.push(best); used.add(best); }
-    }
-  } else {
-    const many = hops.length > 5;
-    for (let k = 0; k + 1 < hops.length; k++) {
-      const from = hops[k], to = hops[k + 1];
-      const last = stops[stops.length - 1];
-      if (!(planets[last].s === from && shareOf(planets[last], to) > 0)) {
-        const g = bridge(from, to, used); if (g >= 0) { stops.push(g); used.add(g); }
-      }
-      if (to === B.s && shareOf(B, from) > 0) continue;
-      if (many && to !== B.s) continue;
-      const g = bridge(to, from, used); if (g >= 0) { stops.push(g); used.add(g); }
-    }
+    // same system: a tour around the star (at least 3/4 of a turn), older era → newer era
+    const stops = [a], era: [number, number] = [midYear(A), midYear(B)];
+    for (const t of [1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6]) { const w = take(via(A.s, a, b, t, used, 0.25, true, era)); if (w >= 0) stops.push(w); }
+    stops.push(b);
+    return { a, b, stops, hops };
   }
-  stops.push(b);
-  return { a, b, stops, hops };
+  // per system: entry gate → dive past the star → exit gate (≥ 3 planets each)
+  const mids = hops.length <= 2 ? 2 : 1;
+  const legs: number[][] = [];
+  for (let k = 0; k < hops.length; k++) {
+    const st = hops[k], isFirst = k === 0, isLast = k === hops.length - 1;
+    const entry = isFirst ? a : take(gate(st, hops[k - 1], used));
+    const exit = isLast ? b : take(gate(st, hops[k + 1], used));
+    const leg: number[] = [];
+    if (entry >= 0) leg.push(entry);
+    if (entry >= 0 && exit >= 0) for (let m = 1; m <= mids; m++) { const w = take(via(st, entry, exit, m / (mids + 1), used)); if (w >= 0) leg.push(w); }
+    if (exit >= 0 && exit !== entry) leg.push(exit);
+    // still short of 3 (tiny system or missing gate): add whatever planet fits best
+    while (leg.length < 3) {
+      const ends = [leg[0] ?? a, leg[leg.length - 1] ?? b], w = take(via(st, ends[0], ends[1], 0.5, used, 0.5));
+      if (w < 0) break; leg.splice(Math.max(1, leg.length - 1), 0, w);
+    }
+    legs.push(leg);
+  }
+  return { a, b, stops: legs.flat(), hops };
 }
 async function buildRoute(a: number, b: number) {
   const plan = planRoute(a, b);
   await Promise.all([...new Set(plan.stops.map((i) => planets[i].s))].map((s) => loadChunk(s)));
-  const seen = new Set<string>(), per = plan.stops.length <= 4 ? 3 : plan.stops.length <= 7 ? 2 : 1;
+  // at least 20 tracks: one per stop, then round-robin (origin and destination first)
+  const N = plan.stops.length, avail = plan.stops.map((pi) => planets[pi].t1 - planets[pi].t0);
+  const cnt = avail.map((n) => Math.min(1, n)), order = [0, N - 1, ...Array.from({ length: Math.max(0, N - 2) }, (_, k) => k + 1)];
+  let total = cnt.reduce((x, y) => x + y, 0), grew = true;
+  const MIN_TRACKS = 20;
+  while (total < Math.max(MIN_TRACKS, N) && grew) {
+    grew = false;
+    for (const k of order) { if (total >= Math.max(MIN_TRACKS, N)) break; if (cnt[k] < avail[k]) { cnt[k]++; total++; grew = true; } }
+  }
+  const seen = new Set<string>();
   const tracks = plan.stops.map((pi, k) => {
-    const p = planets[pi], ch = chunks[p.s]!, n = p.t1 - p.t0, want = k === 0 || k === plan.stops.length - 1 ? Math.max(2, per) : per;
+    const p = planets[pi], ch = chunks[p.s]!, n = avail[k], c = cnt[k], off = hash(p.name + ":" + planets[b].name) % Math.max(1, n);
     const out: TrackRef[] = [];
-    for (let j = 0; j < n && out.length < want; j++) {
-      const i = p.t0 + (hash(p.name + ":" + planets[b].name + ":" + j) % n);
-      if (seen.has(ch.yt[i])) continue; seen.add(ch.yt[i]); out.push({ s: p.s, i });
+    // spread picks across the label's history (tracks are stored oldest → newest)
+    for (let j = 0; j < c; j++) {
+      for (let tries = 0; tries < n; tries++) {
+        const i = p.t0 + ((Math.floor((j + 0.5) * n / c) + off + tries) % n);
+        if (seen.has(ch.yt[i])) continue; seen.add(ch.yt[i]); out.push({ s: p.s, i }); break;
+      }
     }
-    return out;
+    return out.sort((x, y) => x.i - y.i);
   });
   route = { ...plan, tracks, flat: tracks.flat() }; routeIdx = -1;
   try { history.replaceState(null, "", `#r${a}-${b}`); } catch { /* */ }
@@ -920,7 +962,8 @@ function renderRoute() {
   $("routeMeta").textContent = `${r.stops.length} STOPS · ${r.flat.length} TRACKS · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
   let k = 0;
   $("routeList").innerHTML = r.stops.map((pi, si) => {
-    const p = planets[pi], kind = si === 0 ? "ORIGIN" : si === r.stops.length - 1 ? "DESTINATION" : r.hops.length > 1 ? "BRIDGE" : "WAYPOINT";
+    const p = planets[pi], st = (k2: number) => planets[r.stops[k2]]?.s;
+    const kind = si === 0 ? "ORIGIN" : si === r.stops.length - 1 ? "DESTINATION" : st(si + 1) !== p.s ? "EXIT" : st(si - 1) !== p.s ? "ENTRY" : "WAYPOINT";
     const tr = r.tracks[si].map((t) => {
       const ch = chunks[t.s]!, idx = k++, on = idx === routeIdx;
       return `<button class="rt${on ? " on" : ""}" data-k="${idx}"><span>${on ? "◉" : "▸"}</span><span class="t">${esc(ch.an[ch.a[t.i]])} — ${esc(ch.t[t.i])}</span></button>`;
