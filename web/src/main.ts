@@ -785,20 +785,50 @@ function drawRadar(g: CanvasRenderingContext2D, w: number, h: number, t: number)
   const s = Math.max(bounds.w, bounds.h) / 2 / r;
   stars.forEach((st, si) => { const x = cx + (st.x - bounds.x) / s, y = cy + (st.y - bounds.y) / s; g.fillStyle = sc(si, 1); g.shadowColor = sc(si, 1); g.shadowBlur = 5; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3); g.shadowBlur = 0; });
 }
-function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, seedN: number, live: boolean, col: (a?: number) => string = ph) {
+type WaveMode = { scrub: number; sync: boolean; label?: string };
+const waveState = new WeakMap<CanvasRenderingContext2D, { amp: number; ph: number; last: number }>();
+function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, seedN: number, live: boolean, col: (a?: number) => string = ph, mode: WaveMode = { scrub: 0, sync: false }) {
+  // amplitude and phase glide instead of jumping, so pausing/seeking never snaps the trace
+  const st = waveState.get(g) ?? { amp: live ? 0.36 : 0.08, ph: 0, last: t };
+  const dt = Math.min(100, t - st.last); st.last = t;
+  const target = mode.sync ? 0.05 : mode.scrub ? 0.42 : live ? 0.36 : 0.08;
+  st.amp += (target - st.amp) * Math.min(1, dt / 160);
+  st.ph += dt * (mode.scrub ? mode.scrub * 0.045 : live ? 1 / 280 : 1 / 1400);
+  waveState.set(g, st);
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
   g.strokeStyle = ph(0.12); g.lineWidth = 1; g.beginPath();
   for (let x = 0; x < w; x += 12) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); }
   for (let y = 0; y < h; y += 12) { g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); }
   g.stroke();
-  const amp = live ? 0.36 : 0.08, f1 = 2 + (seedN % 5), f2 = 7 + (seedN % 11), sp = live ? t / 280 : t / 1400;
+  const amp = st.amp, f1 = 2 + (seedN % 5), f2 = 7 + (seedN % 11), sp = st.ph;
+  const noise = mode.scrub ? 0.22 : 0;
   g.strokeStyle = col(1); g.lineWidth = 1.5; g.shadowColor = col(0.8); g.shadowBlur = 6; g.beginPath();
   for (let x = 0; x <= w; x += 2) {
     const u = x / w * Math.PI * 2;
-    const y = h / 2 + h * amp * (Math.sin(u * f1 + sp) * 0.7 + Math.sin(u * f2 - sp * 1.7) * 0.3) * (live ? 0.75 + 0.25 * Math.sin(sp * 0.3) : 1);
+    let y = h / 2 + h * amp * (Math.sin(u * f1 + sp) * 0.7 + Math.sin(u * f2 - sp * 1.7) * 0.3) * (live ? 0.75 + 0.25 * Math.sin(sp * 0.3) : 1);
+    if (noise) y += (Math.random() - 0.5) * h * noise;
     x === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
   }
   g.stroke(); g.shadowBlur = 0;
+  if (mode.scrub) {
+    // tape-scrub tearing: a few horizontal slices shoved in the seek direction
+    for (let k = 0; k < 3; k++) {
+      const y0 = Math.floor(Math.random() * h), sh = 2 + Math.floor(Math.random() * 6), dx = mode.scrub * (6 + Math.random() * 18);
+      g.drawImage(g.canvas, 0, y0 * (g.canvas.width / w), g.canvas.width, sh * (g.canvas.width / w), dx, y0, w, sh);
+    }
+  }
+  if (mode.sync) {
+    // re-locking on the signal: a sweeping bracket
+    const x = (t / 6 % 1) * w;
+    g.fillStyle = col(0.25); g.fillRect(x - 10, 0, 20, h);
+  }
+  if (mode.label) {
+    g.font = `11px ${FONT_LBL}`; g.textAlign = mode.scrub < 0 ? "left" : "right";
+    const blink = Math.floor(t / 250) % 2 === 0, txt = mode.label;
+    const tw = g.measureText(txt).width + 10, tx = mode.scrub < 0 ? 6 : w - 6;
+    g.fillStyle = col(blink ? 1 : 0.85); g.fillRect(mode.scrub < 0 ? tx - 4 : tx - tw + 4, 6, tw, 15);
+    g.fillStyle = BG; g.fillText(txt, tx + (mode.scrub < 0 ? 1 : -1), 18);
+  }
 }
 
 // Великий пульсар у досьє зорі
@@ -1040,7 +1070,7 @@ function render() {
       <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", PTYPE_INFO[ptype[o.p]][0] + (ptype[o.p] === "giant" && ringedP[o.p] ? " · RINGED" : ""))}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
       <p class="note">${PTYPE_INFO[ptype[o.p]][0][0]}${PTYPE_INFO[ptype[o.p]][0].slice(1).toLowerCase()}: ${PTYPE_INFO[ptype[o.p]][1]}.</p>
       ${hist}
-      ${ch && n && !map.meta.sample ? `<button class="play" data-r="${R({ kind: "track", s: p.s, i: p.t0 })}" data-play="1">▶ PLAY THE ORBIT</button>` : ""}
+      ${ch && n && !map.meta.sample ? `<button class="play" data-orbit="${o.p}">▶ PLAY THE ORBIT</button>` : ""}
       <button class="plot" data-route="${o.p}">⟶ PLOT ROUTE FROM HERE</button>
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`;
@@ -1070,9 +1100,11 @@ function render() {
     dosAnim = (t) => {
       const c = document.getElementById("wave") as HTMLCanvasElement | null; if (!c) return;
       const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
-      const live = !!(nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i && player.playing);
-      if (reduce && (c as any)._done) return; (c as any)._done = true;
-      drawWave(f.g, f.w, f.h, t, sd, live, (a = 1) => sc(o.s, a));
+      const mine = !!(nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i), live = mine && player.playing;
+      const scrubbing = mine && performance.now() - scrubT < 420, sync = mine && !scrubbing && player.buffering;
+      if (reduce && (c as any)._done && !scrubbing) return; (c as any)._done = true;
+      const lbl = scrubbing ? (scrubDir < 0 ? `◂◂ SEEK ${$("tCur").textContent}` : `SEEK ${$("tCur").textContent} ▸▸`) : sync ? "SYNC…" : undefined;
+      drawWave(f.g, f.w, f.h, t, sd, live, (a = 1) => sc(o.s, a), { scrub: scrubbing ? (scrubDir || 1) : 0, sync, label: lbl });
     };
   }
   d.innerHTML = h; d.scrollTop = 0;
@@ -1082,12 +1114,21 @@ function render() {
 }
 $("detail").addEventListener("click", (e) => {
   const pr = (e.target as HTMLElement).closest<HTMLElement>("[data-route]"); if (pr) { startPick(+pr.dataset.route!); return; }
+  const po = (e.target as HTMLElement).closest<HTMLElement>("[data-orbit]"); if (po) { playOrbit(+po.dataset.orbit!); return; }
   const b = (e.target as HTMLElement).closest<HTMLElement>("[data-r]"); if (!b) return;
   const o = refs[+b.dataset.r!];
   if (o?.kind === "track") { select(o, true, !!b.dataset.play); return; }
   select(o);
 });
 
+// a random satellite of the planet, preferring ones not heard yet this session
+function playOrbit(pi: number) {
+  const p = planets[pi], ch = chunks[p.s]; if (!ch || p.t1 <= p.t0) return;
+  const all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k);
+  const fresh = all.filter((i) => !played.has(ch.yt[i]) && !(nowPlaying && nowPlaying.s === p.s && nowPlaying.i === i));
+  const pool = fresh.length ? fresh : all, i = pool[Math.floor(Math.random() * pool.length)];
+  select({ kind: "track", s: p.s, i }, true, true);
+}
 function nearestTracks(ref: TrackRef, k: number, skip?: Set<string>): TrackRef[] {
   const ch = chunks[ref.s]; if (!ch) return [];
   const x = ch.x[ref.i], y = ch.y[ref.i], best: { i: number; d: number }[] = [];
@@ -1171,8 +1212,10 @@ const seekEl = $<HTMLInputElement>("seek"), volEl = $<HTMLInputElement>("vol");
 const mmss = (t: number) => `${Math.floor(t / 60)}:${pad(Math.floor(t % 60), 2)}`;
 let seeking = false;
 const paintRange = (el: HTMLInputElement) => el.style.setProperty("--p", `${(+el.value - +el.min) / (+el.max - +el.min) * 100}%`);
-seekEl.addEventListener("input", () => { seeking = true; paintRange(seekEl); $("tCur").textContent = mmss(+seekEl.value / 1000 * player.duration()); });
-seekEl.addEventListener("change", () => { player.seek(+seekEl.value / 1000 * player.duration()); seeking = false; });
+let scrubT = -1e9, scrubDir = 0, scrubPrev = 0;
+seekEl.addEventListener("pointerdown", () => { scrubPrev = +seekEl.value; });
+seekEl.addEventListener("input", () => { const v = +seekEl.value; if (v !== scrubPrev) scrubDir = Math.sign(v - scrubPrev); scrubPrev = v; scrubT = performance.now(); seeking = true; paintRange(seekEl); $("tCur").textContent = mmss(+seekEl.value / 1000 * player.duration()); });
+seekEl.addEventListener("change", () => { player.seek(+seekEl.value / 1000 * player.duration()); seeking = false; scrubT = performance.now(); });
 try { const v = localStorage.getItem("kosmos-vol"); if (v !== null) volEl.value = v; } catch { /* */ }
 const applyVol = () => { player.setVolume(+volEl.value); paintRange(volEl); try { localStorage.setItem("kosmos-vol", volEl.value); } catch { /* */ } };
 volEl.addEventListener("input", applyVol); applyVol();
@@ -1205,13 +1248,14 @@ async function renderLog() {
 $("log").addEventListener("click", (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>("[data-s]"); if (b) select({ kind: "track", s: +b.dataset.s!, i: +b.dataset.i! }, true, true); });
 
 // ---------- Телеметрія ----------
+let lastTicker = "";
 function ticker() {
   let np = "ON AIR: SILENCE";
   if (nowPlaying && chunks[nowPlaying.s]) { const ch = chunks[nowPlaying.s]!; np = `ON AIR: <b>${esc(ch.an[ch.a[nowPlaying.i]])} — ${esc(ch.t[nowPlaying.i])}</b>${player.playing ? "" : " [PAUSED]"}`; }
   const parts = [np, `STARS <b>${stars.length}</b>`, `PLANETS <b>${fmt(planets.length)}</b>`, `SATELLITES <b>${fmt(map.meta.tracks)}</b>`, `RELEASES <b>${fmt(map.meta.releases)}</b>`,
     (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `LARGEST SYSTEM <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `LINKS <b>${links.length}</b>`, `PLAYED <b>${log.length}</b>`, `SOURCE <b>DISCOGS CC0</b>`];
   const one = parts.map((p) => `<span>${p}</span>`).join("");
-  $("ticker").innerHTML = one + one;
+  if (one !== lastTicker) { lastTicker = one; $("ticker").innerHTML = one + one; }
 }
 setInterval(() => { const d = new Date(); $("clock").textContent = `${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}:${pad(d.getSeconds(), 2)}`; }, 1000);
 

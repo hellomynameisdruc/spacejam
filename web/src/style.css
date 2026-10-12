@@ -152,6 +152,8 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .hist .cols i { flex: 1; background: var(--acc); min-height: 1px; box-shadow: 0 0 4px color-mix(in srgb, var(--acc) 50%, transparent) }
 .hist .axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--dim); padding-top: 4px; font-variant-numeric: tabular-nums }
 .scope-c { border: 1px solid var(--line); height: 74px; position: relative }
+/* dossier blocks keep their size; the panel scrolls instead of squashing them */
+.dbody > * { flex-shrink: 0 }
 .scope-c canvas { cursor: var(--cur-arrow, default) }
 
 .play { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 9px; font-family: var(--f-dot); font-size: 14px; letter-spacing: .16em;

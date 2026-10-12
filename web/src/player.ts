@@ -29,6 +29,7 @@ export class Player {
   private yt: any = null;
   private pending: string | null = null;
   playing = false;
+  buffering = false;
 
   constructor(private mountId: string, private ev: PlayerEvents) {}
 
@@ -45,7 +46,9 @@ export class Player {
           onStateChange: (e: any) => {
             const S = window.YT.PlayerState;
             if (e.data === S.ENDED) this.ev.onEnded();
-            const p = e.data === S.PLAYING;
+            // buffering after a seek is not a pause: keep "playing" so the UI doesn't flicker
+            this.buffering = e.data === S.BUFFERING;
+            const p = e.data === S.PLAYING || (this.buffering && this.playing);
             if (p !== this.playing) { this.playing = p; this.ev.onPlayingChange(p); }
           },
           // 100 — відео видалене; 101/150 — власник заборонив вбудовування
