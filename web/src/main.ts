@@ -12,7 +12,7 @@ import "./style.css";
 import { Player } from "./player";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
-type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[] };
+type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[]; hull?: number[]; bub?: [number, number, number][] };
 type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; t0: number; t1: number };
 type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };
@@ -280,6 +280,33 @@ function drawPlanetBody(i: number, x: number, y: number, r: number) {
   }
 }
 
+// System outline: a wobbly hull plus soap-bubble outlines around each cluster of labels
+function drawSystemShape(si: number) {
+  const s = stars[si], p = toScreen(s.x, s.y);
+  const h = s.hull;
+  lc.setLineDash([1, 5]); lc.lineWidth = 1; lc.strokeStyle = sc(si, 0.26);
+  lc.beginPath();
+  if (h && h.length > 2) {
+    const n = h.length, pt = (k: number) => { const a = (k % n) / n * Math.PI * 2, r = h[k % n] * cam.s; return [p.x + Math.cos(a) * r, p.y + Math.sin(a) * r]; };
+    let [x0, y0] = pt(0), [x1, y1] = pt(1);
+    lc.moveTo((x0 + x1) / 2, (y0 + y1) / 2);
+    for (let k = 1; k <= n; k++) { const [ax, ay] = pt(k), [bx, by] = pt(k + 1); lc.quadraticCurveTo(ax, ay, (ax + bx) / 2, (ay + by) / 2); }
+  } else lc.arc(p.x, p.y, s.R * cam.s, 0, 7);
+  lc.stroke(); lc.setLineDash([]);
+  if (!s.bub || cam.s < LOD_PLANETS) return;
+  for (const [bx, by, br] of s.bub) {
+    const cx = p.x + bx * cam.s, cy = p.y + by * cam.s, r = br * cam.s;
+    if (r < 6) continue;
+    lc.fillStyle = sc(si, 0.035); lc.beginPath(); lc.arc(cx, cy, r, 0, 7); lc.fill();
+    lc.strokeStyle = sc(si, 0.3); lc.lineWidth = 1; lc.stroke();
+    // soap-bubble shine
+    lc.strokeStyle = sc(si, 0.55); lc.lineWidth = Math.max(1.2, r * 0.025); lc.lineCap = "round";
+    lc.beginPath(); lc.arc(cx, cy, r * 0.86, Math.PI * 1.08, Math.PI * 1.36); lc.stroke();
+    lc.beginPath(); lc.arc(cx, cy, r * 0.86, Math.PI * 1.42, Math.PI * 1.47); lc.stroke();
+    lc.lineCap = "butt";
+  }
+}
+
 // Статичний шар: перемальовується лише коли рухається камера або змінюється вибір
 function drawStatic() {
   placed.length = 0;
@@ -314,7 +341,7 @@ function drawStatic() {
 
   // межі систем і зв'язки
   lc.setLineDash([1, 5]); lc.lineWidth = 1;
-  stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) { const p = toScreen(s.x, s.y); lc.strokeStyle = sc(si, 0.22); lc.beginPath(); lc.arc(p.x, p.y, s.R * cam.s, 0, 7); lc.stroke(); } });
+  stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) drawSystemShape(si); });
   lc.setLineDash([2, 5]);
   for (const [a, b, w] of links) {
     const A = toScreen(stars[a].x, stars[a].y), B = toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);

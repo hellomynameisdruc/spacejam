@@ -91,39 +91,106 @@ def layout_stars(names, radius, weight, iters=900):
     return pos - pos.mean(0)
 
 
-def place_planets(planets, star_r, prefs, gap=14):
-    """Кільця навколо зорі (планети відсортовані від більших до менших). Кожна планета
-    стає якомога ближче до кута, що дивиться в бік її «другого» стилю."""
+def place_planets(planets, star_r, prefs, seed=0):
+    """Bubbly, chaotic systems: planets form 3–6 clusters ("bubbles") around the star.
+    Bubble directions follow the most related neighbour styles (plus some randomness); each label
+    joins the bubble closest to its own affinity; overlapping halos push apart."""
+    n = len(planets)
+    if n == 0:
+        return [], star_r, [star_r + 40] * HULL_N, []
+    rng = np.random.default_rng(seed)
+    halo = np.array([p["halo"] for p in planets]) + 5
+    pref = np.array(prefs)
+    # bubble directions: strongest affinity directions + random ones
+    k = int(min(n, 3 + rng.integers(0, 4)))
+    hist = np.histogram(pref % (2 * math.pi), bins=12, range=(0, 2 * math.pi))[0]
+    top = list(np.argsort(-hist)[: max(1, k // 2)])
+    angles = [(t + 0.5) / 12 * 2 * math.pi + rng.normal(0, 0.25) for t in top]
+    while len(angles) < k:
+        angles.append(rng.uniform(0, 2 * math.pi))
+    angles = np.array(angles)
+    # spread bubbles apart so they read as separate clusters
+    for _ in range(60):
+        dd = (angles[:, None] - angles[None, :] + math.pi) % (2 * math.pi) - math.pi
+        np.fill_diagonal(dd, 9)
+        close = np.abs(dd) < 2 * math.pi / (k * 1.35)
+        angles += np.where(close, -np.sign(dd) * 0.04, 0).sum(1)
+    diff = np.abs((pref[:, None] - angles[None, :] + math.pi) % (2 * math.pi) - math.pi) + rng.random((n, k)) * 0.9
+    group = diff.argmin(1)
+    # each bubble is a circle sized for its planets; bubbles are relaxed so they touch but don't merge
+    br = np.zeros(k)
+    for g in range(k):
+        m = group == g
+        br[g] = math.sqrt(((2 * halo[m]) ** 2).sum() / math.pi) * 0.6 + 12 if m.any() else 0
+    centres = np.stack([np.cos(angles), np.sin(angles)], 1) * (star_r + 30 + br)[:, None]
+    for _ in range(400):
+        for g in range(k):
+            if br[g] == 0:
+                continue
+            for h in range(k):
+                if h == g or br[h] == 0:
+                    continue
+                dv = centres[g] - centres[h]
+                dd = np.linalg.norm(dv) or 1e-6
+                need = br[g] + br[h] + 34
+                if dd < need:
+                    centres[g] += dv / dd * (need - dd) * 0.5
+            r = np.linalg.norm(centres[g]) or 1e-6
+            need = star_r + 26 + br[g]
+            centres[g] *= max(need, r * 0.985) / r  # gently fall toward the star, never into it
+    pos = centres[group] + rng.normal(0, 1, (n, 2)) * halo[:, None]
+    # planets from different bubbles keep a visible gap between them
+    minsep = halo[:, None] + halo[None, :] + np.where(group[:, None] != group[None, :], 26.0, 0.0)
+    for it in range(360):
+        d = pos[:, None, :] - pos[None, :, :]
+        dist = np.maximum(np.linalg.norm(d, axis=2), 1e-3)
+        np.fill_diagonal(dist, 1e9)
+        overlap = np.clip(minsep - dist, 0, None)
+        push = (d / dist[..., None] * overlap[..., None]).sum(1) * 0.5
+        cool = 1 - it / 360
+        pos += push + (centres[group] - pos) * 0.035 * (0.3 + cool)
+        r = np.linalg.norm(pos, axis=1)
+        minr = star_r + 16 + halo
+        inside = r < minr
+        if inside.any():
+            pos[inside] *= (minr[inside] / np.maximum(r[inside], 1e-6))[:, None]
+    hull = hull_radii(pos, halo, star_r)
+    # actual bubble outlines: centre and radius of each cluster as it settled
+    bubbles = []
+    for g in range(k):
+        m = group == g
+        if m.any():
+            c = pos[m].mean(0)
+            r = float((np.linalg.norm(pos[m] - c, axis=1) + halo[m]).max()) + 8
+            bubbles.append([round(float(c[0]), 1), round(float(c[1]), 1), round(r, 1)])
+    return [tuple(map(float, q)) for q in pos], float(max(hull)), hull, bubbles
+
+
+HULL_N = 48
+
+
+def hull_radii(pos, halo, star_r):
+    """Wobbly outline of a system: for each direction, how far its planets reach (smoothed)."""
+    pa = np.arctan2(pos[:, 1], pos[:, 0])
+    pr = np.linalg.norm(pos, axis=1)
     out = []
-    inner_edge = star_r + 30
-    cur_r, cur_max, iv = None, 0.0, []
-    for pl, pref in zip(planets, prefs):
-        halo = pl["halo"]
-        while True:
-            if cur_r is None:
-                cur_r, cur_max, iv = inner_edge + halo + gap, halo, []
-            if cur_r - halo < inner_edge + gap - 1e-6:
-                inner_edge, cur_r = cur_r + cur_max, None
-                continue
-            half = (halo + gap / 2) / cur_r
-            ang = None
-            if not iv:
-                ang = pref
-            else:
-                for k in range(0, 420):
-                    cand = pref + (k + 1) // 2 * 0.015 * (1 if k % 2 else -1)
-                    if all(abs((cand - a + math.pi) % (2 * math.pi) - math.pi) >= half + h for a, h in iv):
-                        ang = cand
-                        break
-            if ang is None:
-                inner_edge, cur_r = cur_r + cur_max, None
-                continue
-            iv.append((ang, half))
-            cur_max = max(cur_max, halo)
-            out.append((cur_r * math.cos(ang), cur_r * math.sin(ang)))
-            break
-    outer = cur_r + cur_max if cur_r is not None else inner_edge
-    return out, outer
+    for a in np.linspace(0, 2 * math.pi, HULL_N, endpoint=False):
+        diff = np.abs((pa - a + math.pi) % (2 * math.pi) - math.pi)
+        m = diff < 0.45
+        val = float(((pr[m] + halo[m]) * np.cos(diff[m])).max()) if m.any() else 0.0
+        out.append(max(star_r + 45, val + 22))
+    h = np.array(out)
+    for _ in range(2):
+        h = (np.roll(h, 1) + h * 2 + np.roll(h, -1)) / 4
+    return [round(float(x), 1) for x in h]
+
+
+def hull_at(hull, a):
+    """Interpolated hull radius in direction a."""
+    f = (a % (2 * math.pi)) / (2 * math.pi) * HULL_N
+    i = int(f) % HULL_N
+    t = f - int(f)
+    return hull[i] * (1 - t) + hull[(i + 1) % HULL_N] * t
 
 
 def hsl_hex(h, s, l):
@@ -220,7 +287,7 @@ def main(src, out_dir, min_style, min_label, sample):
     spos = {s: pos[i] for i, s in enumerate(stars)}
 
     # Розміщення планет з урахуванням напрямку до «другого» стилю
-    star_radius = {}
+    star_radius, star_hull, star_bub = {}, {}, {}
     for s in stars:
         ps = sorted(sys_by_star[s], key=lambda p: -p["halo"])
         prefs = []
@@ -231,7 +298,8 @@ def main(src, out_dir, min_style, min_label, sample):
                 d = spos[other] - spos[s]
                 v += d / (np.linalg.norm(d) or 1) * c * weight.get((s, other), 0.1)
             prefs.append(math.atan2(v[1], v[0]) if np.linalg.norm(v) > 1e-9 else rnd.uniform(0, 2 * math.pi))
-        xy, outer = place_planets(ps, star_core[s], prefs)
+        xy, outer, hull, bubbles = place_planets(ps, star_core[s], prefs, seed=hash(s) & 0xFFFF)
+        star_bub[s] = bubbles
         for p, (x, y) in zip(ps, xy):
             p["lx"], p["ly"] = x, y
         # пояс астероїдів
@@ -240,15 +308,19 @@ def main(src, out_dir, min_style, min_label, sample):
         if len(bt) > C.MAX_BELT_TRACKS:  # even sample across the years instead of only the oldest
             step = len(bt) / C.MAX_BELT_TRACKS
             bt = [bt[int(k * step)] for k in range(C.MAX_BELT_TRACKS)]
-        inner = outer + 24
-        width = max(16, len(bt) * 9 / (2 * math.pi * inner))
+        # the asteroid belt follows the system's wobbly outline
+        perim = sum(hull) / len(hull) * 2 * math.pi
+        width = max(16, len(bt) * 9 / perim)
         p_belt = []
         for i, (r, v) in enumerate(bt):
             h = int(v["yt"].encode().hex()[:8], 16)
             a = (h % 100000) / 100000 * 2 * math.pi
-            rr = inner + ((h >> 5) % 1000) / 1000 * width
+            rr = hull_at(hull, a) + 10 + ((h >> 5) % 1000) / 1000 * width
             p_belt.append((r, v, rr * math.cos(a), rr * math.sin(a)))
-        star_radius[s] = (inner + width) if bt else outer
+        if bt:
+            hull = [round(x + 10 + width, 1) for x in hull]
+        star_hull[s] = hull
+        star_radius[s] = max(hull)
         sys_by_star[s] = ps
         belt[s] = p_belt
 
@@ -289,7 +361,7 @@ def main(src, out_dir, min_style, min_label, sample):
         chunks.append(ch)
         stars_out.append({"name": s, "x": round(float(sx), 1), "y": round(float(sy), 1), "core": round(star_core[s], 1),
                           "R": round(star_radius[s], 1), "n": style_n[s], "tracks": n_tracks_star, "color": color,
-                          "yh": year_hist[s]})
+                          "yh": year_hist[s], "hull": star_hull[s], "bub": star_bub[s]})
 
     links = [[stars.index(a), stars.index(b), round(w, 4)] for (a, b), w in weight.items() if a < b and w >= 0.03]
     out_dir.mkdir(parents=True, exist_ok=True)
