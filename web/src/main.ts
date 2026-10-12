@@ -12,7 +12,7 @@ import "./style.css";
 import { Player } from "./player";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
-type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[]; hull?: number[]; arms?: [number, number][][] };
+type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[]; hull?: number[]; bub?: [number, number, number][] };
 type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; t0: number; t1: number };
 type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };
@@ -280,30 +280,31 @@ function drawPlanetBody(i: number, x: number, y: number, r: number) {
   }
 }
 
-// Spiral galaxy: soft glowing arms (drawn additively) and a bright bulge around the core
+// System outline: a wobbly hull plus soap-bubble outlines around each cluster of labels
 function drawSystemShape(si: number) {
-  const s = stars[si], p = toScreen(s.x, s.y), arms = s.arms;
-  if (!arms) return;
-  lc.globalCompositeOperation = "lighter"; lc.lineCap = "round"; lc.lineJoin = "round";
-  const path = (pts: [number, number][]) => {
-    lc.beginPath();
-    pts.forEach(([x, y], k) => {
-      const X = p.x + x * cam.s, Y = p.y + y * cam.s;
-      if (k === 0) lc.moveTo(X, Y);
-      else { const [px, py] = pts[k - 1]; lc.quadraticCurveTo(p.x + px * cam.s, p.y + py * cam.s, (p.x + px * cam.s + X) / 2, (p.y + py * cam.s + Y) / 2); }
-    });
-  };
-  for (const [w, a] of [[70, 0.035], [34, 0.05], [12, 0.07]] as [number, number][]) {
-    lc.strokeStyle = sc(si, a); lc.lineWidth = Math.max(1, w * cam.s);
-    for (const arm of arms) { path(arm); lc.stroke(); }
+  const s = stars[si], p = toScreen(s.x, s.y);
+  const h = s.hull;
+  lc.setLineDash([1, 5]); lc.lineWidth = 1; lc.strokeStyle = sc(si, 0.26);
+  lc.beginPath();
+  if (h && h.length > 2) {
+    const n = h.length, pt = (k: number) => { const a = (k % n) / n * Math.PI * 2, r = h[k % n] * cam.s; return [p.x + Math.cos(a) * r, p.y + Math.sin(a) * r]; };
+    let [x0, y0] = pt(0), [x1, y1] = pt(1);
+    lc.moveTo((x0 + x1) / 2, (y0 + y1) / 2);
+    for (let k = 1; k <= n; k++) { const [ax, ay] = pt(k), [bx, by] = pt(k + 1); lc.quadraticCurveTo(ax, ay, (ax + bx) / 2, (ay + by) / 2); }
+  } else lc.arc(p.x, p.y, s.R * cam.s, 0, 7);
+  lc.stroke(); lc.setLineDash([]);
+  if (!s.bub || cam.s < LOD_PLANETS) return;
+  for (const [bx, by, br] of s.bub) {
+    const cx = p.x + bx * cam.s, cy = p.y + by * cam.s, r = br * cam.s;
+    if (r < 6) continue;
+    lc.fillStyle = sc(si, 0.035); lc.beginPath(); lc.arc(cx, cy, r, 0, 7); lc.fill();
+    lc.strokeStyle = sc(si, 0.3); lc.lineWidth = 1; lc.stroke();
+    // soap-bubble shine
+    lc.strokeStyle = sc(si, 0.55); lc.lineWidth = Math.max(1.2, r * 0.025); lc.lineCap = "round";
+    lc.beginPath(); lc.arc(cx, cy, r * 0.86, Math.PI * 1.08, Math.PI * 1.36); lc.stroke();
+    lc.beginPath(); lc.arc(cx, cy, r * 0.86, Math.PI * 1.42, Math.PI * 1.47); lc.stroke();
+    lc.lineCap = "butt";
   }
-  lc.setLineDash([1, 6]); lc.lineWidth = 1; lc.strokeStyle = sc(si, 0.28);
-  for (const arm of arms) { path(arm); lc.stroke(); }
-  lc.setLineDash([]); lc.lineCap = "butt";
-  // bulge
-  const B = Math.max(10, s.core * 4 * cam.s);
-  lc.globalAlpha = 0.5; lc.drawImage(glowS[si], p.x - B, p.y - B, B * 2, B * 2); lc.globalAlpha = 1;
-  lc.globalCompositeOperation = "source-over";
 }
 
 // Статичний шар: перемальовується лише коли рухається камера або змінюється вибір
@@ -325,7 +326,7 @@ function drawStatic() {
   stars.forEach((s, si) => {
     if (!inView(s.x, s.y, s.R)) return;
     const p = toScreen(s.x, s.y), R = s.R * cam.s;
-    lc.globalAlpha = 0.07; lc.drawImage(glowS[si], p.x - R, p.y - R, R * 2, R * 2);
+    lc.globalAlpha = 0.16; lc.drawImage(glowS[si], p.x - R, p.y - R, R * 2, R * 2);
   });
   lc.globalAlpha = 1; lc.globalCompositeOperation = "source-over";
 
