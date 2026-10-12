@@ -268,7 +268,7 @@ let tNow = 0;
 const pOmega = planets.map((p) => {
   if (!p.o) return 0;
   const o0 = stars[p.s].orb?.[0] || p.o;
-  return (p.s % 2 ? -1 : 1) * (6.2832 / 90) * Math.pow(o0 / p.o, 0.9);
+  return (p.s % 2 ? -1 : 1) * (6.2832 / 180) * Math.pow(o0 / p.o, 0.9);
 });
 const PP = { x: 0, y: 0 };
 function planetPos(i: number, t = tNow) {
