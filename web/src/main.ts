@@ -615,7 +615,7 @@ const player = new Player("yt", {
     m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. JUMPING TO A NEARBY SIGNAL…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
     setTimeout(next, 1500);
   },
-  onPlayingChange: (p) => { $("pToggle").textContent = p ? "❚❚" : "▶"; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
+  onPlayingChange: (p) => { $("live").classList.toggle("on", p); $("pToggle").textContent = p ? "❚❚" : "▶"; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
 });
 function playTrack(ref: TrackRef) {
   if (map.meta.sample) return;
@@ -625,7 +625,7 @@ function playTrack(ref: TrackRef) {
   if (!last || last.i !== ref.i || last.s !== ref.s) hist_.push(ref);
   $("playerBox").hidden = false; $("pMsg").hidden = true;
   player.play(ch.yt[ref.i]); logTrack(ref); ticker(); dirty = true;
-  $("npTitle").textContent = `${ch.an[ch.a[ref.i]]} — ${ch.t[ref.i]}`;
+  $("npTitle").textContent = ch.t[ref.i]; $("npArtist").textContent = ch.an[ch.a[ref.i]];
   seekEl.value = "0"; paintRange(seekEl); $("tCur").textContent = "0:00"; $("tDur").textContent = "0:00";
 }
 function next() { if (!nowPlaying) return; const n = nearestTracks(nowPlaying, 1, played)[0]; if (n) select({ kind: "track", ...n }, true, true); }
@@ -647,6 +647,7 @@ setInterval(() => {
   const d = player.duration(), t = player.time();
   seekEl.value = String(d ? Math.round(t / d * 1000) : 0); paintRange(seekEl);
   $("tCur").textContent = mmss(t); $("tDur").textContent = d ? mmss(d) : "0:00";
+  $("tBig").textContent = mmss(t); $("tBigDur").textContent = `/ ${d ? mmss(d) : "0:00"}`;
 }, 250);
 
 // ---------- Журнал ----------
@@ -880,7 +881,7 @@ document.fonts?.ready.then(() => { dirty = true; });
 // Test hook: #test-<videoId> plays one YouTube video through the transport (works with the test map too)
 const tm = location.hash.match(/^#test-([A-Za-z0-9_-]{11})$/);
 if (tm) {
-  $("playerBox").hidden = false; $("npTitle").textContent = `TEST // ${tm[1]}`;
+  $("playerBox").hidden = false; $("npTitle").textContent = "TEST SIGNAL"; $("npArtist").textContent = tm[1];
   player.play(tm[1]);
 }
 const m = location.hash.match(/^#t(\d+)-(\d+)$/);

@@ -46,8 +46,18 @@
         <div class="ph-head"><span id="dosId">DOSSIER // SECTOR</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
         <div class="player" id="playerBox" hidden>
           <!-- YouTube's rules: the player stays visible (≥200px), nothing is drawn over it -->
-          <div class="video" id="videoWrap"><div id="yt"></div></div>
-          <div class="np"><span class="np-k">NOW PLAYING</span><span class="np-t" id="npTitle">—</span></div>
+          <div class="deck-p">
+            <div class="monitor">
+              <div class="mon-head"><span>FEED // YOUTUBE</span><span class="live" id="live">● LIVE</span></div>
+              <div class="video" id="videoWrap"><div id="yt"></div></div>
+            </div>
+            <div class="np">
+              <span class="np-k">NOW PLAYING</span>
+              <span class="np-t" id="npTitle">—</span>
+              <span class="np-a" id="npArtist"></span>
+              <span class="np-time"><b id="tBig">0:00</b><span id="tBigDur">/ 0:00</span></span>
+            </div>
+          </div>
           <div class="seek">
             <span class="tc" id="tCur">0:00</span>
             <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">
