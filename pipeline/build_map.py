@@ -191,6 +191,7 @@ def main(src, out_dir, min_style, min_label, sample):
             "r": r_pl, "halo": r_pl + 4 + 1.5 * math.sqrt(n_tr),
             "years": [min((r["year"] for r in rs if r["year"]), default=0), max(r["year"] for r in rs)],
             "active_years": len({r["year"] for r in rs if r["year"]}),
+            "rs": rs,
         })
     for r in rel:
         if not r["label"]:
@@ -200,6 +201,12 @@ def main(src, out_dir, min_style, min_label, sample):
     sys_by_star = defaultdict(list)
     for p in planets:
         sys_by_star[p["star"]].append(p)
+    # Only the biggest labels become planets; the rest join the asteroid belt (keeps the map readable and fast)
+    for s in list(sys_by_star):
+        ps = sorted(sys_by_star[s], key=lambda p: -p["n"])
+        for p in ps[C.MAX_PLANETS_PER_STAR:]:
+            belt[s].extend(p["rs"])
+        sys_by_star[s] = ps[:C.MAX_PLANETS_PER_STAR]
     star_core = {s: 10 + 3.2 * math.log1p(style_n[s]) for s in stars}
     est = np.array([math.sqrt(sum((p["halo"] + 7) ** 2 * 3.6 for p in sys_by_star[s]) + star_core[s] ** 2 * 6) + 30 + math.sqrt(len(belt[s])) * 2 for s in stars])
     pos = layout_stars(stars, est, weight)
@@ -222,7 +229,10 @@ def main(src, out_dir, min_style, min_label, sample):
             p["lx"], p["ly"] = x, y
         # пояс астероїдів
         bel = sorted(belt[s], key=lambda r: r["year"] or 9999)
-        bt = [(r, v) for r in bel for v in r["videos"]][:C.MAX_BELT_TRACKS]
+        bt = [(r, v) for r in bel for v in r["videos"]]
+        if len(bt) > C.MAX_BELT_TRACKS:  # even sample across the years instead of only the oldest
+            step = len(bt) / C.MAX_BELT_TRACKS
+            bt = [bt[int(k * step)] for k in range(C.MAX_BELT_TRACKS)]
         inner = outer + 24
         width = max(16, len(bt) * 9 / (2 * math.pi * inner))
         p_belt = []

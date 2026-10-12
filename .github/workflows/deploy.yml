@@ -1,5 +1,5 @@
-# Збирає сайт і викладає на GitHub Pages. Якщо справжні дані вже зібрані — бере їх,
-# інакше показує тестову мапу.
+# Builds the site and deploys it to GitHub Pages. Map data comes from the `data` branch
+# (overwritten on every refresh, so history stays small); without it the test map is used.
 name: Викласти сайт
 
 on:
@@ -31,13 +31,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Підставити справжні дані, якщо вони є
+      - name: Use the real map data if the data branch exists
         run: |
-          if gh release download data-latest -p map-data.tar.gz -D /tmp 2>/dev/null; then
+          if git fetch --depth 1 origin data 2>/dev/null; then
+            rm -rf web/public/data && mkdir -p web/public/data
+            git --work-tree=web/public/data checkout FETCH_HEAD -- .
+            echo "Real map: $(du -sh web/public/data | cut -f1)"
+          elif gh release download data-latest -p map-data.tar.gz -D /tmp 2>/dev/null; then
             rm -rf web/public/data && tar -xzf /tmp/map-data.tar.gz -C web/public
-            echo "Справжня мапа: $(du -sh web/public/data | cut -f1)"
           else
-            echo "Справжніх даних ще немає — викладаю тестову мапу."
+            echo "No real data yet — deploying the test map."
           fi
 
       - uses: actions/setup-node@v4
