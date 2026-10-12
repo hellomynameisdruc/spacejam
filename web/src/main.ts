@@ -154,14 +154,18 @@ function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: numbe
 
 // ---------- Канвас і камера ----------
 const vp = $("viewport"), cv = $<HTMLCanvasElement>("sky"), ctx = cv.getContext("2d")!;
-const layer = document.createElement("canvas"), lc = layer.getContext("2d")!; // статичний шар мапи
+// Static map layer: its own canvas under the live one, drawn with a margin around the view so the
+// browser can slide it (CSS transform, no repaint) while panning or following a planet.
+const MARGIN = 200;
+const layer = $<HTMLCanvasElement>("skyBg"), lc = layer.getContext("2d")!;
 let W = 0, H = 0, DPR = 1, dirty = true;
 const ditherPats: (CanvasPattern | null)[] = [];
 function resize() {
   const r = vp.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
   W = Math.max(1, r.width); H = Math.max(1, r.height); DPR = dpr;
-  cv.width = layer.width = W * dpr; cv.height = layer.height = H * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); lc.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
+  cv.width = W * dpr; cv.height = H * dpr;
+  layer.width = (W + 2 * MARGIN) * dpr; layer.height = (H + 2 * MARGIN) * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); lc.setTransform(dpr, 0, 0, dpr, MARGIN * dpr, MARGIN * dpr); ctx.imageSmoothingEnabled = false;
   dirty = true;
 }
 new ResizeObserver(resize).observe(vp); resize();
@@ -193,9 +197,12 @@ const dust = Array.from({ length: 420 }, () => ({ x: rnd(), y: rnd(), d: 0.15 + 
 const FONT_LBL = "DotGothic16, 'Martian Mono', monospace";
 const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
 let G: CanvasRenderingContext2D = lc; // where label()/brackets() draw: static layer, or the live frame
+const textW = new Map<string, number>(); // measured label widths (measureText is slow)
 function label(txt: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = "center", force = false, inv = false) {
   G.font = `${size}px ${FONT_LBL}`;
-  const w = G.measureText(txt).width, h = size + 2;
+  const key = size + "|" + txt; let w = textW.get(key);
+  if (w === undefined) { w = G.measureText(txt).width; if (textW.size > 20000) textW.clear(); textW.set(key, w); }
+  const h = size + 2;
   const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
   const r = { x0: x0 - 3, y0: y - h, x1: x0 + w + 3, y1: y + 4 };
   if (!force && placed.some((p) => p.x0 < r.x1 && p.x1 > r.x0 && p.y0 < r.y1 && p.y1 > r.y0)) return false;
@@ -219,8 +226,10 @@ function getDither(si: number) {
   const c = sprite(3, 3, (g) => { g.fillStyle = sc(si, 0.95); g.fillRect(0, 0, 1, 1); g.fillStyle = sc(si, 0.45); g.fillRect(2, 2, 1, 1); });
   return (ditherPats[si] = lc.createPattern(c, "repeat"))!;
 }
-let V0 = { x: 0, y: 0 }, V1 = { x: 0, y: 0 };
+let V0 = { x: 0, y: 0 }, V1 = { x: 0, y: 0 }, LV0 = { x: 0, y: 0 }, LV1 = { x: 0, y: 0 };
 const inView = (x: number, y: number, r: number) => x + r > V0.x && x - r < V1.x && y + r > V0.y && y - r < V1.y;
+// visible right now (the static layer's V0/V1 include the slide margin)
+const inLive = (x: number, y: number, r: number) => x + r > LV0.x && x - r < LV1.x && y + r > LV0.y && y - r < LV1.y;
 const starSize = (s: Star) => { const k = starRel[starIdx.get(s)!]; return Math.max(3.5 + 8 * k, Math.min(54, (12 + 44 * k) * cam.s)); };
 
 // Просторова сітка треків: швидко знаходимо точки у видимій області
@@ -353,19 +362,27 @@ function drawSystemShape(si: number) {
 
 let marker: (o: Sel, strong: boolean) => void = () => {};
 // Статичний шар: перемальовується лише коли рухається камера або змінюється вибір
-let layerCam = { x: 0, y: 0, s: 0 };
+let gridStep = 1, lastReadout = "";
+const sg = (n: number) => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1).padStart(6, "0");
+function readout() {
+  const c = toWorld(W / 2, H / 2), st = gridStep;
+  const txt = `X ${sg(c.x)}  Y ${sg(c.y)}  ×${cam.s.toFixed(2)}  GRID ${st >= 1 ? st : st.toFixed(1)}`;
+  if (txt !== lastReadout) { $("readout").textContent = txt; lastReadout = txt; }
+}
+let layerCam = { x: 0, y: 0, s: 0 }, layerShift = "", lastStatic = 0, lastScale = 0, lastScaleT = 0;
 function drawStatic() {
-  layerCam = { x: cam.x, y: cam.y, s: cam.s };
+  layerCam = { x: cam.x, y: cam.y, s: cam.s }; lastStatic = performance.now();
+  if (layerShift) { layer.style.transform = ""; layerShift = ""; }
   placed.length = 0;
-  V0 = toWorld(0, 0); V1 = toWorld(W, H);
-  lc.fillStyle = BG; lc.fillRect(0, 0, W, H);
+  V0 = toWorld(-MARGIN, -MARGIN); V1 = toWorld(W + MARGIN, H + MARGIN);
+  lc.fillStyle = BG; lc.fillRect(-MARGIN, -MARGIN, W + 2 * MARGIN, H + 2 * MARGIN);
 
   // координатна сітка
   const step = Math.pow(10, Math.ceil(Math.log10(70 / cam.s)));
   const st = step * cam.s < 140 ? step : step / 2;
   lc.strokeStyle = ph(0.06); lc.lineWidth = 1; lc.beginPath();
-  for (let x = Math.floor(V0.x / st) * st; x < V1.x; x += st) { const p = toScreen(x, 0).x; lc.moveTo(Math.round(p) + 0.5, 0); lc.lineTo(Math.round(p) + 0.5, H); }
-  for (let y = Math.floor(V0.y / st) * st; y < V1.y; y += st) { const p = toScreen(0, y).y; lc.moveTo(0, Math.round(p) + 0.5); lc.lineTo(W, Math.round(p) + 0.5); }
+  for (let x = Math.floor(V0.x / st) * st; x < V1.x; x += st) { const p = toScreen(x, 0).x; lc.moveTo(Math.round(p) + 0.5, -MARGIN); lc.lineTo(Math.round(p) + 0.5, H + MARGIN); }
+  for (let y = Math.floor(V0.y / st) * st; y < V1.y; y += st) { const p = toScreen(0, y).y; lc.moveTo(-MARGIN, Math.round(p) + 0.5); lc.lineTo(W + MARGIN, Math.round(p) + 0.5); }
   lc.stroke();
 
   // туманності систем (спрайт світіння, без розмиття)
@@ -380,8 +397,9 @@ function drawStatic() {
 
   // пил
   for (const d of dust) {
-    let x = (d.x * W * 4 - cam.x * cam.s * d.d * 0.04) % W, y = (d.y * H * 4 - cam.y * cam.s * d.d * 0.04) % H;
-    if (x < 0) x += W; if (y < 0) y += H;
+    const DW = W + 2 * MARGIN, DH = H + 2 * MARGIN;
+    let x = (d.x * DW * 4 - cam.x * cam.s * d.d * 0.04) % DW, y = (d.y * DH * 4 - cam.y * cam.s * d.d * 0.04) % DH;
+    if (x < 0) x += DW; if (y < 0) y += DH; x -= MARGIN; y -= MARGIN;
     lc.fillStyle = ph(0.1 + d.b * 0.3);
     if (warpFx > 0.05) lc.fillRect(x, y, 1 + (x - W / 2) * warpFx * 0.25, 1);
     else lc.fillRect(Math.round(x), Math.round(y), 1, 1);
@@ -443,37 +461,46 @@ function drawStatic() {
   if (hover && !same(hover, sel)) marker(hover, false);
   marker(sel, true);
 
-  const c = toWorld(W / 2, H / 2);
-  const sg = (n: number) => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1).padStart(6, "0");
-  $("readout").textContent = `X ${sg(c.x)}  Y ${sg(c.y)}  ×${cam.s.toFixed(2)}  GRID ${st >= 1 ? st : st.toFixed(1)}`;
+  gridStep = st; readout();
   $("scaleName").textContent = cam.s < LOD_PLANETS ? "GALAXY" : cam.s < LOD_TRACKS ? "SYSTEMS" : cam.s < LOD_TITLES ? "ORBITS" : "SIGNALS";
 }
 
 // Кожен кадр: готовий статичний шар + пульсари + маяк треку, що грає
-// Planet bodies are cached as small sprites per zoom level and blitted at their moving positions
-const pSprite: (HTMLCanvasElement | null)[] = planets.map(() => null);
-let spriteScale = 0;
+// Planet bodies are cached as sprites at bucketed sizes (~12% steps) and scaled to the exact size,
+// so zooming doesn't repaint every planet on every wheel tick. Unused sprites are dropped.
+const pSprite: ({ c: HTMLCanvasElement; rb: number; used: number } | null)[] = planets.map(() => null);
+let frameNo = 0, spriteCount = 0;
 function planetSprite(i: number, r: number) {
-  if (spriteScale !== cam.s) { pSprite.fill(null); spriteScale = cam.s; }
-  const have = pSprite[i]; if (have) return have;
-  const half = Math.ceil((ringedP[i] ? r * 2.05 : r) + 3), w = half * 2;
-  const c = document.createElement("canvas"); c.width = c.height = Math.ceil(w * DPR);
-  const g = c.getContext("2d")!; g.setTransform(DPR, 0, 0, DPR, 0, 0);
-  const prev = G; G = g; drawPlanetBody(i, half, half, r); G = prev;
-  return (pSprite[i] = c);
+  const rb = Math.pow(2, Math.round(Math.log2(r) * 6) / 6);
+  let e = pSprite[i];
+  if (!e || e.rb !== rb) {
+    const half = Math.ceil((ringedP[i] ? rb * 2.05 : rb) + 3), w = half * 2;
+    const c = e?.c ?? document.createElement("canvas"), px = Math.ceil(w * DPR);
+    if (c.width !== px) { c.width = c.height = px; } else c.getContext("2d")!.clearRect(0, 0, px, px);
+    const g = c.getContext("2d")!; g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const prev = G; G = g; drawPlanetBody(i, half, half, rb); G = prev;
+    if (!e) spriteCount++;
+    e = pSprite[i] = { c, rb, used: frameNo };
+  }
+  e.used = frameNo;
+  return { c: e.c, k: r / rb };
+}
+function sweepSprites() {
+  if (spriteCount < 600) return;
+  for (let i = 0; i < pSprite.length; i++) { const e = pSprite[i]; if (e && frameNo - e.used > 240) { pSprite[i] = null; spriteCount--; } }
 }
 function drawPlanets(t: number) {
   if (cam.s < LOD_PLANETS) return;
   const vis: number[] = [];
   stars.forEach((st, si) => {
     if (!inView(st.x, st.y, st.R)) return;
-    for (const i of planetsByStar[si]) { const q = planetPos(i, t); if (inView(q.x, q.y, planets[i].r * 3)) vis.push(i); }
+    for (const i of planetsByStar[si]) { const q = planetPos(i, t); if (inLive(q.x, q.y, planets[i].r * 3)) vis.push(i); }
   });
   for (const i of vis) {
     const pl = planets[i], q = planetPos(i, t), p = toScreen(q.x, q.y), r = Math.max(1.5, pl.r * cam.s);
     if (r < 3) { ctx.fillStyle = sc(pl.s, 0.95); ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
     if (r > 180) { drawPlanetBody(i, p.x, p.y, r); continue; }
-    const c = planetSprite(i, r), w = c.width / DPR;
+    const { c, k } = planetSprite(i, r), w = c.width / DPR * k;
     ctx.drawImage(c, p.x - w / 2, p.y - w / 2, w, w);
   }
   vis.sort((a, b) => planets[b].n - planets[a].n);
@@ -485,20 +512,26 @@ function drawPlanets(t: number) {
 }
 function drawSatellites(t: number) {
   if (cam.s < LOD_TRACKS) return;
-  const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9))), titles = cam.s >= LOD_TITLES;
+  const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9))), titles = cam.s >= LOD_TITLES, half = sz / 2;
+  const ts = reduce ? 0 : t / 1000, k = cam.s, ox = W / 2 - cam.x * k, oy = H / 2 - cam.y * k;
   let nT = 0;
   stars.forEach((st, si) => {
-    if (!inView(st.x, st.y, st.R)) return;
-    const ch = chunks[si]; if (!ch || !orbitOf(si)) return;
+    if (!inLive(st.x, st.y, st.R)) return;
+    const ch = chunks[si], o = ch && orbitOf(si); if (!ch || !o) return;
     const back = new Path2D(), front = new Path2D();
     for (const pi of planetsByStar[si]) {
-      const pl = planets[pi], c = planetPos(pi, t); if (!inView(c.x, c.y, orbitR(pl))) continue;
+      const pl = planets[pi], c = planetPos(pi, t), cx = c.x, cy = c.y, rr = pl.r * pl.r;
+      if (!inLive(cx, cy, orbitR(pl))) continue;
       for (let i = pl.t0; i < pl.t1; i++) {
-        const q = trackPos(si, i, t);
-        if (q.x < V0.x || q.x > V1.x || q.y < V0.y || q.y > V1.y || hiddenBehind(si, i, q)) continue;
-        const p = toScreen(q.x, q.y), X = Math.round(p.x - sz / 2), Y = Math.round(p.y - sz / 2);
-        (q.z >= 0 ? front : back).rect(X, Y, sz, sz);
-        if (titles && q.z > 0 && nT < 160 && label(ch.t[i], p.x + 6, p.y + 4, 11, sc(si, 0.75), "left")) nT++;
+        const d = o.d[i]; if (!d) continue;
+        const th = o.th[i] + ts * o.w[i], cs = Math.cos(th), sn = Math.sin(th);
+        const X = d * cs, Y = d * sn * o.ci[i], z = d * sn * o.si[i];
+        const dx = X * o.cO[i] - Y * o.sO[i], dy = X * o.sO[i] + Y * o.cO[i];
+        if (z < 0 && dx * dx + dy * dy < rr) continue; // behind the planet
+        const sx = (cx + dx) * k + ox, sy = (cy + dy) * k + oy;
+        if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue;
+        (z >= 0 ? front : back).rect(Math.round(sx - half), Math.round(sy - half), sz, sz);
+        if (titles && z > 0 && nT < 160 && label(ch.t[i], sx + 6, sy + 4, 11, sc(si, 0.75), "left")) nT++;
       }
     }
     ctx.fillStyle = sc(si, 0.35); ctx.fill(back);
@@ -507,11 +540,23 @@ function drawSatellites(t: number) {
 }
 function drawLive(t: number) {
   tNow = t;
-  let ox = (cam.x - layerCam.x) * cam.s, oy = (cam.y - layerCam.y) * cam.s;
-  if (cam.s !== layerCam.s || Math.abs(ox) > 28 || Math.abs(oy) > 28) { drawStatic(); ox = oy = 0; }
-  if (ox || oy) { ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H); }
-  ctx.drawImage(layer, -ox, -oy, W, H);
+  // While the wheel is turning, let the browser scale the old layer and repaint it only a few times
+  // a second (and once more when zooming settles); panning just slides it.
+  const now = performance.now();
+  if (cam.s !== lastScale) { lastScale = cam.s; lastScaleT = now; }
+  let k = cam.s / layerCam.s, ox = (cam.x - layerCam.x) * cam.s, oy = (cam.y - layerCam.y) * cam.s;
+  const stale = k !== 1 && (now - lastStatic > 110 || now - lastScaleT > 140 || k < 0.84 || k > 1.2);
+  if (stale || Math.abs(ox) > MARGIN - 4 || Math.abs(oy) > MARGIN - 4) { drawStatic(); k = 1; ox = oy = 0; }
+  let shift = "";
+  if (k !== 1) {
+    const tx = (W / 2 + MARGIN) * (1 - k) + (layerCam.x - cam.x) * cam.s, ty = (H / 2 + MARGIN) * (1 - k) + (layerCam.y - cam.y) * cam.s;
+    shift = `translate(${tx.toFixed(1)}px,${ty.toFixed(1)}px) scale(${k.toFixed(4)})`;
+  } else if (ox || oy) shift = `translate(${(-ox).toFixed(1)}px,${(-oy).toFixed(1)}px)`;
+  if (shift !== layerShift) { layer.style.transform = shift; layerShift = shift; }
+  ctx.clearRect(0, 0, W, H);
+  LV0 = toWorld(0, 0); LV1 = toWorld(W, H);
   const nPlaced = placed.length; G = ctx;
+  frameNo++; if (frameNo % 120 === 0) sweepSprites(); if (frameNo % 6 === 0) readout();
   drawPlanets(t);
   drawSatellites(t);
   stars.forEach((s, si) => {
@@ -566,10 +611,14 @@ function pick(sx: number, sy: number): Sel {
   // A click on a planet's body (or its ring) always picks the planet, even if a satellite flies past
   if (cam.s >= LOD_PLANETS) {
     let hit = -1, hd = Infinity;
-    planets.forEach((pl, i) => {
-      const q = planetPos(i), p = toScreen(q.x, q.y), d = Math.hypot(p.x - sx, p.y - sy), r = pl.r * cam.s;
-      const reach = Math.max(10, (ringedP[i] ? r * 1.4 : r) + 6);
-      if (d < reach && d - r < hd) { hd = d - r; hit = i; }
+    const w0 = toWorld(sx, sy);
+    stars.forEach((st, si) => {
+      if (Math.hypot(w0.x - st.x, w0.y - st.y) > st.R + 40 / cam.s) return;
+      for (const i of planetsByStar[si]) {
+        const pl = planets[i], q = planetPos(i), p = toScreen(q.x, q.y), d = Math.hypot(p.x - sx, p.y - sy), r = pl.r * cam.s;
+        const reach = Math.max(10, (ringedP[i] ? r * 1.4 : r) + 6);
+        if (d < reach && d - r < hd) { hd = d - r; hit = i; }
+      }
     });
     if (hit >= 0) return { kind: "planet", p: hit };
   }
@@ -585,7 +634,6 @@ function pick(sx: number, sy: number): Sel {
       }
     });
   }
-  if (cam.s >= LOD_PLANETS) planets.forEach((p, i) => { const q = planetPos(i); consider({ kind: "planet", p: i }, q.x, q.y, Math.max(10, p.r * cam.s + 5)); });
   stars.forEach((st, s) => consider({ kind: "star", s }, st.x, st.y, Math.max(16, starSize(st) * 3 + 4)));
   return best;
 }
@@ -600,13 +648,13 @@ cv.addEventListener("pointermove", (e) => {
   const L = local(e);
   if (!ptrs.has(e.pointerId)) {
     const now = performance.now(); if (now - hoverT < 40) return; hoverT = now;
-    const h = pick(L.x, L.y); if (!same(h, hover)) { hover = h; cv.style.cursor = h ? "pointer" : ""; dirty = true; }
+    const h = pick(L.x, L.y); if (!same(h, hover)) { if (h?.kind === "star" || hover?.kind === "star") dirty = true; hover = h; cv.style.cursor = h ? "pointer" : ""; }
     return;
   }
   const prev = ptrs.get(e.pointerId)!, dx = L.x - prev.x, dy = L.y - prev.y; ptrs.set(e.pointerId, L);
-  if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()]; cam.s = clampS(pinch0.s * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d); dragged += 10; dirty = true; return; }
+  if (ptrs.size === 2 && pinch0) { const [a, b] = [...ptrs.values()]; cam.s = clampS(pinch0.s * Math.hypot(a.x - b.x, a.y - b.y) / pinch0.d); dragged += 10; return; }
   dragged += Math.abs(dx) + Math.abs(dy);
-  if (dragged > 4) { tween = null; follow = null; cam.x -= dx / cam.s; cam.y -= dy / cam.s; dirty = true; }
+  if (dragged > 4) { tween = null; follow = null; cam.x -= dx / cam.s; cam.y -= dy / cam.s; }
 });
 const up = (e: PointerEvent) => {
   ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = null; cv.classList.remove("drag");
@@ -616,7 +664,7 @@ cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
 cv.addEventListener("wheel", (e) => {
   e.preventDefault(); const L = local(e), before = toWorld(L.x, L.y);
   cam.s = clampS(cam.s * Math.exp(-e.deltaY * 0.0015));
-  const after = toWorld(L.x, L.y); cam.x += before.x - after.x; cam.y += before.y - after.y; tween = null; dirty = true;
+  const after = toWorld(L.x, L.y); cam.x += before.x - after.x; cam.y += before.y - after.y; tween = null;
 }, { passive: false });
 
 // ---------- Вибір ----------
