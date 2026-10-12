@@ -60,42 +60,65 @@ function setPhosphor(name: string) {
 }
 document.querySelectorAll<HTMLButtonElement>(".phos button").forEach((b) => (b.onclick = () => setPhosphor(b.dataset.ph!)));
 
-// ---------- Кольори систем і «корони» зір ----------
-// Кожна зоря має свій колір (сусідні стилі — схожі відтінки). Корона зорі — радіальний еквалайзер:
-// кожен промінь — рік, довжина — скільки релізів у стилю вийшло того року.
+// ---------- Кольори систем і пульсари ----------
+// Кожен стиль має свій колір (сусідні стилі — схожі відтінки). Зоря — пульсар: спалахує в типовому
+// для стилю темпі, раз на такт (4 удари) скидає оболонку-нову, промені повільно обертаються.
 const SC = stars.map((s) => { const h = s.color.replace("#", ""); return [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)); });
 const sc = (si: number, a = 1) => `rgba(${SC[si][0]},${SC[si][1]},${SC[si][2]},${a})`;
 const Y0 = map.meta.years?.[0] ?? 1980;
-const yhNorm = stars.map((s) => { const yh = s.yh || []; const mx = Math.max(1, ...yh); return yh.map((v) => Math.pow(v / mx, 0.75)); });
 const peakYear = stars.map((s) => { const yh = s.yh || []; let b = 0; yh.forEach((v, i) => { if (v > yh[b]) b = i; }); return Y0 + b; });
-function drawCorona(c: CanvasRenderingContext2D, si: number, cx: number, cy: number, r0: number, len: number, a = 1, rot = 0, hi = -1) {
-  const v = yhNorm[si], n = v.length || 1, step = (Math.PI * 2) / n;
-  c.lineWidth = Math.max(1, Math.min(4, (Math.PI * 2 * r0 / n) * 0.55));
-  c.lineCap = "butt";
-  for (let k = 0; k < n; k++) {
-    const ang = -Math.PI / 2 + rot + k * step, l = v[k] * len;
-    if (l < 0.5) continue;
-    c.strokeStyle = k === hi ? `rgba(255,255,255,${a})` : sc(si, a * (0.45 + 0.55 * v[k]));
-    c.beginPath(); c.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0); c.lineTo(cx + Math.cos(ang) * (r0 + l), cy + Math.sin(ang) * (r0 + l)); c.stroke();
-  }
-  c.strokeStyle = sc(si, a * 0.25); c.lineWidth = 1; c.setLineDash([1, 3]);
-  c.beginPath(); c.arc(cx, cy, r0 + len, 0, 7); c.stroke(); c.setLineDash([]);
+// Довідковий темп жанру (BPM), не виміряний з треків
+const TEMPO: [RegExp, number][] = [[/jungle|drum ?n ?bass|d&b/i, 170], [/juke|footwork/i, 160], [/hard house/i, 145], [/ghettotech/i, 145],
+  [/eurodance/i, 140], [/trance/i, 138], [/speed garage/i, 135], [/uk garage|2-step|bassline/i, 132], [/techno/i, 132], [/breakbeat|breaks/i, 130],
+  [/ghetto house/i, 130], [/progressive|electro house/i, 128], [/euro house|italo house|jackin|funky/i, 126], [/tech house|acid/i, 125],
+  [/minimal/i, 124], [/disco/i, 118], [/hip-house/i, 120], [/deep|soulful|afro|latin|garage house/i, 121], [/house/i, 124]];
+const bpm = stars.map((s) => TEMPO.find(([re]) => re.test(s.name))?.[1] ?? 124);
+const phase0 = stars.map((s) => (hash(s.name) % 1000) / 1000);
+function sprite(w: number, h: number, paint: (g: CanvasRenderingContext2D) => void) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d")!); return c;
+}
+const glowS = stars.map((_, si) => sprite(64, 64, (g) => {
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.16, sc(si, 1)); gr.addColorStop(0.42, sc(si, 0.32)); gr.addColorStop(1, sc(si, 0));
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+}));
+const beamS = stars.map((_, si) => sprite(256, 16, (g) => {
+  const gr = g.createLinearGradient(0, 0, 256, 0); gr.addColorStop(0, sc(si, 0.95)); gr.addColorStop(0.35, sc(si, 0.35)); gr.addColorStop(1, sc(si, 0));
+  g.fillStyle = gr; g.beginPath(); g.moveTo(0, 8); g.lineTo(256, 1); g.lineTo(256, 15); g.closePath(); g.fill();
+}));
+function pulseOf(si: number, t: number) {
+  const beat = (t / 1000) * bpm[si] / 60 + phase0[si];
+  return { p: reduce ? 0.4 : Math.exp(-(beat % 1) * 6), bar: reduce ? 0.3 : (beat / 4) % 1 };
+}
+function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: number, s: number, t: number) {
+  const { p, bar } = pulseOf(si, t);
+  const prev = c.globalCompositeOperation;
+  // оболонка нової — раз на такт
+  c.strokeStyle = sc(si, 0.6 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.14 * (1 - bar));
+  c.beginPath(); c.arc(x, y, s * (1.2 + 7 * bar), 0, 7); c.stroke();
+  c.globalCompositeOperation = "lighter";
+  // промені пульсара
+  const rot = (reduce ? 0 : t / 1000) * (0.3 + (si % 4) * 0.08) + phase0[si] * 6.283, L = s * (5 + 3 * p);
+  c.save(); c.translate(x, y); c.rotate(rot); c.globalAlpha = 0.3 + 0.55 * p;
+  c.drawImage(beamS[si], 0, -s * 0.45, L, s * 0.9); c.rotate(Math.PI); c.drawImage(beamS[si], 0, -s * 0.45, L, s * 0.9);
+  c.restore();
+  // світіння
+  const gR = s * (3.4 + 3 * p); c.globalAlpha = 0.55 + 0.45 * p; c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2);
+  c.globalAlpha = 1; c.globalCompositeOperation = prev;
   // ядро
-  const g = c.createRadialGradient(cx, cy, 0, cx, cy, r0 * 0.95);
-  g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.35, sc(si, a)); g.addColorStop(1, sc(si, 0));
-  c.fillStyle = g; c.beginPath(); c.arc(cx, cy, r0 * 0.95, 0, 7); c.fill();
-  // мітка «нуль років» (1980) зверху
-  c.strokeStyle = sc(si, a * 0.7); c.lineWidth = 1; c.beginPath(); c.moveTo(cx, cy - r0 + 1); c.lineTo(cx, cy - r0 - Math.min(4, len * 0.2)); c.stroke();
+  c.fillStyle = "#fff"; c.beginPath(); c.arc(x, y, Math.max(1.2, s * 0.26 * (1 + 0.6 * p)), 0, 7); c.fill();
 }
 
 // ---------- Канвас і камера ----------
 const vp = $("viewport"), cv = $<HTMLCanvasElement>("sky"), ctx = cv.getContext("2d")!;
+const layer = document.createElement("canvas"), lc = layer.getContext("2d")!; // статичний шар мапи
 let W = 0, H = 0, dirty = true;
 const ditherPats: (CanvasPattern | null)[] = [];
 function resize() {
   const r = vp.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
   W = Math.max(1, r.width); H = Math.max(1, r.height);
-  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
+  cv.width = layer.width = W * dpr; cv.height = layer.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); lc.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
   dirty = true;
 }
 new ResizeObserver(resize).observe(vp); resize();
@@ -127,164 +150,195 @@ const dust = Array.from({ length: 420 }, () => ({ x: rnd(), y: rnd(), d: 0.15 + 
 const FONT_LBL = "DotGothic16, 'Martian Mono', monospace";
 const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
 function label(txt: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = "center", force = false, inv = false) {
-  ctx.font = `${size}px ${FONT_LBL}`;
-  const w = ctx.measureText(txt).width, h = size + 2;
+  lc.font = `${size}px ${FONT_LBL}`;
+  const w = lc.measureText(txt).width, h = size + 2;
   const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
   const r = { x0: x0 - 3, y0: y - h, x1: x0 + w + 3, y1: y + 4 };
   if (!force && placed.some((p) => p.x0 < r.x1 && p.x1 > r.x0 && p.y0 < r.y1 && p.y1 > r.y0)) return false;
   placed.push(r);
-  ctx.textAlign = align;
-  if (inv) { ctx.fillStyle = color; ctx.fillRect(r.x0 - 2, r.y0 + 1, r.x1 - r.x0 + 4, h + 4); ctx.fillStyle = BG; ctx.shadowBlur = 0; }
-  else { ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 6; }
-  ctx.fillText(txt, x, y); ctx.shadowBlur = 0;
+  lc.textAlign = align;
+  if (inv) { lc.fillStyle = color; lc.fillRect(r.x0 - 2, r.y0 + 1, r.x1 - r.x0 + 4, h + 4); lc.fillStyle = BG; }
+  else lc.fillStyle = color;
+  lc.fillText(txt, x, y);
   return true;
 }
 function brackets(x: number, y: number, r: number, color: string, len = 6) {
-  ctx.strokeStyle = color; ctx.lineWidth = 1.2; ctx.beginPath();
+  lc.strokeStyle = color; lc.lineWidth = 1.2; lc.beginPath();
   for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     const cx = x + sx * r, cy = y + sy * r;
-    ctx.moveTo(cx, cy - sy * len); ctx.lineTo(cx, cy); ctx.lineTo(cx - sx * len, cy);
+    lc.moveTo(cx, cy - sy * len); lc.lineTo(cx, cy); lc.lineTo(cx - sx * len, cy);
   }
-  ctx.stroke();
+  lc.stroke();
 }
 function getDither(si: number) {
   if (ditherPats[si]) return ditherPats[si]!;
-  const c = document.createElement("canvas"); c.width = c.height = 3;
-  const g = c.getContext("2d")!; g.fillStyle = sc(si, 0.95); g.fillRect(0, 0, 1, 1); g.fillStyle = sc(si, 0.45); g.fillRect(2, 2, 1, 1);
-  return (ditherPats[si] = ctx.createPattern(c, "repeat"))!;
+  const c = sprite(3, 3, (g) => { g.fillStyle = sc(si, 0.95); g.fillRect(0, 0, 1, 1); g.fillStyle = sc(si, 0.45); g.fillRect(2, 2, 1, 1); });
+  return (ditherPats[si] = lc.createPattern(c, "repeat"))!;
 }
-function inView(x: number, y: number, r: number) { const a = toWorld(0, 0), b = toWorld(W, H); return x + r > a.x && x - r < b.x && y + r > a.y && y - r < b.y; }
-// розмір корони на екрані
-const coronaR = (s: Star) => Math.max(4, Math.min(34, s.core * cam.s * 0.55));
-const coronaL = (s: Star) => Math.max(7, Math.min(70, s.core * cam.s * 1.25));
+let V0 = { x: 0, y: 0 }, V1 = { x: 0, y: 0 };
+const inView = (x: number, y: number, r: number) => x + r > V0.x && x - r < V1.x && y + r > V0.y && y - r < V1.y;
+const starSize = (s: Star) => Math.max(5, Math.min(26, s.core * cam.s * 0.5));
 
-function draw() {
+// Просторова сітка треків: швидко знаходимо точки у видимій області
+const CELL = 48;
+type Grid = Map<number, number[]>;
+const grids: (Grid | null)[] = stars.map(() => null);
+const gkey = (cx: number, cy: number) => (cx + 32768) * 65536 + (cy + 32768);
+function gridOf(si: number): Grid | null {
+  if (grids[si]) return grids[si];
+  const ch = chunks[si]; if (!ch) return null;
+  const g: Grid = new Map();
+  for (let i = 0; i < ch.x.length; i++) { const k = gkey(Math.floor(ch.x[i] / CELL), Math.floor(ch.y[i] / CELL)); let a = g.get(k); if (!a) g.set(k, (a = [])); a.push(i); }
+  return (grids[si] = g);
+}
+function eachTrack(si: number, x0: number, y0: number, x1: number, y1: number, fn: (i: number) => void) {
+  const g = gridOf(si); if (!g) return;
+  const st = stars[si];
+  x0 = Math.max(x0, st.x - st.R); y0 = Math.max(y0, st.y - st.R); x1 = Math.min(x1, st.x + st.R); y1 = Math.min(y1, st.y + st.R);
+  if (x0 > x1 || y0 > y1) return;
+  for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++)
+    for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy++) { const a = g.get(gkey(cx, cy)); if (a) for (const i of a) fn(i); }
+}
+
+// Статичний шар: перемальовується лише коли рухається камера або змінюється вибір
+function drawStatic() {
   placed.length = 0;
-  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
-  const v0 = toWorld(0, 0), v1 = toWorld(W, H);
+  V0 = toWorld(0, 0); V1 = toWorld(W, H);
+  lc.fillStyle = BG; lc.fillRect(0, 0, W, H);
 
-  // координатна сітка в просторі мапи
+  // координатна сітка
   const step = Math.pow(10, Math.ceil(Math.log10(70 / cam.s)));
   const st = step * cam.s < 140 ? step : step / 2;
-  ctx.strokeStyle = ph(0.06); ctx.lineWidth = 1; ctx.beginPath();
-  for (let x = Math.floor(v0.x / st) * st; x < v1.x; x += st) { const p = toScreen(x, 0).x; ctx.moveTo(Math.round(p) + 0.5, 0); ctx.lineTo(Math.round(p) + 0.5, H); }
-  for (let y = Math.floor(v0.y / st) * st; y < v1.y; y += st) { const p = toScreen(0, y).y; ctx.moveTo(0, Math.round(p) + 0.5); ctx.lineTo(W, Math.round(p) + 0.5); }
-  ctx.stroke();
+  lc.strokeStyle = ph(0.06); lc.lineWidth = 1; lc.beginPath();
+  for (let x = Math.floor(V0.x / st) * st; x < V1.x; x += st) { const p = toScreen(x, 0).x; lc.moveTo(Math.round(p) + 0.5, 0); lc.lineTo(Math.round(p) + 0.5, H); }
+  for (let y = Math.floor(V0.y / st) * st; y < V1.y; y += st) { const p = toScreen(0, y).y; lc.moveTo(0, Math.round(p) + 0.5); lc.lineTo(W, Math.round(p) + 0.5); }
+  lc.stroke();
 
-  // туманності систем
+  // туманності систем (спрайт світіння, без розмиття)
+  lc.globalCompositeOperation = "lighter";
   stars.forEach((s, si) => {
     if (!inView(s.x, s.y, s.R)) return;
     const p = toScreen(s.x, s.y), R = s.R * cam.s;
-    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-    g.addColorStop(0, sc(si, 0.10)); g.addColorStop(0.6, sc(si, 0.04)); g.addColorStop(1, sc(si, 0));
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, 7); ctx.fill();
+    lc.globalAlpha = 0.16; lc.drawImage(glowS[si], p.x - R, p.y - R, R * 2, R * 2);
   });
+  lc.globalAlpha = 1; lc.globalCompositeOperation = "source-over";
 
   // пил
   for (const d of dust) {
     let x = (d.x * W * 4 - cam.x * cam.s * d.d * 0.04) % W, y = (d.y * H * 4 - cam.y * cam.s * d.d * 0.04) % H;
     if (x < 0) x += W; if (y < 0) y += H;
-    ctx.fillStyle = ph(0.1 + d.b * 0.3);
-    if (warpFx > 0.05) { ctx.fillRect(x, y, 1 + (x - W / 2) * warpFx * 0.25, 1); }
-    else ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+    lc.fillStyle = ph(0.1 + d.b * 0.3);
+    if (warpFx > 0.05) lc.fillRect(x, y, 1 + (x - W / 2) * warpFx * 0.25, 1);
+    else lc.fillRect(Math.round(x), Math.round(y), 1, 1);
   }
 
-  // межі систем і гравітаційні зв'язки (градієнт між кольорами стилів)
-  ctx.setLineDash([1, 5]); ctx.lineWidth = 1;
-  stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) { const p = toScreen(s.x, s.y); ctx.strokeStyle = sc(si, 0.22); ctx.beginPath(); ctx.arc(p.x, p.y, s.R * cam.s, 0, 7); ctx.stroke(); } });
-  ctx.setLineDash([2, 5]);
+  // межі систем і зв'язки
+  lc.setLineDash([1, 5]); lc.lineWidth = 1;
+  stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) { const p = toScreen(s.x, s.y); lc.strokeStyle = sc(si, 0.22); lc.beginPath(); lc.arc(p.x, p.y, s.R * cam.s, 0, 7); lc.stroke(); } });
+  lc.setLineDash([2, 5]);
   for (const [a, b, w] of links) {
     const A = toScreen(stars[a].x, stars[a].y), B = toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);
-    const g = ctx.createLinearGradient(A.x, A.y, B.x, B.y); g.addColorStop(0, sc(a, al)); g.addColorStop(1, sc(b, al));
-    ctx.strokeStyle = g; ctx.lineWidth = w > 0.15 ? 1.6 : 1;
-    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+    const g = lc.createLinearGradient(A.x, A.y, B.x, B.y); g.addColorStop(0, sc(a, al)); g.addColorStop(1, sc(b, al));
+    lc.strokeStyle = g; lc.lineWidth = w > 0.15 ? 1.6 : 1;
+    lc.beginPath(); lc.moveTo(A.x, A.y); lc.lineTo(B.x, B.y); lc.stroke();
   }
-  ctx.setLineDash([]);
+  lc.setLineDash([]);
 
-  // треки — кольором своєї зорі
-  let titles: { x: number; y: number; t: string; si: number }[] = [];
+  // треки
+  const titles: { x: number; y: number; t: string; si: number }[] = [];
   if (cam.s >= LOD_TRACKS) {
     const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9)));
     stars.forEach((s, si) => {
       if (!inView(s.x, s.y, s.R)) return;
       const ch = chunks[si]; if (!ch) { loadChunk(si); return; }
-      ctx.fillStyle = sc(si, 0.9);
-      for (let i = 0; i < ch.x.length; i++) {
+      lc.fillStyle = sc(si, 0.9);
+      eachTrack(si, V0.x, V0.y, V1.x, V1.y, (i) => {
         const x = ch.x[i], y = ch.y[i];
-        if (x < v0.x || x > v1.x || y < v0.y || y > v1.y) continue;
+        if (x < V0.x || x > V1.x || y < V0.y || y > V1.y) return;
         const p = toScreen(x, y);
-        ctx.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz / 2), sz, sz);
+        lc.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz / 2), sz, sz);
         if (cam.s >= LOD_TITLES && titles.length < 240) titles.push({ x: p.x, y: p.y, t: ch.t[i], si });
-      }
+      });
     });
   } else {
+    lc.setLineDash([1, 2]);
     for (const p of planets) if (inView(p.x, p.y, 60)) {
       const q = toScreen(p.x, p.y), rr = (p.r + 4 + 1.5 * Math.sqrt(p.t1 - p.t0)) * cam.s;
-      if (rr > 2) { ctx.strokeStyle = sc(p.s, 0.3); ctx.setLineDash([1, 2]); ctx.beginPath(); ctx.arc(q.x, q.y, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+      if (rr > 2) { lc.strokeStyle = sc(p.s, 0.3); lc.beginPath(); lc.arc(q.x, q.y, rr, 0, 7); lc.stroke(); }
     }
+    lc.setLineDash([]);
   }
 
-  // планети: дизерована куля кольору системи
+  // планети
   if (cam.s >= LOD_PLANETS) {
-    const vis = planets.map((_, i) => i).filter((i) => inView(planets[i].x, planets[i].y, planets[i].r * 3));
+    const vis: number[] = [];
+    for (let i = 0; i < planets.length; i++) if (inView(planets[i].x, planets[i].y, planets[i].r * 3)) vis.push(i);
     for (const i of vis) {
       const pl = planets[i], p = toScreen(pl.x, pl.y), r = Math.max(1.5, pl.r * cam.s);
-      if (r < 3) { ctx.fillStyle = sc(pl.s, 0.95); ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
-      ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
-      ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.clip();
-      ctx.fillStyle = getDither(pl.s); ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-      ctx.fillStyle = sc(pl.s, 0.95); ctx.beginPath(); ctx.arc(p.x - r * 0.35, p.y - r * 0.35, r * 0.62, 0, 7); ctx.fill();
-      ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(p.x + r * 0.05, p.y + r * 0.05, r * 0.72, 0, 7); ctx.globalAlpha = 0.55; ctx.fill(); ctx.globalAlpha = 1;
-      ctx.restore();
-      ctx.strokeStyle = sc(pl.s, 0.95); ctx.lineWidth = 1; ctx.shadowColor = sc(pl.s, 0.7); ctx.shadowBlur = 6;
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.stroke(); ctx.shadowBlur = 0;
+      if (r < 3) { lc.fillStyle = sc(pl.s, 0.95); lc.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
+      lc.save(); lc.beginPath(); lc.arc(p.x, p.y, r, 0, 7); lc.clip();
+      lc.fillStyle = BG; lc.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      lc.fillStyle = getDither(pl.s); lc.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+      lc.fillStyle = sc(pl.s, 0.95); lc.beginPath(); lc.arc(p.x - r * 0.35, p.y - r * 0.35, r * 0.62, 0, 7); lc.fill();
+      lc.globalAlpha = 0.55; lc.fillStyle = BG; lc.beginPath(); lc.arc(p.x + r * 0.05, p.y + r * 0.05, r * 0.72, 0, 7); lc.fill(); lc.globalAlpha = 1;
+      lc.restore();
+      lc.strokeStyle = sc(pl.s, 0.95); lc.lineWidth = 1; lc.beginPath(); lc.arc(p.x, p.y, r, 0, 7); lc.stroke();
     }
-    for (const i of vis.slice().sort((a, b) => planets[b].n - planets[a].n)) {
+    vis.sort((a, b) => planets[b].n - planets[a].n);
+    for (const i of vis) {
       const pl = planets[i], r = pl.r * cam.s; if (r < 4) continue;
       const p = toScreen(pl.x, pl.y);
       label(pl.name.toUpperCase(), p.x, p.y + r + 14, 11, sc(pl.s, 0.85));
     }
   }
 
-  // зорі: корона-еквалайзер по роках
-  stars.forEach((s, si) => {
-    if (!inView(s.x, s.y, 300 / cam.s)) return;
-    const p = toScreen(s.x, s.y);
-    ctx.shadowColor = sc(si, 0.9); ctx.shadowBlur = 10;
-    drawCorona(ctx, si, p.x, p.y, coronaR(s), coronaL(s));
-    ctx.shadowBlur = 0;
-  });
+  // підписи зір (самі пульсари малюються поверх, у кожному кадрі)
   stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
     const p = toScreen(s.x, s.y);
-    label(s.name.toUpperCase(), p.x, p.y - coronaR(s) - coronaL(s) - 8, W < 600 ? 12 : 14, sc(si, 1));
+    label(s.name.toUpperCase(), p.x, p.y - starSize(s) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", true);
   });
-
   for (const t of titles) label(t.t, t.x + 6, t.y + 4, 11, sc(t.si, 0.75), "left");
 
-  // виділення, наведення, відтворення
+  // виділення й наведення
   const marker = (o: Sel, strong: boolean) => {
     if (!o) return;
     let x = 0, y = 0, r = 8, name = "", si = 0;
-    if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = coronaR(s) + coronaL(s) + 6; name = `ПІК ${peakYear[o.s]}`; si = o.s; }
+    if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = starSize(s) * 2.6 + 6; name = `${bpm[o.s]} BPM · ПІК ${peakYear[o.s]}`; si = o.s; }
     else if (o.kind === "planet") { const pl = planets[o.p], p = toScreen(pl.x, pl.y); x = p.x; y = p.y; r = Math.max(9, pl.r * cam.s + 6); name = pl.name; si = pl.s; }
     else { const ch = chunks[o.s]; if (!ch) return; const p = toScreen(ch.x[o.i], ch.y[o.i]); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; si = o.s; }
     brackets(x, y, r, sc(si, strong ? 1 : 0.65), strong ? 7 : 4);
     if (strong) {
       const lx = x + r + 26, ly = y - r - 18;
-      ctx.strokeStyle = sc(si, 0.95); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + r, y - r); ctx.lineTo(x + r + 12, ly + 4); ctx.lineTo(lx - 4, ly + 4); ctx.stroke();
+      lc.strokeStyle = sc(si, 0.95); lc.lineWidth = 1; lc.beginPath(); lc.moveTo(x + r, y - r); lc.lineTo(x + r + 12, ly + 4); lc.lineTo(lx - 4, ly + 4); lc.stroke();
       label(name.toUpperCase(), lx, ly + 8, 12, sc(si, 1), "left", true, true);
     }
   };
-  if (nowPlaying) { const ch = chunks[nowPlaying.s]; if (ch) { const p = toScreen(ch.x[nowPlaying.i], ch.y[nowPlaying.i]); const t = performance.now() / 300; ctx.strokeStyle = sc(nowPlaying.s, 0.9); ctx.beginPath(); ctx.arc(p.x, p.y, 10 + (t % 6) * 3, 0, 7); ctx.globalAlpha = 1 - (t % 6) / 6; ctx.stroke(); ctx.globalAlpha = 1; dirty = true; } }
   if (hover && !same(hover, sel)) marker(hover, false);
   marker(sel, true);
 
-  // показники
   const c = toWorld(W / 2, H / 2);
   const sg = (n: number) => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1).padStart(6, "0");
   $("readout").textContent = `X ${sg(c.x)}  Y ${sg(c.y)}  ×${cam.s.toFixed(2)}  СІТКА ${st >= 1 ? st : st.toFixed(1)}`;
   $("scaleName").textContent = cam.s < LOD_PLANETS ? "ГАЛАКТИКА" : cam.s < LOD_TRACKS ? "СИСТЕМИ" : cam.s < LOD_TITLES ? "ОРБІТИ" : "СИГНАЛИ";
+}
+
+// Кожен кадр: готовий статичний шар + пульсари + маяк треку, що грає
+function drawLive(t: number) {
+  ctx.drawImage(layer, 0, 0, W, H);
+  stars.forEach((s, si) => {
+    if (!inView(s.x, s.y, starSize(s) * 9)) return;
+    const p = toScreen(s.x, s.y);
+    drawPulsar(ctx, si, p.x, p.y, starSize(s), t);
+  });
+  if (nowPlaying) {
+    const ch = chunks[nowPlaying.s];
+    if (ch) {
+      const p = toScreen(ch.x[nowPlaying.i], ch.y[nowPlaying.i]), { bar } = pulseOf(nowPlaying.s, t);
+      ctx.strokeStyle = sc(nowPlaying.s, 0.9 * (1 - bar)); ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 6 + bar * 26, 0, 7); ctx.stroke();
+    }
+  }
 }
 
 function frame(now: number) {
@@ -298,7 +352,8 @@ function frame(now: number) {
     if (k >= 1) { tween = null; warpFx = 0; }
     dirty = true;
   }
-  if (dirty) { dirty = false; draw(); }
+  if (dirty) { dirty = false; drawStatic(); }
+  drawLive(now);
   dosAnim?.(now);
   requestAnimationFrame(frame);
 }
@@ -311,11 +366,11 @@ function pick(sx: number, sy: number): Sel {
     const w = toWorld(sx, sy), rad = 10 / cam.s;
     stars.forEach((st, s) => {
       const ch = chunks[s]; if (!ch || Math.hypot(w.x - st.x, w.y - st.y) > st.R + rad) return;
-      for (let i = 0; i < ch.x.length; i++) if (Math.abs(ch.x[i] - w.x) < rad && Math.abs(ch.y[i] - w.y) < rad) consider({ kind: "track", s, i }, ch.x[i], ch.y[i], 10);
+      eachTrack(s, w.x - rad, w.y - rad, w.x + rad, w.y + rad, (i) => consider({ kind: "track", s, i }, ch.x[i], ch.y[i], 10));
     });
   }
   if (cam.s >= LOD_PLANETS) planets.forEach((p, i) => consider({ kind: "planet", p: i }, p.x, p.y, Math.max(10, p.r * cam.s + 5)));
-  stars.forEach((st, s) => consider({ kind: "star", s }, st.x, st.y, Math.max(18, st.core * cam.s + 8)));
+  stars.forEach((st, s) => consider({ kind: "star", s }, st.x, st.y, Math.max(16, starSize(st) * 3 + 4)));
   return best;
 }
 const local = (e: PointerEvent | WheelEvent) => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
@@ -434,15 +489,12 @@ function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, 
   g.stroke(); g.shadowBlur = 0;
 }
 
-// Велика корона в досьє: промінь-«курсор» по черзі підсвічує роки
-function drawCoronaHero(g: CanvasRenderingContext2D, w: number, h: number, si: number, t: number) {
+// Великий пульсар у досьє зорі
+function drawPulsarHero(g: CanvasRenderingContext2D, w: number, h: number, si: number, t: number) {
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
-  const yh = stars[si].yh || [], n = yh.length || 1, k = reduce ? yh.indexOf(Math.max(...yh)) : Math.floor(t / 260) % n;
-  g.shadowColor = sc(si, 0.8); g.shadowBlur = 8;
-  drawCorona(g, si, w / 2, h / 2 - 6, w * 0.13, w * 0.27, 1, 0, k);
-  g.shadowBlur = 0;
+  drawPulsar(g, si, w / 2, h / 2 - 6, w * 0.1, t);
   g.font = `10px ${FONT_LBL}`; g.textAlign = "center"; g.fillStyle = sc(si, 1);
-  g.fillText(`${Y0 + k} · ${yh[k] ?? 0} РЕЛ`, w / 2, h - 7);
+  g.fillText(`${bpm[si]} BPM`, w / 2, h - 7);
 }
 
 function render() {
@@ -466,16 +518,16 @@ function render() {
     code = `ЗОРЯ // ST-${pad(o.s, 2)}`; title = s.name.toUpperCase();
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">ST-${pad(o.s, 2)} // СТИЛЬ</span><h2 id="dosTitle"></h2><span class="stamp">${(s.tracks * 100 / totalTracks).toFixed(1)}% СЕКТОРУ</span></div></div>
-      <div class="rows">${row("РЕЛІЗІВ", fmt(s.n))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(pl.length))}${row("ТРЕКІВ", fmt(s.tracks))}${row("ПІК АКТИВНОСТІ", String(peakYear[o.s]))}</div>
-      ${s.yh?.length ? `<div class="hist"><div class="ph-sub">КОРОНА // РЕЛІЗИ ПО РОКАХ</div><div class="cols">${s.yh.map((c, k) => `<i style="height:${(c / Math.max(1, ...s.yh!) * 100).toFixed(1)}%" title="${Y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${Y0}</span><span>${Y0 + Math.round((s.yh.length - 1) / 2)}</span><span>${Y0 + s.yh.length - 1}</span></div></div>` : ""}
+      <div class="rows">${row("РЕЛІЗІВ", fmt(s.n))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(pl.length))}${row("ТРЕКІВ", fmt(s.tracks))}${row("ПУЛЬСАЦІЯ", `≈ ${bpm[o.s]} BPM`)}${row("ПІК АКТИВНОСТІ", String(peakYear[o.s]))}</div>
+      <p class="note">Зоря пульсує в типовому для стилю темпі й раз на такт скидає оболонку.</p>
+      ${s.yh?.length ? `<div class="hist"><div class="ph-sub">АКТИВНІСТЬ // РЕЛІЗИ ПО РОКАХ</div><div class="cols">${s.yh.map((c, k) => `<i style="height:${(c / Math.max(1, ...s.yh!) * 100).toFixed(1)}%" title="${Y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${Y0}</span><span>${Y0 + Math.round((s.yh.length - 1) / 2)}</span><span>${Y0 + s.yh.length - 1}</span></div></div>` : ""}
       ${nb.length ? `<div class="bars"><div class="ph-sub">ГРАВІТАЦІЙНІ ЗВ'ЯЗКИ</div>${nb.map((n) => meter(stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), stars[n.s].color)).join("")}</div>` : ""}
       <div><div class="ph-sub">ПЛАНЕТИ НА ОРБІТІ</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(planets[p].name)}</span><span class="y">${fmt(planets[p].n)} РЕЛ</span></button>`).join("")}</div>
       ${pl.length > 40 ? `<div class="more">…і ще ${fmt(pl.length - 40)}</div>` : ""}</div>`;
     const si = o.s;
     dosAnim = (t) => {
       const c = heroCanvas(); if (!c) return; const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
-      if (((t / 130) | 0) === (c as any)._last) return; (c as any)._last = (t / 130) | 0;
-      drawCoronaHero(f.g, f.w, f.h, si, t);
+      drawPulsarHero(f.g, f.w, f.h, si, t);
     };
   } else if (o.kind === "planet") {
     const p = planets[o.p], s = stars[p.s], ch = chunks[p.s];
@@ -614,13 +666,105 @@ function ticker() {
 }
 setInterval(() => { const d = new Date(); $("clock").textContent = `${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}:${pad(d.getSeconds(), 2)}`; }, 1000);
 
+// ---------- Червоточина ----------
+// Перехід через міжзоряний простір: зорі розтягуються в штрихи, тунель кілець затягує,
+// колір перетікає з поточної системи в систему призначення, спалах — і ми на місці.
+const wf = document.createElement("canvas"); wf.className = "wormhole"; wf.setAttribute("aria-hidden", "true"); document.body.appendChild(wf);
+const wg = wf.getContext("2d")!;
+let warping = false;
+function nearestStarToCam() { let b = 0, bd = Infinity; stars.forEach((s, i) => { const d = (s.x - cam.x) ** 2 + (s.y - cam.y) ** 2; if (d < bd) { bd = d; b = i; } }); return b; }
+function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () => void) {
+  if (reduce) { onPeak(); return; }
+  warping = true;
+  const dpr = Math.min(2, devicePixelRatio || 1), w = innerWidth, h = innerHeight;
+  wf.width = w * dpr; wf.height = h * dpr; wg.setTransform(dpr, 0, 0, dpr, 0, 0); wf.style.display = "block";
+  const A = SC[fromSi], B = SC[toSi];
+  const mix = (k: number, a: number) => { k = Math.max(0, Math.min(1, k)); return `rgba(${(A[0] + (B[0] - A[0]) * k) | 0},${(A[1] + (B[1] - A[1]) * k) | 0},${(A[2] + (B[2] - A[2]) * k) | 0},${a})`; };
+  const R = Math.hypot(w, h) / 2;
+  const parts = Array.from({ length: 280 }, () => ({ a: Math.random() * 6.283, z: 0.05 + Math.random() * 0.95, sp: 0.6 + Math.random() * 0.9 }));
+  const T = 2600, t0 = performance.now();
+  let peaked = false, last = t0;
+  const code = `${pad(Math.floor(Math.random() * 9999), 4)}.${pad(Math.floor(Math.random() * 999), 3)}`;
+  const step = (now: number) => {
+    const k = Math.min(1, (now - t0) / T), dt = Math.min(50, now - last) / 16.7; last = now;
+    const fadeIn = Math.min(1, k / 0.16), fadeOut = k > 0.84 ? 1 - (k - 0.84) / 0.16 : 1, vis = Math.min(fadeIn, fadeOut);
+    const speed = Math.sin(Math.PI * Math.min(1, k * 1.12));
+    const vx = w / 2 + Math.sin(k * 9) * w * 0.035 * speed, vy = h / 2 + Math.cos(k * 7) * h * 0.035 * speed;
+    wg.globalCompositeOperation = "source-over"; wg.clearRect(0, 0, w, h);
+    wg.fillStyle = `rgba(3,2,8,${0.94 * vis})`; wg.fillRect(0, 0, w, h);
+    wg.globalCompositeOperation = "lighter";
+    // зоряні штрихи
+    const v = 0.004 + 0.05 * speed;
+    wg.lineWidth = 1.4;
+    for (const p of parts) {
+      const z1 = p.z; p.z -= v * p.sp * dt;
+      if (p.z <= 0.02) { p.z = 1; p.a = Math.random() * 6.283; continue; }
+      const r0 = R * 0.05 / z1, r1 = R * 0.05 / p.z, ca = Math.cos(p.a), sa = Math.sin(p.a);
+      wg.strokeStyle = mix(k * 1.3 - p.z * 0.3, (1 - p.z) * 0.95 * vis);
+      wg.beginPath(); wg.moveTo(vx + ca * r0, vy + sa * r0); wg.lineTo(vx + ca * r1, vy + sa * r1); wg.stroke();
+    }
+    // тунель кілець
+    const tunnel = Math.max(0, Math.min(1, (k - 0.1) / 0.18)) * vis;
+    if (tunnel > 0) {
+      const n = 16, flow = (now - t0) / 420;
+      for (let i = 0; i < n; i++) {
+        const z = (((i / n) - flow) % 1 + 1) % 1 + 0.015;
+        const r = R * 0.07 / z; if (r > R * 1.8) continue;
+        const twist = (1 - z) * 0.9 + k * 4;
+        const ox = Math.sin(i * 1.7 + k * 8) * R * 0.025 * (1 - z), oy = Math.cos(i * 1.3 + k * 6) * R * 0.025 * (1 - z);
+        wg.strokeStyle = mix(k * 1.4 - z * 0.4, (1 - z) * 0.85 * tunnel);
+        wg.lineWidth = Math.max(1, 4 * (1 - z));
+        wg.setLineDash([r * 0.22, r * 0.1]); wg.lineDashOffset = (i % 2 ? 1 : -1) * flow * 40;
+        wg.beginPath(); wg.ellipse(vx + ox, vy + oy, r, r * 0.92, twist, 0, Math.PI * 2); wg.stroke();
+      }
+      wg.setLineDash([]);
+    }
+    // вихід: ядро росте й засліплює
+    const grow = Math.max(0, (k - 0.5) / 0.32);
+    const cr = R * (0.03 + 0.5 * grow ** 3);
+    const gr = wg.createRadialGradient(vx, vy, 0, vx, vy, cr);
+    gr.addColorStop(0, `rgba(255,255,255,${0.95 * vis})`); gr.addColorStop(0.4, mix(1, 0.7 * vis)); gr.addColorStop(1, mix(1, 0));
+    wg.fillStyle = gr; wg.beginPath(); wg.arc(vx, vy, cr, 0, 7); wg.fill();
+    if (k > 0.72 && k < 0.96) { wg.fillStyle = `rgba(255,255,255,${Math.sin(Math.PI * (k - 0.72) / 0.24) * 0.85})`; wg.fillRect(0, 0, w, h); }
+    // телеметрія переходу
+    wg.globalCompositeOperation = "source-over";
+    const ta = Math.min(1, k / 0.1) * (k > 0.7 ? Math.max(0, 1 - (k - 0.7) / 0.08) : 1);
+    if (ta > 0) {
+      const flick = Math.random() < 0.06 ? 0.35 : 1;
+      wg.globalAlpha = ta * flick; wg.textAlign = "center"; wg.fillStyle = mix(k * 1.3, 1);
+      wg.font = `${Math.round(Math.min(26, w / 22))}px ${FONT_LBL}`;
+      wg.fillText("ЧЕРВОТОЧИНА // ПЕРЕХІД", w / 2, h * 0.2);
+      wg.font = `12px ${FONT_LBL}`; wg.fillStyle = "rgba(255,255,255,0.8)";
+      const shown = Math.floor(dest.length * Math.min(1, k / 0.55));
+      wg.fillText(`→ ${dest.slice(0, shown)}${"▓▒░".charAt(Math.floor(now / 60) % 3).repeat(Math.max(0, Math.min(6, dest.length - shown)))}`, w / 2, h * 0.2 + 24);
+      // смуга дистанції
+      const bw = Math.min(320, w * 0.6), bx = w / 2 - bw / 2, by = h * 0.8;
+      wg.strokeStyle = mix(k, 0.8); wg.lineWidth = 1; wg.strokeRect(bx, by, bw, 8);
+      wg.fillStyle = mix(k, 1); wg.fillRect(bx + 2, by + 2, (bw - 4) * Math.min(1, k / 0.72), 4);
+      wg.font = `11px ${FONT_LBL}`; wg.fillStyle = "rgba(255,255,255,0.7)";
+      wg.fillText(`ДИСТАНЦІЯ ${code} СВ.Р. · ${Math.round(Math.min(1, k / 0.72) * 100)}%`, w / 2, by + 24);
+      wg.globalAlpha = 1;
+    }
+    if (!peaked && k >= 0.8) { peaked = true; onPeak(); }
+    if (k < 1) requestAnimationFrame(step);
+    else { wf.style.display = "none"; warping = false; }
+  };
+  requestAnimationFrame(step);
+}
+
 // ---------- Кнопки й клавіші ----------
 const goHome = () => { select(null); fly(bounds.x, bounds.y, homeScale()); };
 const warp = async () => {
+  if (warping) return;
   let r = Math.random() * totalTracks, s = 0;
   while (s < stars.length - 1 && r > stars[s].tracks) { r -= stars[s].tracks; s++; }
-  const ch = await loadChunk(s);
-  select({ kind: "track", s, i: Math.floor(Math.random() * ch.yt.length) }, true, !!nowPlaying);
+  const ch = await loadChunk(s), i = Math.floor(Math.random() * ch.yt.length);
+  const from = !sel ? nearestStarToCam() : sel.kind === "planet" ? planets[sel.p].s : sel.s;
+  const autoplay = !!nowPlaying;
+  wormhole(from, s, `${trackCode(s, i)} · ${stars[s].name.toUpperCase()}`, () => {
+    tween = null; cam.x = ch.x[i]; cam.y = ch.y[i]; cam.s = clampS(LOD_TITLES * 1.3);
+    select({ kind: "track", s, i }, false, autoplay);
+  });
 };
 $("home").onclick = goHome; $("warp").onclick = warp;
 $("zin").onclick = () => { cam.s = clampS(cam.s * 1.5); dirty = true; };
