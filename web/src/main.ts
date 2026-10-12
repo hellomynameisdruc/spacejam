@@ -21,7 +21,7 @@ type Sel = { kind: "star"; s: number } | { kind: "planet"; p: number } | { kind:
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-const fmt = (n: number) => n.toLocaleString("uk-UA").replace(/ /g, " ");
+const fmt = (n: number) => n.toLocaleString("en-US").replace(/ /g, " ");
 const pad = (n: number, w: number) => String(n).padStart(w, "0");
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -304,7 +304,7 @@ function drawStatic() {
   const marker = (o: Sel, strong: boolean) => {
     if (!o) return;
     let x = 0, y = 0, r = 8, name = "", si = 0;
-    if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = starSize(s) * 2.6 + 6; name = `${bpm[o.s]} BPM · ПІК ${peakYear[o.s]}`; si = o.s; }
+    if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = starSize(s) * 2.6 + 6; name = `${bpm[o.s]} BPM · PEAK ${peakYear[o.s]}`; si = o.s; }
     else if (o.kind === "planet") { const pl = planets[o.p], p = toScreen(pl.x, pl.y); x = p.x; y = p.y; r = Math.max(9, pl.r * cam.s + 6); name = pl.name; si = pl.s; }
     else { const ch = chunks[o.s]; if (!ch) return; const p = toScreen(ch.x[o.i], ch.y[o.i]); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; si = o.s; }
     brackets(x, y, r, sc(si, strong ? 1 : 0.65), strong ? 7 : 4);
@@ -319,8 +319,8 @@ function drawStatic() {
 
   const c = toWorld(W / 2, H / 2);
   const sg = (n: number) => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1).padStart(6, "0");
-  $("readout").textContent = `X ${sg(c.x)}  Y ${sg(c.y)}  ×${cam.s.toFixed(2)}  СІТКА ${st >= 1 ? st : st.toFixed(1)}`;
-  $("scaleName").textContent = cam.s < LOD_PLANETS ? "ГАЛАКТИКА" : cam.s < LOD_TRACKS ? "СИСТЕМИ" : cam.s < LOD_TITLES ? "ОРБІТИ" : "СИГНАЛИ";
+  $("readout").textContent = `X ${sg(c.x)}  Y ${sg(c.y)}  ×${cam.s.toFixed(2)}  GRID ${st >= 1 ? st : st.toFixed(1)}`;
+  $("scaleName").textContent = cam.s < LOD_PLANETS ? "GALAXY" : cam.s < LOD_TRACKS ? "SYSTEMS" : cam.s < LOD_TITLES ? "ORBITS" : "SIGNALS";
 }
 
 // Кожен кадр: готовий статичний шар + пульсари + маяк треку, що грає
@@ -410,6 +410,7 @@ function select(o: Sel, go = true, autoplay = false) {
   else if (o?.kind === "planet") { const p = planets[o.p]; if (go) fly(p.x, p.y, Math.max(LOD_TRACKS * 1.6, Math.min(8, Math.min(W, H) * 0.16 / (p.r + 4 + 1.5 * Math.sqrt(p.t1 - p.t0))))); }
   else if (o?.kind === "track") { const ch = chunks[o.s]!; if (go) fly(ch.x[o.i], ch.y[o.i], Math.max(cam.s, LOD_TITLES * 1.3)); if (autoplay) playTrack(o); try { history.replaceState(null, "", `#t${o.s}-${o.i}`); } catch { /* */ } }
   render();
+  decodeDossier(warping ? 900 : 380);
 }
 
 // ---------- Досьє ----------
@@ -504,26 +505,26 @@ function render() {
   const accSi = !o ? -1 : o.kind === "planet" ? planets[o.p].s : o.s;
   document.querySelector<HTMLElement>(".dossier")!.style.setProperty("--acc", accSi >= 0 ? stars[accSi].color : "");
   if (!o) {
-    code = `СЕКТОР // ${map.meta.sector.toUpperCase()}`; title = `СЕКТОР ${map.meta.sector.toUpperCase()}`;
+    code = `SECTOR // ${map.meta.sector.toUpperCase()}`; title = `SECTOR ${map.meta.sector.toUpperCase()}`;
     const top = stars.map((s, i) => ({ s, i })).sort((a, b) => b.s.tracks - a.s.tracks);
     const mx = top[0]?.s.tracks || 1;
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
-        <div class="ident"><span class="code">ОБСЕРВАТОРІЯ // 01</span><h2 id="dosTitle"></h2><span class="stamp">${map.meta.sample ? "ТЕСТОВИЙ СИГНАЛ" : "ЖИВИЙ КАТАЛОГ"}</span></div></div>
-      <div class="rows">${row("ЗІР / СТИЛІВ", fmt(stars.length))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(planets.length))}${row("СУПУТНИКІВ / ТРЕКІВ", fmt(map.meta.tracks))}${row("РЕЛІЗІВ", fmt(map.meta.releases))}${row("ДЖЕРЕЛО", "DISCOGS · CC0")}</div>
-      <p class="lede">Кожна <b>зоря</b> — стиль. На її орбітах — <b>планети-лейбли</b>, довкола них <b>супутники-треки</b>: старіші ближче до центру. Пунктир між зорями — як часто стилі звучать на одних релізах.</p>
-      <div class="bars"><div class="ph-sub">ЗОРЯНІ СИСТЕМИ // ЗА КІЛЬКІСТЮ ТРЕКІВ</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }), s.color)).join("")}</div>`;
+        <div class="ident"><span class="code">OBSERVATORY // 01</span><h2 id="dosTitle"></h2><span class="stamp">${map.meta.sample ? "TEST SIGNAL" : "LIVE CATALOGUE"}</span></div></div>
+      <div class="rows">${row("STARS / STYLES", fmt(stars.length))}${row("PLANETS / LABELS", fmt(planets.length))}${row("SATELLITES / TRACKS", fmt(map.meta.tracks))}${row("RELEASES", fmt(map.meta.releases))}${row("SOURCE", "DISCOGS · CC0")}</div>
+      <p class="lede">Every <b>star</b> is a style. Its orbits hold <b>label planets</b>, circled by <b>track satellites</b>: older ones sit closer in. The dotted lines show how often two styles share a release.</p>
+      <div class="bars"><div class="ph-sub">STAR SYSTEMS // BY TRACK COUNT</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }), s.color)).join("")}</div>`;
     dosAnim = (t) => { const c = heroCanvas(); if (c) { const f = (c as any)._f || ((c as any)._f = fitCanvas(c)); drawRadar(f.g, f.w, f.h, t); } };
   } else if (o.kind === "star") {
     const s = stars[o.s], pl = planetsByStar[o.s], nb = neighbours(o.s);
-    code = `ЗОРЯ // ST-${pad(o.s, 2)}`; title = s.name.toUpperCase();
+    code = `STAR // ST-${pad(o.s, 2)}`; title = s.name.toUpperCase();
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
-        <div class="ident"><span class="code">ST-${pad(o.s, 2)} // СТИЛЬ</span><h2 id="dosTitle"></h2><span class="stamp">${(s.tracks * 100 / totalTracks).toFixed(1)}% СЕКТОРУ</span></div></div>
-      <div class="rows">${row("РЕЛІЗІВ", fmt(s.n))}${row("ПЛАНЕТ / ЛЕЙБЛІВ", fmt(pl.length))}${row("ТРЕКІВ", fmt(s.tracks))}${row("ПУЛЬСАЦІЯ", `≈ ${bpm[o.s]} BPM`)}${row("ПІК АКТИВНОСТІ", String(peakYear[o.s]))}</div>
-      <p class="note">Зоря пульсує в типовому для стилю темпі й раз на такт скидає оболонку.</p>
-      ${s.yh?.length ? `<div class="hist"><div class="ph-sub">АКТИВНІСТЬ // РЕЛІЗИ ПО РОКАХ</div><div class="cols">${s.yh.map((c, k) => `<i style="height:${(c / Math.max(1, ...s.yh!) * 100).toFixed(1)}%" title="${Y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${Y0}</span><span>${Y0 + Math.round((s.yh.length - 1) / 2)}</span><span>${Y0 + s.yh.length - 1}</span></div></div>` : ""}
-      ${nb.length ? `<div class="bars"><div class="ph-sub">ГРАВІТАЦІЙНІ ЗВ'ЯЗКИ</div>${nb.map((n) => meter(stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), stars[n.s].color)).join("")}</div>` : ""}
-      <div><div class="ph-sub">ПЛАНЕТИ НА ОРБІТІ</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(planets[p].name)}</span><span class="y">${fmt(planets[p].n)} РЕЛ</span></button>`).join("")}</div>
-      ${pl.length > 40 ? `<div class="more">…і ще ${fmt(pl.length - 40)}</div>` : ""}</div>`;
+        <div class="ident"><span class="code">ST-${pad(o.s, 2)} // STYLE</span><h2 id="dosTitle"></h2><span class="stamp">${(s.tracks * 100 / totalTracks).toFixed(1)}% OF SECTOR</span></div></div>
+      <div class="rows">${row("RELEASES", fmt(s.n))}${row("PLANETS / LABELS", fmt(pl.length))}${row("TRACKS", fmt(s.tracks))}${row("PULSE", `≈ ${bpm[o.s]} BPM`)}${row("PEAK YEAR", String(peakYear[o.s]))}</div>
+      <p class="note">The star pulses at the tempo typical for its style and sheds a shell once every bar.</p>
+      ${s.yh?.length ? `<div class="hist"><div class="ph-sub">ACTIVITY // RELEASES PER YEAR</div><div class="cols">${s.yh.map((c, k) => `<i style="height:${(c / Math.max(1, ...s.yh!) * 100).toFixed(1)}%" title="${Y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${Y0}</span><span>${Y0 + Math.round((s.yh.length - 1) / 2)}</span><span>${Y0 + s.yh.length - 1}</span></div></div>` : ""}
+      ${nb.length ? `<div class="bars"><div class="ph-sub">GRAVITATIONAL LINKS</div>${nb.map((n) => meter(stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), stars[n.s].color)).join("")}</div>` : ""}
+      <div><div class="ph-sub">PLANETS IN ORBIT</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(planets[p].name)}</span><span class="y">${fmt(planets[p].n)} REL</span></button>`).join("")}</div>
+      ${pl.length > 40 ? `<div class="more">…and ${fmt(pl.length - 40)} more</div>` : ""}</div>`;
     const si = o.s;
     dosAnim = (t) => {
       const c = heroCanvas(); if (!c) return; const f = (c as any)._f || ((c as any)._f = fitCanvas(c));
@@ -533,23 +534,23 @@ function render() {
     const p = planets[o.p], s = stars[p.s], ch = chunks[p.s];
     if (!ch) loadChunk(p.s).then(() => { if (sel === o) render(); });
     const n = p.t1 - p.t0, shown = Math.min(n, 150);
-    code = `ПЛАНЕТА // PL-${pad(o.p, 4)}`; title = p.name.toUpperCase();
+    code = `PLANET // PL-${pad(o.p, 4)}`; title = p.name.toUpperCase();
     let hist = "";
     if (ch && n) {
       const ys = ch.yr.slice(p.t0, p.t1).filter(Boolean);
       if (ys.length) {
         const y0 = Math.min(...ys), y1 = Math.max(...ys), cnt = new Array(y1 - y0 + 1).fill(0);
         ys.forEach((y) => cnt[y - y0]++); const mx = Math.max(...cnt);
-        hist = `<div class="hist"><div class="ph-sub">АКТИВНІСТЬ ПО РОКАХ</div><div class="cols">${cnt.map((c, k) => `<i style="height:${(c / mx * 100).toFixed(1)}%" title="${y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${y0}</span><span>${Math.round((y0 + y1) / 2)}</span><span>${y1}</span></div></div>`;
+        hist = `<div class="hist"><div class="ph-sub">ACTIVITY PER YEAR</div><div class="cols">${cnt.map((c, k) => `<i style="height:${(c / mx * 100).toFixed(1)}%" title="${y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${y0}</span><span>${Math.round((y0 + y1) / 2)}</span><span>${y1}</span></div></div>`;
       }
     }
     h = `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
-        <div class="ident"><span class="code">PL-${pad(o.p, 4)} // ЛЕЙБЛ</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
-      <div class="rows"><div class="row"><span>ОРБІТА</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("РЕЛІЗІВ", fmt(p.n))}${row("ТРЕКІВ", fmt(n))}${row("МАСА", `${p.r.toFixed(1)} ОД`)}</div>
+        <div class="ident"><span class="code">PL-${pad(o.p, 4)} // LABEL</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
+      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("MASS", `${p.r.toFixed(1)} U`)}</div>
       ${hist}
-      ${ch && n && !map.meta.sample ? `<button class="play" data-r="${R({ kind: "track", s: p.s, i: p.t0 })}" data-play="1">▶ ВІДТВОРИТИ ОРБІТУ</button>` : ""}
-      <div><div class="ph-sub">СУПУТНИКИ</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">ЗАВАНТАЖЕННЯ…</p>`}</div>
-      ${n > shown ? `<div class="more">…і ще ${fmt(n - shown)}. Наблизь планету на мапі.</div>` : ""}</div>`;
+      ${ch && n && !map.meta.sample ? `<button class="play" data-r="${R({ kind: "track", s: p.s, i: p.t0 })}" data-play="1">▶ PLAY THE ORBIT</button>` : ""}
+      <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
+      ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`;
     const sd = hash(p.name) % 100;
     let drawn = false;
     dosAnim = (t) => {
@@ -561,17 +562,17 @@ function render() {
   } else {
     const ch = chunks[o.s]!, s = stars[o.s], pi = ch.p[o.i], p = pi >= 0 ? planets[pi] : null, yt = ch.yt[o.i];
     const near = nearestTracks(o, 8);
-    code = `ОБ'ЄКТ // ${trackCode(o.s, o.i)}`; title = ch.t[o.i].toUpperCase();
+    code = `OBJECT // ${trackCode(o.s, o.i)}`; title = ch.t[o.i].toUpperCase();
     h = `<div class="hero"><div class="frame thumb" id="hero"><img alt="" src="https://i.ytimg.com/vi/${esc(yt)}/default.jpg" referrerpolicy="no-referrer"><span class="raster"></span></div>
-        <div class="ident"><span class="code">${trackCode(o.s, o.i)} // ТРЕК</span><h2 id="dosTitle"></h2><span class="by">${esc(ch.an[ch.a[o.i]])}</span></div></div>
-      <div class="rows">${row("АРТИСТ", esc(ch.an[ch.a[o.i]]))}${row("РІК", ch.yr[o.i] ? String(ch.yr[o.i]) : "----")}
-        <div class="row"><span>ЛЕЙБЛ</span>${p ? `<button class="link" data-r="${R({ kind: "planet", p: pi })}">${esc(p.name.toUpperCase())}</button>` : "<span>ПОЯС АСТЕРОЇДІВ</span>"}</div>
-        <div class="row"><span>СТИЛЬ</span><button class="link" data-r="${R({ kind: "star", s: o.s })}">${esc(s.name.toUpperCase())}</button></div>
-        ${row("КООРДИНАТИ", `${ch.x[o.i].toFixed(0)} / ${ch.y[o.i].toFixed(0)}`)}</div>
+        <div class="ident"><span class="code">${trackCode(o.s, o.i)} // TRACK</span><h2 id="dosTitle"></h2><span class="by">${esc(ch.an[ch.a[o.i]])}</span></div></div>
+      <div class="rows">${row("ARTIST", esc(ch.an[ch.a[o.i]]))}${row("YEAR", ch.yr[o.i] ? String(ch.yr[o.i]) : "----")}
+        <div class="row"><span>LABEL</span>${p ? `<button class="link" data-r="${R({ kind: "planet", p: pi })}">${esc(p.name.toUpperCase())}</button>` : "<span>ASTEROID BELT</span>"}</div>
+        <div class="row"><span>STYLE</span><button class="link" data-r="${R({ kind: "star", s: o.s })}">${esc(s.name.toUpperCase())}</button></div>
+        ${row("COORDINATES", `${ch.x[o.i].toFixed(0)} / ${ch.y[o.i].toFixed(0)}`)}</div>
       <div class="scope-c"><canvas id="wave"></canvas></div>
-      ${map.meta.sample ? `<p class="note">ТЕСТОВИЙ СИГНАЛ: відео не грають.</p>` : `<button class="play" data-r="${R(o)}" data-play="1">${nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i ? "◉ У ЕФІРІ" : "▶ ВІДТВОРИТИ"}</button>`}
-      <a class="out" href="https://www.youtube.com/watch?v=${esc(yt)}" target="_blank" rel="noopener">ВІДКРИТИ НА YOUTUBE ↗</a>
-      ${near.length ? `<div><div class="ph-sub">НАЙБЛИЖЧІ СИГНАЛИ</div><div class="list">${near.map((r, k) => trackItem(r.s, r.i, k + 1)).join("")}</div></div>` : ""}`;
+      ${map.meta.sample ? `<p class="note">TEST SIGNAL: videos won't play.</p>` : `<button class="play" data-r="${R(o)}" data-play="1">${nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i ? "◉ ON AIR" : "▶ PLAY"}</button>`}
+      <a class="out" href="https://www.youtube.com/watch?v=${esc(yt)}" target="_blank" rel="noopener">OPEN ON YOUTUBE ↗</a>
+      ${near.length ? `<div><div class="ph-sub">NEAREST SIGNALS</div><div class="list">${near.map((r, k) => trackItem(r.s, r.i, k + 1)).join("")}</div></div>` : ""}`;
     const sd = hash(yt) % 97;
     dosAnim = (t) => {
       const c = document.getElementById("wave") as HTMLCanvasElement | null; if (!c) return;
@@ -611,10 +612,10 @@ const player = new Player("yt", {
   onEnded: () => { if ($<HTMLInputElement>("autopilot").checked) next(); },
   onError: (code) => {
     const m = $("pMsg"); m.hidden = false;
-    m.textContent = code === 101 || code === 150 ? "! ВЛАСНИК ЗАБОРОНИВ ВБУДОВУВАННЯ. ПЕРЕХОДЖУ ДО СУСІДНЬОГО СИГНАЛУ…" : "! ВІДЕО НЕДОСТУПНЕ. ПЕРЕХОДЖУ ДО СУСІДНЬОГО СИГНАЛУ…";
+    m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. JUMPING TO A NEARBY SIGNAL…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
     setTimeout(next, 1500);
   },
-  onPlayingChange: (p) => { $("pToggle").textContent = p ? "❚❚" : "▶"; $("pToggle").setAttribute("aria-label", p ? "Пауза" : "Грати"); ticker(); },
+  onPlayingChange: (p) => { $("pToggle").textContent = p ? "❚❚" : "▶"; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
 });
 function playTrack(ref: TrackRef) {
   if (map.meta.sample) return;
@@ -651,38 +652,82 @@ async function renderLog() {
   const ok = items.filter(({ r }) => chunks[r[0]] && r[1] < chunks[r[0]]!.yt.length);
   el.innerHTML = ok.length
     ? ok.map(({ r, t }) => { const d = new Date(t); return `<button data-s="${r[0]}" data-i="${r[1]}"><time>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</time><span>▸ ${esc(chunks[r[0]]!.t[r[1]])} · ${esc(stars[r[0]].name.toUpperCase())}</span></button>`; }).join("")
-    : `<p class="note">ЗАПИСІВ НЕМАЄ. ПРОСЛУХАНІ СИГНАЛИ З'ЯВЛЯТЬСЯ ТУТ.</p>`;
+    : `<p class="note">NO ENTRIES YET. SIGNALS YOU PLAY WILL SHOW UP HERE.</p>`;
 }
 $("log").addEventListener("click", (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>("[data-s]"); if (b) select({ kind: "track", s: +b.dataset.s!, i: +b.dataset.i! }, true, true); });
 
 // ---------- Телеметрія ----------
 function ticker() {
-  let np = "ЕФІР: ТИША";
-  if (nowPlaying && chunks[nowPlaying.s]) { const ch = chunks[nowPlaying.s]!; np = `ЕФІР: <b>${esc(ch.an[ch.a[nowPlaying.i]])} — ${esc(ch.t[nowPlaying.i])}</b>${player.playing ? "" : " [ПАУЗА]"}`; }
-  const parts = [np, `ЗІР <b>${stars.length}</b>`, `ПЛАНЕТ <b>${fmt(planets.length)}</b>`, `СУПУТНИКІВ <b>${fmt(map.meta.tracks)}</b>`, `РЕЛІЗІВ <b>${fmt(map.meta.releases)}</b>`,
-    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `НАЙБІЛЬША СИСТЕМА <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `ЗВ'ЯЗКІВ <b>${links.length}</b>`, `ПРОСЛУХАНО <b>${log.length}</b>`, `ДЖЕРЕЛО <b>DISCOGS CC0</b>`];
+  let np = "ON AIR: SILENCE";
+  if (nowPlaying && chunks[nowPlaying.s]) { const ch = chunks[nowPlaying.s]!; np = `ON AIR: <b>${esc(ch.an[ch.a[nowPlaying.i]])} — ${esc(ch.t[nowPlaying.i])}</b>${player.playing ? "" : " [PAUSED]"}`; }
+  const parts = [np, `STARS <b>${stars.length}</b>`, `PLANETS <b>${fmt(planets.length)}</b>`, `SATELLITES <b>${fmt(map.meta.tracks)}</b>`, `RELEASES <b>${fmt(map.meta.releases)}</b>`,
+    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `LARGEST SYSTEM <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `LINKS <b>${links.length}</b>`, `PLAYED <b>${log.length}</b>`, `SOURCE <b>DISCOGS CC0</b>`];
   const one = parts.map((p) => `<span>${p}</span>`).join("");
   $("ticker").innerHTML = one + one;
 }
 setInterval(() => { const d = new Date(); $("clock").textContent = `${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}:${pad(d.getSeconds(), 2)}`; }, 1000);
 
+// ---------- Text glitch during a jump ----------
+// Every text field on the terminal flickers and dissolves into noise while the wormhole runs,
+// then the new dossier decodes back in.
+const NOISE = "▓▒░#/\\<>01*+=%$&@";
+function textNodes(root: Element | null): Text[] {
+  if (!root) return [];
+  const out: Text[] = [], w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue && n.nodeValue.trim()) out.push(n as Text);
+  return out;
+}
+function corrupt(orig: string, amount: number) {
+  let out = "";
+  for (const c of orig) out += c === " " || c === "\n" || Math.random() >= amount ? c : NOISE[(Math.random() * NOISE.length) | 0];
+  return out;
+}
+// shape(k) → share of corrupted characters at progress k (0…1); originals are restored at the end
+function glitchNodes(nodes: Text[], ms: number, shape: (k: number) => number) {
+  if (reduce || !nodes.length) return;
+  const items = nodes.map((n) => ({ n, orig: n.nodeValue! })), t0 = performance.now();
+  let lastTick = 0;
+  const tick = (now: number) => {
+    const k = Math.min(1, (now - t0) / ms);
+    if (now - lastTick > 45 || k >= 1) {
+      lastTick = now;
+      for (const it of items) if (it.n.isConnected) it.n.nodeValue = k >= 1 ? it.orig : corrupt(it.orig, shape(k));
+    }
+    if (k < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+const UI_ROOTS = [".bar", ".scope .ph-head", ".ph-foot", ".dossier > .ph-head", ".pbar", ".log", ".hints"];
+function glitchUI(ms: number) {
+  if (reduce) return;
+  const term = document.querySelector(".term")!;
+  term.classList.add("glitching");
+  setTimeout(() => term.classList.remove("glitching"), ms * 0.9);
+  // the old dossier dissolves completely before the jump; the rest of the UI rises and falls
+  glitchNodes(textNodes($("detail")), ms * 0.8, (k) => Math.min(1, k * 1.6));
+  glitchNodes(UI_ROOTS.flatMap((q) => [...document.querySelectorAll(q)].flatMap(textNodes)), ms * 0.92, (k) => Math.pow(Math.sin(Math.PI * k), 0.6) * 0.85);
+}
+// short decode of the dossier when moving between objects
+function decodeDossier(ms = 380) { glitchNodes(textNodes($("detail")), ms, (k) => 1 - k); }
+
 // ---------- Червоточина ----------
 // Перехід через міжзоряний простір: зорі розтягуються в штрихи, тунель кілець затягує,
 // колір перетікає з поточної системи в систему призначення, спалах — і ми на місці.
-const wf = document.createElement("canvas"); wf.className = "wormhole"; wf.setAttribute("aria-hidden", "true"); document.body.appendChild(wf);
+const wf = document.createElement("canvas"); wf.className = "wormhole"; wf.setAttribute("aria-hidden", "true"); vp.appendChild(wf);
 const wg = wf.getContext("2d")!;
 let warping = false;
 function nearestStarToCam() { let b = 0, bd = Infinity; stars.forEach((s, i) => { const d = (s.x - cam.x) ** 2 + (s.y - cam.y) ** 2; if (d < bd) { bd = d; b = i; } }); return b; }
 function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () => void) {
   if (reduce) { onPeak(); return; }
   warping = true;
-  const dpr = Math.min(2, devicePixelRatio || 1), w = innerWidth, h = innerHeight;
+  const dpr = Math.min(2, devicePixelRatio || 1), w = W, h = H;
   wf.width = w * dpr; wf.height = h * dpr; wg.setTransform(dpr, 0, 0, dpr, 0, 0); wf.style.display = "block";
   const A = SC[fromSi], B = SC[toSi];
   const mix = (k: number, a: number) => { k = Math.max(0, Math.min(1, k)); return `rgba(${(A[0] + (B[0] - A[0]) * k) | 0},${(A[1] + (B[1] - A[1]) * k) | 0},${(A[2] + (B[2] - A[2]) * k) | 0},${a})`; };
   const R = Math.hypot(w, h) / 2;
   const parts = Array.from({ length: 280 }, () => ({ a: Math.random() * 6.283, z: 0.05 + Math.random() * 0.95, sp: 0.6 + Math.random() * 0.9 }));
   const T = 2600, t0 = performance.now();
+  glitchUI(T);
   let peaked = false, last = t0;
   const code = `${pad(Math.floor(Math.random() * 9999), 4)}.${pad(Math.floor(Math.random() * 999), 3)}`;
   const step = (now: number) => {
@@ -732,8 +777,8 @@ function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () => void
     if (ta > 0) {
       const flick = Math.random() < 0.06 ? 0.35 : 1;
       wg.globalAlpha = ta * flick; wg.textAlign = "center"; wg.fillStyle = mix(k * 1.3, 1);
-      wg.font = `${Math.round(Math.min(26, w / 22))}px ${FONT_LBL}`;
-      wg.fillText("ЧЕРВОТОЧИНА // ПЕРЕХІД", w / 2, h * 0.2);
+      wg.font = `${Math.round(Math.max(14, Math.min(26, w / 24)))}px ${FONT_LBL}`;
+      wg.fillText("WORMHOLE // TRANSIT", w / 2, h * 0.2);
       wg.font = `12px ${FONT_LBL}`; wg.fillStyle = "rgba(255,255,255,0.8)";
       const shown = Math.floor(dest.length * Math.min(1, k / 0.55));
       wg.fillText(`→ ${dest.slice(0, shown)}${"▓▒░".charAt(Math.floor(now / 60) % 3).repeat(Math.max(0, Math.min(6, dest.length - shown)))}`, w / 2, h * 0.2 + 24);
@@ -742,7 +787,7 @@ function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () => void
       wg.strokeStyle = mix(k, 0.8); wg.lineWidth = 1; wg.strokeRect(bx, by, bw, 8);
       wg.fillStyle = mix(k, 1); wg.fillRect(bx + 2, by + 2, (bw - 4) * Math.min(1, k / 0.72), 4);
       wg.font = `11px ${FONT_LBL}`; wg.fillStyle = "rgba(255,255,255,0.7)";
-      wg.fillText(`ДИСТАНЦІЯ ${code} СВ.Р. · ${Math.round(Math.min(1, k / 0.72) * 100)}%`, w / 2, by + 24);
+      wg.fillText(`DISTANCE ${code} LY · ${Math.round(Math.min(1, k / 0.72) * 100)}%`, w / 2, by + 24);
       wg.globalAlpha = 1;
     }
     if (!peaked && k >= 0.8) { peaked = true; onPeak(); }
@@ -792,14 +837,14 @@ q.addEventListener("input", () => {
   const s = q.value.trim().toLowerCase();
   if (s.length < 2) { res.hidden = true; return; }
   hits = [];
-  stars.forEach((st, i) => { if (st.name.toLowerCase().includes(s)) hits.push({ label: st.name, kind: "ЗОРЯ", color: st.color, go: () => select({ kind: "star", s: i }) }); });
-  for (let i = 0; i < planets.length && hits.length < 14; i++) if (planets[i].name.toLowerCase().includes(s)) hits.push({ label: planets[i].name, kind: "ПЛАНЕТА", color: stars[planets[i].s].color, go: () => select({ kind: "planet", p: i }) });
+  stars.forEach((st, i) => { if (st.name.toLowerCase().includes(s)) hits.push({ label: st.name, kind: "STAR", color: st.color, go: () => select({ kind: "star", s: i }) }); });
+  for (let i = 0; i < planets.length && hits.length < 14; i++) if (planets[i].name.toLowerCase().includes(s)) hits.push({ label: planets[i].name, kind: "PLANET", color: stars[planets[i].s].color, go: () => select({ kind: "planet", p: i }) });
   if (artists) for (let i = 0; i < artists.length && hits.length < 24; i++) {
     const [name, st, ti] = artists[i];
-    if (name.toLowerCase().includes(s)) hits.push({ label: name, kind: "АРТИСТ", go: () => loadChunk(st).then(() => select({ kind: "track", s: st, i: ti })) });
+    if (name.toLowerCase().includes(s)) hits.push({ label: name, kind: "ARTIST", go: () => loadChunk(st).then(() => select({ kind: "track", s: st, i: ti })) });
   }
   cur = 0; res.hidden = false;
-  res.innerHTML = hits.length ? hits.map((h, i) => `<button data-h="${i}" class="${i === 0 ? "on" : ""}"><span class="k">${h.kind}</span>${h.color ? `<i class="sw" style="background:${h.color}"></i>` : ""}<span>${esc(h.label)}</span></button>`).join("") : `<p class="note" style="padding:8px 10px">НІЧОГО НЕ ЗНАЙДЕНО В ЦЬОМУ СЕКТОРІ.</p>`;
+  res.innerHTML = hits.length ? hits.map((h, i) => `<button data-h="${i}" class="${i === 0 ? "on" : ""}"><span class="k">${h.kind}</span>${h.color ? `<i class="sw" style="background:${h.color}"></i>` : ""}<span>${esc(h.label)}</span></button>`).join("") : `<p class="note" style="padding:8px 10px">NOTHING FOUND IN THIS SECTOR.</p>`;
 });
 q.addEventListener("keydown", (e) => {
   if (res.hidden || !hits.length) return;

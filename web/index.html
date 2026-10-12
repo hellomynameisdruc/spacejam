@@ -1,21 +1,21 @@
 <!doctype html>
-<html lang="uk" data-phosphor="violet">
+<html lang="en" data-phosphor="violet">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Звуковий космос</title>
-  <meta name="description" content="Термінал-обсерваторія хаус-музики: стилі — зорі, лейбли — планети, треки — супутники.">
+  <title>Sound Cosmos</title>
+  <meta name="description" content="An observatory terminal for house music: styles are stars, labels are planets, tracks are satellites.">
 </head>
 <body>
   <div class="term">
     <header class="bar">
-      <div class="brand"><span class="inv">ЗВУКОВИЙ КОСМОС</span><span class="sub">ОБСЕРВАТОРІЯ // СЕКТОР <b id="sector">HOUSE</b></span></div>
+      <div class="brand"><span class="inv">SOUND COSMOS</span><span class="sub">OBSERVATORY // SECTOR <b id="sector">HOUSE</b></span></div>
       <div class="ticker" aria-hidden="true"><div class="ticker-in" id="ticker"></div></div>
       <div class="sys">
-        <div class="phos" role="group" aria-label="Колір люмінофора">
-          <button type="button" data-ph="violet" aria-label="Фіолетовий люмінофор"></button>
-          <button type="button" data-ph="green" aria-label="Зелений люмінофор"></button>
-          <button type="button" data-ph="amber" aria-label="Бурштиновий люмінофор"></button>
+        <div class="phos" role="group" aria-label="Phosphor colour">
+          <button type="button" data-ph="violet" aria-label="Violet phosphor"></button>
+          <button type="button" data-ph="green" aria-label="Green phosphor"></button>
+          <button type="button" data-ph="amber" aria-label="Amber phosphor"></button>
         </div>
         <span class="clock" id="clock">00:00:00</span>
         <span class="batt" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -23,41 +23,41 @@
     </header>
 
     <main class="deck">
-      <section class="panel scope" aria-label="Сканер">
-        <div class="ph-head"><span>СКАНЕР<span class="long"> // ЗОРЯНА МАПА</span></span><span id="scaleName">ГАЛАКТИКА</span></div>
+      <section class="panel scope" aria-label="Scanner">
+        <div class="ph-head"><span>SCANNER<span class="long"> // STAR MAP</span></span><span id="scaleName">GALAXY</span></div>
         <div class="viewport" id="viewport">
-          <canvas id="sky" aria-label="Мапа стилів, лейблів і треків"></canvas>
+          <canvas id="sky" aria-label="Map of styles, labels and tracks"></canvas>
           <div class="banner" id="sampleBanner" hidden>
-            <b>ТЕСТОВИЙ СИГНАЛ</b> назви вигадані, відео не грають. Справжня мапа з'явиться після обробки дампу Discogs. <u>сховати</u>
+            <b>TEST SIGNAL</b> names are made up and videos won't play. The real map appears once the Discogs dump is processed. <u>hide</u>
           </div>
         </div>
         <div class="ph-foot">
           <span class="readout" id="readout">X +0000.0 Y +0000.0 ×0.00</span>
           <div class="ctrl">
-            <button type="button" class="key hot" id="warp"><kbd>W</kbd>ЧЕРВОТОЧИНА</button>
-            <button type="button" class="key" id="home"><kbd>H</kbd>ВЕСЬ СЕКТОР</button>
-            <button type="button" class="key sq" id="zin" aria-label="Наблизити">+</button>
-            <button type="button" class="key sq" id="zout" aria-label="Віддалити">−</button>
+            <button type="button" class="key hot" id="warp"><kbd>W</kbd>WORMHOLE</button>
+            <button type="button" class="key" id="home"><kbd>H</kbd>FULL SECTOR</button>
+            <button type="button" class="key sq" id="zin" aria-label="Zoom in">+</button>
+            <button type="button" class="key sq" id="zout" aria-label="Zoom out">−</button>
           </div>
         </div>
       </section>
 
-      <aside class="panel dossier" aria-label="Досьє">
-        <div class="ph-head"><span id="dosId">ДОСЬЄ // СЕКТОР</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <aside class="panel dossier" aria-label="Dossier">
+        <div class="ph-head"><span id="dosId">DOSSIER // SECTOR</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
         <div class="player" id="playerBox" hidden>
           <div class="video" id="videoWrap"><div id="yt"></div></div>
           <div class="pbar">
-            <button type="button" class="key sq" id="pPrev" aria-label="Попередній">◂◂</button>
-            <button type="button" class="key sq" id="pToggle" aria-label="Пауза">❚❚</button>
-            <button type="button" class="key sq" id="pNext" aria-label="Наступний поруч">▸▸</button>
-            <label class="tog"><input id="autopilot" type="checkbox" checked><span>АВТОПІЛОТ</span></label>
-            <label class="tog"><input id="tint" type="checkbox" checked><span>ЛЮМІНОФОР</span></label>
+            <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
+            <button type="button" class="key sq" id="pToggle" aria-label="Pause">❚❚</button>
+            <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
+            <label class="tog"><input id="autopilot" type="checkbox" checked><span>AUTOPILOT</span></label>
+            <label class="tog"><input id="tint" type="checkbox" checked><span>PHOSPHOR</span></label>
           </div>
           <p class="pmsg" id="pMsg" hidden></p>
         </div>
         <div class="dbody" id="detail"></div>
         <div class="log">
-          <div class="ph-sub">ЖУРНАЛ ПОЛЬОТУ</div>
+          <div class="ph-sub">FLIGHT LOG</div>
           <div class="loglines" id="log"></div>
         </div>
       </aside>
@@ -66,10 +66,10 @@
     <footer class="cmd">
       <label class="prompt" for="q">&gt;</label>
       <div class="cmdfield">
-        <input id="q" type="search" placeholder="пошук: стиль, лейбл або артист" autocomplete="off" spellcheck="false">
+        <input id="q" type="search" placeholder="search: style, label or artist" autocomplete="off" spellcheck="false">
         <div class="results" id="results" hidden></div>
       </div>
-      <div class="hints" aria-hidden="true"><kbd>/</kbd>ПОШУК <kbd>␣</kbd>ПАУЗА <kbd>N</kbd>ДАЛІ <kbd>ESC</kbd>НАЗАД</div>
+      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>ESC</kbd>BACK</div>
     </footer>
   </div>
 
