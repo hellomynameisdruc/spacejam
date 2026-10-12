@@ -91,42 +91,42 @@ def layout_stars(names, radius, weight, iters=900):
     return pos - pos.mean(0)
 
 
-def place_planets(planets, star_r, prefs, gap=16):
-    """Concentric orbits around the star (planets sorted big → small). Each planet sits as close as
-    possible to the angle facing its 'second' style. Rings are separated radially by the planets'
-    satellite swarms, so every ring can spin at its own speed without planets colliding."""
-    out, rings = [], []
-    inner_edge = star_r + 34
-    cur_r, cur_max, iv = None, 0.0, []
-    for pl, pref in zip(planets, prefs):
-        halo = pl["halo"]
-        while True:
-            if cur_r is None:
-                cur_r, cur_max, iv = inner_edge + halo + gap, halo, []
-            if cur_r - halo < inner_edge + gap - 1e-6:
-                inner_edge, cur_r = cur_r + cur_max, None
-                continue
-            half = (halo + gap / 2) / cur_r
-            ang = None
-            if not iv:
-                ang = pref
-            else:
-                for k in range(0, 420):
-                    cand = pref + (k + 1) // 2 * 0.015 * (1 if k % 2 else -1)
-                    if all(abs((cand - a + math.pi) % (2 * math.pi) - math.pi) >= half + h for a, h in iv):
-                        ang = cand
-                        break
-            if ang is None:
-                inner_edge, cur_r = cur_r + cur_max, None
-                continue
-            if not iv:
-                rings.append(round(cur_r, 1))
-            iv.append((ang, half))
-            cur_max = max(cur_max, halo)
-            out.append((cur_r * math.cos(ang), cur_r * math.sin(ang), cur_r, ang % (2 * math.pi)))
-            break
-    outer = cur_r + cur_max if cur_r is not None else inner_edge
-    return out, outer, rings
+def place_planets(planets, star_r, prefs, gap=12, seed=0):
+    """Planets scattered through wide bands around the star (big labels nearer the core).
+    Inside a band each planet gets a random distance and a random spot near the angle that faces
+    its 'second' style, so there are no visible rings. A whole band turns at one speed, and bands
+    are separated by the planets' satellite swarms, so planets never collide."""
+    rng = random.Random(seed)
+    out, bands = [], []
+    edge = star_r + 34
+    i, n = 0, len(planets)
+    while i < n:
+        hmax = planets[i]["halo"]
+        width = hmax * 2 * 2.1 + gap
+        mid = edge + width / 2
+        here = []  # (x, y, halo) of planets already in this band
+        j = i
+        while j < n:
+            h = planets[j]["halo"]
+            spot = None
+            for k in range(160):
+                ang = prefs[j] + rng.gauss(0, 0.7 + k * 0.03) if k < 80 else rng.uniform(0, 2 * math.pi)
+                rr = mid + rng.uniform(-1, 1) * max(0.0, width / 2 - h - gap / 2)
+                x, y = rr * math.cos(ang), rr * math.sin(ang)
+                if all((x - px) ** 2 + (y - py) ** 2 >= (h + ph + gap) ** 2 for px, py, ph in here):
+                    spot = (x, y, rr, ang % (2 * math.pi))
+                    break
+            if spot is None:
+                break
+            here.append((spot[0], spot[1], h))
+            out.append(spot + (mid,))
+            j += 1
+        if j == i:  # safety: a single planet always fits an empty band
+            raise RuntimeError("could not place planet")
+        bands.append(round(mid, 1))
+        edge += width
+        i = j
+    return out, edge, bands
 
 
 HULL_N = 48
@@ -261,11 +261,11 @@ def main(src, out_dir, min_style, min_label, sample):
                 d = spos[other] - spos[s]
                 v += d / (np.linalg.norm(d) or 1) * c * weight.get((s, other), 0.1)
             prefs.append(math.atan2(v[1], v[0]) if np.linalg.norm(v) > 1e-9 else rnd.uniform(0, 2 * math.pi))
-        xy, outer, rings = place_planets(ps, star_core[s], prefs)
+        xy, outer, rings = place_planets(ps, star_core[s], prefs, seed=hash(s) & 0xFFFF)
         star_bub[s] = rings
         hull = [round(max(outer, star_core[s] + 45) + 12, 1)] * HULL_N
-        for p, (x, y, o, a) in zip(ps, xy):
-            p["lx"], p["ly"], p["o"], p["a"] = x, y, o, a
+        for p, (x, y, o, a, band) in zip(ps, xy):
+            p["lx"], p["ly"], p["o"], p["a"], p["b"] = x, y, o, a, band
         # пояс астероїдів
         bel = sorted(belt[s], key=lambda r: r["year"] or 9999)
         bt = [(r, v) for r in bel for v in r["videos"]]
@@ -317,7 +317,7 @@ def main(src, out_dir, min_style, min_label, sample):
                 a = i * GOLDEN
                 add(r, v, px + rr * math.cos(a), py + rr * math.sin(a), pidx)
             planets_out.append({"name": p["name"], "s": si, "x": round(px, 1), "y": round(py, 1), "r": round(p["r"], 1),
-                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "o": round(p["o"], 1), "a": round(p["a"], 4), "t0": t0, "t1": len(ch["yt"])})
+                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "o": round(p["o"], 1), "a": round(p["a"], 4), "b": round(p["b"], 1), "t0": t0, "t1": len(ch["yt"])})
         for r, v, x, y in belt[s]:
             add(r, v, sx + x, sy + y, -1)
         n_tracks_star = len(ch["yt"])

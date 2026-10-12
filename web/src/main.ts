@@ -13,7 +13,7 @@ import { Player } from "./player";
 
 // ---------- Дані (готує pipeline/build_map.py) ----------
 type Star = { name: string; x: number; y: number; core: number; R: number; n: number; tracks: number; color: string; yh?: number[]; hull?: number[]; bub?: [number, number, number][]; orb?: number[] };
-type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; o?: number; a?: number; t0: number; t1: number };
+type Planet = { name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number]; ay?: number; o?: number; a?: number; b?: number; t0: number; t1: number };
 type MapData = { meta: { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] }; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };
 type TrackRef = { s: number; i: number };
@@ -268,7 +268,7 @@ let tNow = 0;
 const pOmega = planets.map((p) => {
   if (!p.o) return 0;
   const o0 = stars[p.s].orb?.[0] || p.o;
-  return (p.s % 2 ? -1 : 1) * (6.2832 / 180) * Math.pow(o0 / p.o, 0.9);
+  return (p.s % 2 ? -1 : 1) * (6.2832 / 360) * Math.pow(o0 / (p.b ?? p.o), 0.9);
 });
 const PP = { x: 0, y: 0 };
 function planetPos(i: number, t = tNow) {
@@ -349,11 +349,6 @@ function drawSystemShape(si: number) {
     for (let k = 1; k <= n; k++) { const [ax, ay] = pt(k), [bx, by] = pt(k + 1); lc.quadraticCurveTo(ax, ay, (ax + bx) / 2, (ay + by) / 2); }
   } else lc.arc(p.x, p.y, s.R * cam.s, 0, 7);
   lc.stroke(); lc.setLineDash([]);
-  // planet orbits
-  if (!s.orb || cam.s < LOD_PLANETS * 0.6) return;
-  lc.setLineDash([1, 4]); lc.strokeStyle = sc(si, 0.22);
-  for (const o of s.orb) { lc.beginPath(); lc.arc(p.x, p.y, o * cam.s, 0, 7); lc.stroke(); }
-  lc.setLineDash([]);
 }
 
 let marker: (o: Sel, strong: boolean) => void = () => {};
@@ -441,7 +436,7 @@ function drawStatic() {
     brackets(x, y, r, sc(si, strong ? 1 : 0.65), strong ? 7 : 4);
     if (strong) {
       const lx = x + r + 26, ly = y - r - 18;
-      lc.strokeStyle = sc(si, 0.95); lc.lineWidth = 1; lc.beginPath(); lc.moveTo(x + r, y - r); lc.lineTo(x + r + 12, ly + 4); lc.lineTo(lx - 4, ly + 4); lc.stroke();
+      G.strokeStyle = sc(si, 0.95); G.lineWidth = 1; G.beginPath(); G.moveTo(x + r, y - r); G.lineTo(x + r + 12, ly + 4); G.lineTo(lx - 4, ly + 4); G.stroke();
       label(name.toUpperCase(), lx, ly + 8, 12, sc(si, 1), "left", true, true);
     }
   };
@@ -568,6 +563,16 @@ function frame(now: number) {
 function pick(sx: number, sy: number): Sel {
   let best: Sel = null, bd = Infinity;
   const consider = (o: Sel, x: number, y: number, thr: number) => { const p = toScreen(x, y), d = Math.hypot(p.x - sx, p.y - sy); if (d < thr && d < bd) { bd = d; best = o; } };
+  // A click on a planet's body (or its ring) always picks the planet, even if a satellite flies past
+  if (cam.s >= LOD_PLANETS) {
+    let hit = -1, hd = Infinity;
+    planets.forEach((pl, i) => {
+      const q = planetPos(i), p = toScreen(q.x, q.y), d = Math.hypot(p.x - sx, p.y - sy), r = pl.r * cam.s;
+      const reach = Math.max(10, (ringedP[i] ? r * 1.4 : r) + 6);
+      if (d < reach && d - r < hd) { hd = d - r; hit = i; }
+    });
+    if (hit >= 0) return { kind: "planet", p: hit };
+  }
   if (cam.s >= LOD_TRACKS) {
     const w = toWorld(sx, sy), rad = 10 / cam.s;
     stars.forEach((st, s) => {
