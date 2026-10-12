@@ -123,17 +123,51 @@ function pulseOf(si: number, t: number) {
 // Star in the same visual language as the planets: a dithered sphere with an outline, but lit from
 // within, ringed by a dotted halo. Flashes on every beat, sheds a nova shell once per bar.
 const starDither = stars.map((_, si) => sprite(3, 3, (g) => { g.fillStyle = sc(si, 1); g.fillRect(0, 0, 1, 1); g.fillRect(2, 1, 1, 1); g.fillStyle = sc(si, 0.5); g.fillRect(1, 2, 1, 1); }));
+// Particle sphere around every star: thousands of points on a shell, spinning about a tilted axis.
+// Back half is dim and hidden behind the star, front half is bright and drawn over it.
+const SPH_N = 4500, SPH = new Float32Array(SPH_N * 3);
+{
+  let sd = 7; const r1 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  for (let k = 0; k < SPH_N; k++) {
+    // a fifth of the points crowd the poles, like the reference
+    let y = r1() < 0.2 ? (r1() < 0.5 ? -1 : 1) * (1 - r1() ** 2 * 0.25) : 2 * r1() - 1;
+    const ph = r1() * 6.2832, rr = Math.sqrt(1 - y * y), j = 1 + (r1() + r1() + r1() - 1.5) * 0.05;
+    SPH[k * 3] = Math.cos(ph) * rr * j; SPH[k * 3 + 1] = y * j; SPH[k * 3 + 2] = Math.sin(ph) * rr * j;
+  }
+}
+const mixW = (si: number, k: number, a: number) => `rgba(${SC[si].map((v) => Math.round(v + (255 - v) * k)).join(",")},${a})`;
+function sphereDots(c: CanvasRenderingContext2D, si: number, x: number, y: number, R: number, t: number, front: boolean, core: number, p: number) {
+  const n = Math.max(140, Math.min(SPH_N, Math.round(R * R * 0.5)));
+  const a = (reduce ? 0 : t / 1000) * 0.32 * (si % 2 ? 1 : -1) + phase0[si] * 6.283, ca = Math.cos(a), sa = Math.sin(a);
+  const b = 0.32 + phase0[si] * 0.3, cb = Math.cos(b), sb = Math.sin(b);
+  const big = Math.max(1, Math.round(R / 85)), core2 = core * core;
+  const paths = front ? [new Path2D(), new Path2D()] : [new Path2D(), new Path2D()];
+  for (let k = 0; k < n; k++) {
+    const px = SPH[k * 3], py = SPH[k * 3 + 1], pz = SPH[k * 3 + 2];
+    const x1 = px * ca + pz * sa, z1 = -px * sa + pz * ca;
+    const y2 = py * cb - z1 * sb, z2 = py * sb + z1 * cb;
+    if (front ? z2 < 0 : z2 >= 0) continue;
+    const X = x + x1 * R, Y = y - y2 * R;
+    if (!front && (X - x) ** 2 + (Y - y) ** 2 < core2) continue;
+    const bucket = front ? (z2 > 0.55 ? 1 : 0) : (z2 > -0.5 ? 1 : 0);
+    const sz = front && bucket ? big : 1;
+    paths[bucket].rect(Math.round(X), Math.round(Y), sz, sz);
+  }
+  const prev = c.globalCompositeOperation; c.globalCompositeOperation = "lighter";
+  const boost = 0.25 * p + 0.15 * lum[si];
+  if (front) { c.fillStyle = mixW(si, 0.45, 0.5 + boost); c.fill(paths[0]); c.fillStyle = mixW(si, 0.75, 0.75 + boost); c.fill(paths[1]); }
+  else { c.fillStyle = sc(si, 0.22 + boost * 0.5); c.fill(paths[0]); c.fillStyle = mixW(si, 0.2, 0.4 + boost * 0.6); c.fill(paths[1]); }
+  c.globalCompositeOperation = prev;
+}
 function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: number, s: number, t: number) {
   const { p, bar } = pulseOf(si, t);
   const prev = c.globalCompositeOperation;
   // nova shell — once per bar
-  c.strokeStyle = sc(si, 0.55 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.1 * (1 - bar));
-  c.beginPath(); c.arc(x, y, s * (1.3 + 6 * bar), 0, 7); c.stroke();
-  // dotted halo, like a planet's satellite ring; breathes with the beat
-  const hr = s * (1.75 + 0.18 * p), rot = (reduce ? 0 : t / 1000) * 0.2 * (si % 2 ? 1 : -1) + phase0[si] * 6.283;
-  const nDots = Math.max(16, Math.min(48, Math.round(hr * 1.4))), dsz = Math.max(1, Math.round(s * 0.09));
-  c.fillStyle = sc(si, 0.3 + 0.35 * lum[si] + 0.3 * p);
-  for (let k = 0; k < nDots; k++) { const a = rot + k * 6.283 / nDots; c.fillRect(Math.round(x + Math.cos(a) * hr - dsz / 2), Math.round(y + Math.sin(a) * hr - dsz / 2), dsz, dsz); }
+  c.strokeStyle = sc(si, 0.45 * (1 - bar) ** 2); c.lineWidth = Math.max(1, s * 0.06 * (1 - bar));
+  c.beginPath(); c.arc(x, y, s * (4.4 + 4 * bar), 0, 7); c.stroke();
+  // particle sphere — back half first; breathes with the beat
+  const SR = s * (4.2 + 0.15 * p);
+  sphereDots(c, si, x, y, SR, t, false, s * 1.05, p);
   // glow
   c.globalCompositeOperation = "lighter";
   const gR = s * (1.8 + 1.4 * lum[si] + 2.2 * p); c.globalAlpha = Math.min(1, 0.2 + 0.45 * lum[si] + 0.45 * p); c.drawImage(glowS[si], x - gR, y - gR, gR * 2, gR * 2); c.globalAlpha = 1;
@@ -150,6 +184,7 @@ function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: numbe
   c.restore();
   // outline, like the planets
   c.strokeStyle = sc(si, 0.95); c.lineWidth = 1; c.beginPath(); c.arc(x, y, r, 0, 7); c.stroke();
+  sphereDots(c, si, x, y, SR, t, true, 0, p);
 }
 
 // ---------- Канвас і камера ----------
@@ -192,26 +227,27 @@ const dust = Array.from({ length: 420 }, () => ({ x: rnd(), y: rnd(), d: 0.15 + 
 
 const FONT_LBL = "DotGothic16, 'Martian Mono', monospace";
 const placed: { x0: number; y0: number; x1: number; y1: number }[] = [];
+let G: CanvasRenderingContext2D = lc; // where label()/brackets() draw: static layer, or the live frame
 function label(txt: string, x: number, y: number, size: number, color: string, align: CanvasTextAlign = "center", force = false, inv = false) {
-  lc.font = `${size}px ${FONT_LBL}`;
-  const w = lc.measureText(txt).width, h = size + 2;
+  G.font = `${size}px ${FONT_LBL}`;
+  const w = G.measureText(txt).width, h = size + 2;
   const x0 = align === "center" ? x - w / 2 : align === "right" ? x - w : x;
   const r = { x0: x0 - 3, y0: y - h, x1: x0 + w + 3, y1: y + 4 };
   if (!force && placed.some((p) => p.x0 < r.x1 && p.x1 > r.x0 && p.y0 < r.y1 && p.y1 > r.y0)) return false;
   placed.push(r);
-  lc.textAlign = align;
-  if (inv) { lc.fillStyle = color; lc.fillRect(r.x0 - 2, r.y0 + 1, r.x1 - r.x0 + 4, h + 4); lc.fillStyle = BG; }
-  else lc.fillStyle = color;
-  lc.fillText(txt, x, y);
+  G.textAlign = align;
+  if (inv) { G.fillStyle = color; G.fillRect(r.x0 - 2, r.y0 + 1, r.x1 - r.x0 + 4, h + 4); G.fillStyle = BG; }
+  else G.fillStyle = color;
+  G.fillText(txt, x, y);
   return true;
 }
 function brackets(x: number, y: number, r: number, color: string, len = 6) {
-  lc.strokeStyle = color; lc.lineWidth = 1.2; lc.beginPath();
+  G.strokeStyle = color; G.lineWidth = 1.2; G.beginPath();
   for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
     const cx = x + sx * r, cy = y + sy * r;
-    lc.moveTo(cx, cy - sy * len); lc.lineTo(cx, cy); lc.lineTo(cx - sx * len, cy);
+    G.moveTo(cx, cy - sy * len); G.lineTo(cx, cy); G.lineTo(cx - sx * len, cy);
   }
-  lc.stroke();
+  G.stroke();
 }
 function getDither(si: number) {
   if (ditherPats[si]) return ditherPats[si]!;
@@ -242,6 +278,41 @@ function eachTrack(si: number, x0: number, y0: number, x1: number, y1: number, f
   for (let cx = Math.floor(x0 / CELL); cx <= Math.floor(x1 / CELL); cx++)
     for (let cy = Math.floor(y0 / CELL); cy <= Math.floor(y1 / CELL); cy++) { const a = g.get(gkey(cx, cy)); if (a) for (const i of a) fn(i); }
 }
+
+// Satellites orbit their planet on tilted circular orbits (random orientations ⇒ a spherical swarm).
+// Belt tracks (no planet) stay put. Kepler-ish: inner orbits are faster.
+type Orbit = { d: Float32Array; th: Float32Array; ci: Float32Array; si: Float32Array; cO: Float32Array; sO: Float32Array; w: Float32Array };
+const orbits: (Orbit | null)[] = stars.map(() => null);
+function orbitOf(s: number): Orbit | null {
+  if (orbits[s]) return orbits[s];
+  const ch = chunks[s]; if (!ch) return null;
+  const n = ch.x.length, o: Orbit = { d: new Float32Array(n), th: new Float32Array(n), ci: new Float32Array(n), si: new Float32Array(n), cO: new Float32Array(n), sO: new Float32Array(n), w: new Float32Array(n) };
+  let sd = 1 + s * 7919; const r1 = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < n; i++) {
+    const pi = ch.p[i]; if (pi < 0) continue;
+    const P = planets[pi], dx = ch.x[i] - P.x, dy = ch.y[i] - P.y, d = Math.hypot(dx, dy);
+    const ci = 2 * r1() - 1, O = r1() * 6.2832;
+    o.d[i] = d; o.th[i] = Math.atan2(dy, dx); o.ci[i] = ci; o.si[i] = Math.sqrt(1 - ci * ci); o.cO[i] = Math.cos(O); o.sO[i] = Math.sin(O);
+    o.w[i] = (6.2832 / 46) * Math.pow((P.r + 4) / Math.max(d, P.r + 4), 1.5);
+  }
+  return (orbits[s] = o);
+}
+let tNow = 0;
+const OP = { x: 0, y: 0, z: 0 };
+// World position of a track right now (z > 0 = in front of its planet)
+function trackPos(s: number, i: number, t = tNow) {
+  const ch = chunks[s]!, o = orbitOf(s)!;
+  if (!o || ch.p[i] < 0 || !o.d[i]) { OP.x = ch.x[i]; OP.y = ch.y[i]; OP.z = 1; return OP; }
+  const P = planets[ch.p[i]], th = o.th[i] + (reduce ? 0 : t / 1000) * o.w[i], d = o.d[i];
+  const X = d * Math.cos(th), Y = d * Math.sin(th) * o.ci[i];
+  OP.x = P.x + X * o.cO[i] - Y * o.sO[i]; OP.y = P.y + X * o.sO[i] + Y * o.cO[i]; OP.z = d * Math.sin(th) * o.si[i];
+  return OP;
+}
+const hiddenBehind = (s: number, i: number, q: { x: number; y: number; z: number }) => {
+  if (q.z >= 0) return false; const pi = chunks[s]!.p[i]; if (pi < 0) return false;
+  const P = planets[pi]; return (q.x - P.x) ** 2 + (q.y - P.y) ** 2 < P.r * P.r;
+};
+const orbitR = (pl: Planet) => pl.r + 6 + 1.5 * Math.sqrt(pl.t1 - pl.t0);
 
 // Planet look by type: banded giants, ringed long-runners, cratered retired labels, icy newcomers
 function drawPlanetBody(i: number, x: number, y: number, r: number) {
@@ -307,6 +378,7 @@ function drawSystemShape(si: number) {
   }
 }
 
+let marker: (o: Sel, strong: boolean) => void = () => {};
 // Статичний шар: перемальовується лише коли рухається камера або змінюється вибір
 function drawStatic() {
   placed.length = 0;
@@ -360,6 +432,7 @@ function drawStatic() {
       const ch = chunks[si]; if (!ch) { loadChunk(si); return; }
       lc.fillStyle = sc(si, 0.9);
       eachTrack(si, V0.x, V0.y, V1.x, V1.y, (i) => {
+        if (ch.p[i] >= 0) return; // planet satellites are animated in drawLive
         const x = ch.x[i], y = ch.y[i];
         if (x < V0.x || x > V1.x || y < V0.y || y > V1.y) return;
         const p = toScreen(x, y);
@@ -397,17 +470,17 @@ function drawStatic() {
   stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
     const p = toScreen(s.x, s.y);
-    label(s.name.toUpperCase(), p.x, p.y - starSize(s) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", starRank[si] < 12);
+    label(s.name.toUpperCase(), p.x, p.y - starSize(s) * 4.6 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", starRank[si] < 12);
   });
   for (const t of titles) label(t.t, t.x + 6, t.y + 4, 11, sc(t.si, 0.75), "left");
 
   // виділення й наведення
-  const marker = (o: Sel, strong: boolean) => {
+  marker = (o: Sel, strong: boolean) => {
     if (!o) return;
     let x = 0, y = 0, r = 8, name = "", si = 0;
     if (o.kind === "star") { const s = stars[o.s], p = toScreen(s.x, s.y); x = p.x; y = p.y; r = starSize(s) * 2.6 + 6; name = `${bpm[o.s]} BPM · PEAK ${peakYear[o.s]}`; si = o.s; }
     else if (o.kind === "planet") { const pl = planets[o.p], p = toScreen(pl.x, pl.y); x = p.x; y = p.y; r = Math.max(9, pl.r * cam.s + 6); name = pl.name; si = pl.s; }
-    else { const ch = chunks[o.s]; if (!ch) return; const p = toScreen(ch.x[o.i], ch.y[o.i]); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; si = o.s; }
+    else { const ch = chunks[o.s]; if (!ch || G === lc) return; const q = trackPos(o.s, o.i), p = toScreen(q.x, q.y); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; si = o.s; }
     brackets(x, y, r, sc(si, strong ? 1 : 0.65), strong ? 7 : 4);
     if (strong) {
       const lx = x + r + 26, ly = y - r - 18;
@@ -425,17 +498,45 @@ function drawStatic() {
 }
 
 // Кожен кадр: готовий статичний шар + пульсари + маяк треку, що грає
+function drawSatellites(t: number) {
+  if (cam.s < LOD_TRACKS) return;
+  const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9))), titles = cam.s >= LOD_TITLES;
+  const nPlaced = placed.length; let nT = 0;
+  G = ctx;
+  stars.forEach((st, si) => {
+    if (!inView(st.x, st.y, st.R)) return;
+    const ch = chunks[si]; if (!ch || !orbitOf(si)) return;
+    const back = new Path2D(), front = new Path2D();
+    for (const pi of planetsByStar[si]) {
+      const pl = planets[pi]; if (!inView(pl.x, pl.y, orbitR(pl))) continue;
+      for (let i = pl.t0; i < pl.t1; i++) {
+        const q = trackPos(si, i, t);
+        if (q.x < V0.x || q.x > V1.x || q.y < V0.y || q.y > V1.y || hiddenBehind(si, i, q)) continue;
+        const p = toScreen(q.x, q.y), X = Math.round(p.x - sz / 2), Y = Math.round(p.y - sz / 2);
+        (q.z >= 0 ? front : back).rect(X, Y, sz, sz);
+        if (titles && q.z > 0 && nT < 160 && label(ch.t[i], p.x + 6, p.y + 4, 11, sc(si, 0.75), "left")) nT++;
+      }
+    }
+    ctx.fillStyle = sc(si, 0.35); ctx.fill(back);
+    ctx.fillStyle = sc(si, 0.95); ctx.fill(front);
+  });
+  if (hover && hover.kind === "track" && !same(hover, sel)) marker(hover, false);
+  if (sel && sel.kind === "track") marker(sel, true);
+  placed.length = nPlaced; G = lc;
+}
 function drawLive(t: number) {
+  tNow = t;
   ctx.drawImage(layer, 0, 0, W, H);
+  drawSatellites(t);
   stars.forEach((s, si) => {
-    if (!inView(s.x, s.y, starSize(s) * 9)) return;
+    if (!inView(s.x, s.y, starSize(s) * 9 / cam.s)) return;
     const p = toScreen(s.x, s.y);
     drawPulsar(ctx, si, p.x, p.y, starSize(s), t);
   });
   if (nowPlaying) {
     const ch = chunks[nowPlaying.s];
     if (ch) {
-      const p = toScreen(ch.x[nowPlaying.i], ch.y[nowPlaying.i]), { bar } = pulseOf(nowPlaying.s, t);
+      const q = trackPos(nowPlaying.s, nowPlaying.i, t), p = toScreen(q.x, q.y), { bar } = pulseOf(nowPlaying.s, t);
       ctx.strokeStyle = sc(nowPlaying.s, 0.9 * (1 - bar)); ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.arc(p.x, p.y, 6 + bar * 26, 0, 7); ctx.stroke();
     }
@@ -467,7 +568,12 @@ function pick(sx: number, sy: number): Sel {
     const w = toWorld(sx, sy), rad = 10 / cam.s;
     stars.forEach((st, s) => {
       const ch = chunks[s]; if (!ch || Math.hypot(w.x - st.x, w.y - st.y) > st.R + rad) return;
-      eachTrack(s, w.x - rad, w.y - rad, w.x + rad, w.y + rad, (i) => consider({ kind: "track", s, i }, ch.x[i], ch.y[i], 10));
+      eachTrack(s, w.x - rad, w.y - rad, w.x + rad, w.y + rad, (i) => { if (ch.p[i] < 0) consider({ kind: "track", s, i }, ch.x[i], ch.y[i], 10); });
+      if (!orbitOf(s)) return;
+      for (const pi of planetsByStar[s]) {
+        const pl = planets[pi]; if (Math.hypot(w.x - pl.x, w.y - pl.y) > orbitR(pl) + rad) continue;
+        for (let i = pl.t0; i < pl.t1; i++) { const q = trackPos(s, i); if (!hiddenBehind(s, i, q)) consider({ kind: "track", s, i }, q.x, q.y, 10); }
+      }
     });
   }
   if (cam.s >= LOD_PLANETS) planets.forEach((p, i) => consider({ kind: "planet", p: i }, p.x, p.y, Math.max(10, p.r * cam.s + 5)));
@@ -509,7 +615,7 @@ function select(o: Sel, go = true, autoplay = false) {
   sel = o; dirty = true;
   if (o?.kind === "star") { const s = stars[o.s]; if (go) fly(s.x, s.y, Math.min(maxS, (Math.min(W, H) * 0.46) / s.R)); }
   else if (o?.kind === "planet") { const p = planets[o.p]; if (go) fly(p.x, p.y, Math.max(LOD_TRACKS * 1.6, Math.min(8, Math.min(W, H) * 0.16 / (p.r + 4 + 1.5 * Math.sqrt(p.t1 - p.t0))))); }
-  else if (o?.kind === "track") { const ch = chunks[o.s]!; if (go) fly(ch.x[o.i], ch.y[o.i], Math.max(cam.s, LOD_TITLES * 1.3)); if (autoplay) playTrack(o); try { history.replaceState(null, "", `#t${o.s}-${o.i}`); } catch { /* */ } }
+  else if (o?.kind === "track") { const ch = chunks[o.s]!; if (go) { const pi = ch.p[o.i]; if (pi >= 0) { const pl = planets[pi]; fly(pl.x, pl.y, Math.max(LOD_TITLES * 1.1, Math.min(8, Math.min(W, H) * 0.42 / orbitR(pl)))); } else fly(ch.x[o.i], ch.y[o.i], Math.max(cam.s, LOD_TITLES * 1.3)); } if (autoplay) playTrack(o); try { history.replaceState(null, "", `#t${o.s}-${o.i}`); } catch { /* */ } }
   render();
   decodeDossier(warping ? 900 : 380);
 }
