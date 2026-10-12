@@ -4,7 +4,9 @@
 
 type Shape = { rows: string[]; hot: [number, number] }; // hotspot in cells
 
-const CELL = 2;
+// Each cell is 1.5 CSS px. The SVG is drawn at 3 px per cell and declared as a 2x image, so on a
+// Retina screen every cell is exactly 3 device pixels (crisp), at ~3/4 of the old size.
+const CELL = 3, CSS_CELL = 1.5;
 
 function grid(w: number, h: number, fill: (x: number, y: number) => boolean): string[] {
   const rows: string[] = [];
@@ -106,8 +108,9 @@ function svg(shape: Shape, fill: string, edge: string) {
     rects += `<rect x='${x * CELL}' y='${y * CELL}' width='${CELL}' height='${CELL}' fill='${c === "X" ? fill : edge}'/>`;
   }));
   const body = `<svg xmlns='http://www.w3.org/2000/svg' width='${w * CELL}' height='${h * CELL}' shape-rendering='crispEdges'>${rects}</svg>`;
-  const hx = shape.hot[0] * CELL + (shape === ARROW || shape === HAND ? 0 : 1), hy = shape.hot[1] * CELL + (shape === ARROW || shape === HAND ? 0 : 1);
-  return `url("data:image/svg+xml,${encodeURIComponent(body)}") ${hx} ${hy}`;
+  const mid = shape === ARROW || shape === HAND ? 0 : 0.5;
+  const hx = Math.round((shape.hot[0] + mid) * CSS_CELL), hy = Math.round((shape.hot[1] + mid) * CSS_CELL);
+  return `image-set(url("data:image/svg+xml,${encodeURIComponent(body)}") 2x) ${hx} ${hy}`;
 }
 
 let edgeColor = "#07060e";
