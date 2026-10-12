@@ -39,7 +39,13 @@ jobs:
         id: src
         working-directory: pipeline
         run: |
-          url=$(python -c "from remote import latest_releases_url; print(latest_releases_url())")
+          for u in "https://discogs-data-dumps.s3.us-west-2.amazonaws.com/?prefix=data/2026/" "https://data.discogs.com/"; do
+            code=$(curl -s -o /tmp/probe -w "%{http_code}" -L "$u" || true)
+            echo "::notice::Перевірка $u → HTTP $code: $(head -c 200 /tmp/probe | tr '\n' ' ')"
+          done
+          python -c "from remote import latest_releases_url; open('/tmp/url','w').write(latest_releases_url())"
+          url=$(cat /tmp/url)
+          echo "::notice::Дамп: $url"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           prev=$(gh release view data-latest --json body -q .body 2>/dev/null || true)
           if [ "$prev" = "$url" ] && [ "${{ inputs.force }}" != "true" ] && [ "${{ github.event_name }}" != "push" ]; then
