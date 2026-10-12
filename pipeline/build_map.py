@@ -91,79 +91,42 @@ def layout_stars(names, radius, weight, iters=900):
     return pos - pos.mean(0)
 
 
-def place_planets(planets, star_r, prefs, seed=0):
-    """Bubbly, chaotic systems: planets form 3–6 clusters ("bubbles") around the star.
-    Bubble directions follow the most related neighbour styles (plus some randomness); each label
-    joins the bubble closest to its own affinity; overlapping halos push apart."""
-    n = len(planets)
-    if n == 0:
-        return [], star_r, [star_r + 40] * HULL_N, []
-    rng = np.random.default_rng(seed)
-    halo = np.array([p["halo"] for p in planets]) + 5
-    pref = np.array(prefs)
-    # bubble directions: strongest affinity directions + random ones
-    k = int(min(n, 3 + rng.integers(0, 4)))
-    hist = np.histogram(pref % (2 * math.pi), bins=12, range=(0, 2 * math.pi))[0]
-    top = list(np.argsort(-hist)[: max(1, k // 2)])
-    angles = [(t + 0.5) / 12 * 2 * math.pi + rng.normal(0, 0.25) for t in top]
-    while len(angles) < k:
-        angles.append(rng.uniform(0, 2 * math.pi))
-    angles = np.array(angles)
-    # spread bubbles apart so they read as separate clusters
-    for _ in range(60):
-        dd = (angles[:, None] - angles[None, :] + math.pi) % (2 * math.pi) - math.pi
-        np.fill_diagonal(dd, 9)
-        close = np.abs(dd) < 2 * math.pi / (k * 1.35)
-        angles += np.where(close, -np.sign(dd) * 0.04, 0).sum(1)
-    diff = np.abs((pref[:, None] - angles[None, :] + math.pi) % (2 * math.pi) - math.pi) + rng.random((n, k)) * 0.9
-    group = diff.argmin(1)
-    # each bubble is a circle sized for its planets; bubbles are relaxed so they touch but don't merge
-    br = np.zeros(k)
-    for g in range(k):
-        m = group == g
-        br[g] = math.sqrt(((2 * halo[m]) ** 2).sum() / math.pi) * 0.6 + 12 if m.any() else 0
-    centres = np.stack([np.cos(angles), np.sin(angles)], 1) * (star_r + 30 + br)[:, None]
-    for _ in range(400):
-        for g in range(k):
-            if br[g] == 0:
+def place_planets(planets, star_r, prefs, gap=16):
+    """Concentric orbits around the star (planets sorted big → small). Each planet sits as close as
+    possible to the angle facing its 'second' style. Rings are separated radially by the planets'
+    satellite swarms, so every ring can spin at its own speed without planets colliding."""
+    out, rings = [], []
+    inner_edge = star_r + 34
+    cur_r, cur_max, iv = None, 0.0, []
+    for pl, pref in zip(planets, prefs):
+        halo = pl["halo"]
+        while True:
+            if cur_r is None:
+                cur_r, cur_max, iv = inner_edge + halo + gap, halo, []
+            if cur_r - halo < inner_edge + gap - 1e-6:
+                inner_edge, cur_r = cur_r + cur_max, None
                 continue
-            for h in range(k):
-                if h == g or br[h] == 0:
-                    continue
-                dv = centres[g] - centres[h]
-                dd = np.linalg.norm(dv) or 1e-6
-                need = br[g] + br[h] + 34
-                if dd < need:
-                    centres[g] += dv / dd * (need - dd) * 0.5
-            r = np.linalg.norm(centres[g]) or 1e-6
-            need = star_r + 26 + br[g]
-            centres[g] *= max(need, r * 0.985) / r  # gently fall toward the star, never into it
-    pos = centres[group] + rng.normal(0, 1, (n, 2)) * halo[:, None]
-    # planets from different bubbles keep a visible gap between them
-    minsep = halo[:, None] + halo[None, :] + np.where(group[:, None] != group[None, :], 26.0, 0.0)
-    for it in range(360):
-        d = pos[:, None, :] - pos[None, :, :]
-        dist = np.maximum(np.linalg.norm(d, axis=2), 1e-3)
-        np.fill_diagonal(dist, 1e9)
-        overlap = np.clip(minsep - dist, 0, None)
-        push = (d / dist[..., None] * overlap[..., None]).sum(1) * 0.5
-        cool = 1 - it / 360
-        pos += push + (centres[group] - pos) * 0.035 * (0.3 + cool)
-        r = np.linalg.norm(pos, axis=1)
-        minr = star_r + 16 + halo
-        inside = r < minr
-        if inside.any():
-            pos[inside] *= (minr[inside] / np.maximum(r[inside], 1e-6))[:, None]
-    hull = hull_radii(pos, halo, star_r)
-    # actual bubble outlines: centre and radius of each cluster as it settled
-    bubbles = []
-    for g in range(k):
-        m = group == g
-        if m.any():
-            c = pos[m].mean(0)
-            r = float((np.linalg.norm(pos[m] - c, axis=1) + halo[m]).max()) + 8
-            bubbles.append([round(float(c[0]), 1), round(float(c[1]), 1), round(r, 1)])
-    return [tuple(map(float, q)) for q in pos], float(max(hull)), hull, bubbles
+            half = (halo + gap / 2) / cur_r
+            ang = None
+            if not iv:
+                ang = pref
+            else:
+                for k in range(0, 420):
+                    cand = pref + (k + 1) // 2 * 0.015 * (1 if k % 2 else -1)
+                    if all(abs((cand - a + math.pi) % (2 * math.pi) - math.pi) >= half + h for a, h in iv):
+                        ang = cand
+                        break
+            if ang is None:
+                inner_edge, cur_r = cur_r + cur_max, None
+                continue
+            if not iv:
+                rings.append(round(cur_r, 1))
+            iv.append((ang, half))
+            cur_max = max(cur_max, halo)
+            out.append((cur_r * math.cos(ang), cur_r * math.sin(ang), cur_r, ang % (2 * math.pi)))
+            break
+    outer = cur_r + cur_max if cur_r is not None else inner_edge
+    return out, outer, rings
 
 
 HULL_N = 48
@@ -298,10 +261,11 @@ def main(src, out_dir, min_style, min_label, sample):
                 d = spos[other] - spos[s]
                 v += d / (np.linalg.norm(d) or 1) * c * weight.get((s, other), 0.1)
             prefs.append(math.atan2(v[1], v[0]) if np.linalg.norm(v) > 1e-9 else rnd.uniform(0, 2 * math.pi))
-        xy, outer, hull, bubbles = place_planets(ps, star_core[s], prefs, seed=hash(s) & 0xFFFF)
-        star_bub[s] = bubbles
-        for p, (x, y) in zip(ps, xy):
-            p["lx"], p["ly"] = x, y
+        xy, outer, rings = place_planets(ps, star_core[s], prefs)
+        star_bub[s] = rings
+        hull = [round(max(outer, star_core[s] + 45) + 12, 1)] * HULL_N
+        for p, (x, y, o, a) in zip(ps, xy):
+            p["lx"], p["ly"], p["o"], p["a"] = x, y, o, a
         # пояс астероїдів
         bel = sorted(belt[s], key=lambda r: r["year"] or 9999)
         bt = [(r, v) for r in bel for v in r["videos"]]
@@ -353,7 +317,7 @@ def main(src, out_dir, min_style, min_label, sample):
                 a = i * GOLDEN
                 add(r, v, px + rr * math.cos(a), py + rr * math.sin(a), pidx)
             planets_out.append({"name": p["name"], "s": si, "x": round(px, 1), "y": round(py, 1), "r": round(p["r"], 1),
-                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "t0": t0, "t1": len(ch["yt"])})
+                                "n": p["n"], "yr": p["years"], "ay": p["active_years"], "o": round(p["o"], 1), "a": round(p["a"], 4), "t0": t0, "t1": len(ch["yt"])})
         for r, v, x, y in belt[s]:
             add(r, v, sx + x, sy + y, -1)
         n_tracks_star = len(ch["yt"])
@@ -361,7 +325,7 @@ def main(src, out_dir, min_style, min_label, sample):
         chunks.append(ch)
         stars_out.append({"name": s, "x": round(float(sx), 1), "y": round(float(sy), 1), "core": round(star_core[s], 1),
                           "R": round(star_radius[s], 1), "n": style_n[s], "tracks": n_tracks_star, "color": color,
-                          "yh": year_hist[s], "hull": star_hull[s], "bub": star_bub[s]})
+                          "yh": year_hist[s], "hull": star_hull[s], "orb": star_bub[s]})
 
     links = [[stars.index(a), stars.index(b), round(w, 4)] for (a, b), w in weight.items() if a < b and w >= 0.03]
     out_dir.mkdir(parents=True, exist_ok=True)
