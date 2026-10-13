@@ -1,7 +1,7 @@
 // The static layer: grid, nebulae, dust, system outlines, style links, belt tracks, star labels and
 // star markers. Repainted only when the camera settles somewhere new; in between it slides/scales.
 import { $ } from "../core/dom";
-import { lcg } from "../core/util";
+import { clipSeg, lcg } from "../core/util";
 import { chunk, galaxy, sameSel, state, tracks } from "../app/state";
 import { BG, glowS, nc, nebulaS, ph, sc } from "./palette";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS } from "./camera";
@@ -98,11 +98,16 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
     const A = cam.toScreen(stars[a].x, stars[a].y), B = cam.toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);
     // skip links that can't cross the painted area (most of them once zoomed in)
     if (Math.max(A.x, B.x) < -MARGIN || Math.min(A.x, B.x) > W + MARGIN || Math.max(A.y, B.y) < -MARGIN || Math.min(A.y, B.y) > H + MARGIN) continue;
+    // only the part inside the painted area: zoomed in, a link between two far stars is tens of
+    // thousands of pixels long and every dash of it costs, seen or not
+    const c = clipSeg(A.x, A.y, B.x, B.y, -MARGIN, -MARGIN, W + MARGIN, H + MARGIN); if (!c) continue;
+    const len = Math.hypot(B.x - A.x, B.y - A.y);
     // flat colour of the first star (a gradient per line was the most expensive thing on the layer)
     lc.strokeStyle = sc(a, al); lc.lineWidth = w > 0.15 ? 1.6 : 1;
-    lc.beginPath(); lc.moveTo(A.x, A.y); lc.lineTo(B.x, B.y); lc.stroke();
+    lc.lineDashOffset = c[0] * len; // dashes stay where they were on the whole line
+    lc.beginPath(); lc.moveTo(A.x + (B.x - A.x) * c[0], A.y + (B.y - A.y) * c[0]); lc.lineTo(A.x + (B.x - A.x) * c[1], A.y + (B.y - A.y) * c[1]); lc.stroke();
   }
-  lc.setLineDash([]);
+  lc.setLineDash([]); lc.lineDashOffset = 0;
 
   // asteroid-belt tracks (planet satellites move, so the live layer draws those)
   const titles: { x: number; y: number; t: string; si: number }[] = [];

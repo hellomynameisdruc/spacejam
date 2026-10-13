@@ -286,7 +286,33 @@ def layout_galaxies(stars, radius, weight, gal, gids, iters=900):
             if best_cost is None or cost < best_cost - 1e-9:
                 best, best_cost = ang, cost
         pos[idx] = cpos[g] + _rot(local[g], best)
-    return pos, {g: (float(cpos[g][0]), float(cpos[g][1]), rad[g]) for g in gids}
+    # galaxies sit close enough for their clouds to touch, but no two star systems may overlap
+    separate(pos, radius, gap=40)
+    out = {}
+    for g in gids:
+        idx = groups[g]
+        c = pos[idx].mean(0)
+        out[g] = (float(c[0]), float(c[1]), float(max(np.linalg.norm(pos[idx] - c, axis=1) + radius[idx])))
+    return pos, out
+
+
+def separate(pos, r, gap=40, rounds=300):
+    """Push apart any two systems closer than their radii plus `gap` (in place)."""
+    n = len(pos)
+    for _ in range(rounds):
+        moved = False
+        for i in range(n):
+            for k in range(i + 1, n):
+                dv = pos[i] - pos[k]
+                dd = float(np.linalg.norm(dv)) or 1e-6
+                need = r[i] + r[k] + gap
+                if dd < need:
+                    m = dv / dd * (need - dd) / 2
+                    pos[i] += m
+                    pos[k] -= m
+                    moved = True
+        if not moved:
+            break
 
 
 def place_planets(planets, star_r, prefs, gap=12, seed=0):

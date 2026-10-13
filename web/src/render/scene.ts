@@ -3,7 +3,7 @@
 import { $ } from "../core/dom";
 import { chunk, galaxy, motion, sameSel, state } from "../app/state";
 import { sc } from "./palette";
-import { cam } from "./camera";
+import { cam, LOD_TRACKS } from "./camera";
 import { inView, MARGIN, updateLiveView } from "./view";
 import { labels } from "./labels";
 import { drawPulsar, pulseOf, starSize } from "./pulsar";
@@ -50,9 +50,9 @@ function drawLive(t: number) {
   const now = performance.now(), { W, H } = cam;
   if (cam.s !== lastScale) { lastScale = cam.s; lastScaleT = now; }
   let k = cam.s / painted.s, ox = (cam.x - painted.x) * cam.s, oy = (cam.y - painted.y) * cam.s;
-  // Near (systems, planets, tracks) repaint a few times a second so the belt tracks stay with their
-  // planets; from afar (whole galaxies, nothing moving yet) only when zooming rests or drifts far.
-  const stale = k !== 1 && (farView()
+  // Where belt tracks are drawn (orbit level and closer) repaint a few times a second so they stay
+  // with their planets; further out, and during flights, only when zooming rests or drifts far.
+  const stale = k !== 1 && (farView() || cam.flying || cam.s < LOD_TRACKS
     ? now - lastScaleT > 160 || k < 0.62 || k > 1.6
     : now - painted.at > 110 || now - lastScaleT > 140 || k < 0.84 || k > 1.2);
   if (stale || Math.abs(ox) > MARGIN - 4 || Math.abs(oy) > MARGIN - 4) { paintStatic(); k = 1; ox = oy = 0; }
@@ -88,7 +88,9 @@ function drawLive(t: number) {
 
 function frame(now: number) {
   motion.now = now;
-  if (cam.update(now)) state.dirty = true;
+  // a flight doesn't repaint the background every frame (the costliest thing we draw): drawLive slides
+  // and stretches the last picture and repaints it only now and then, and once the flight lands
+  cam.update(now);
   if (state.dirty) { state.dirty = false; paintStatic(); }
   drawLive(now);
   for (const f of perFrame) f(now);
