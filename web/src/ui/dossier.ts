@@ -75,8 +75,8 @@ function star(si: number) {
 }
 
 const ordinal = (k: number) => { const t = k % 100, e = k % 10; return k + (t >= 11 && t <= 13 ? "th" : e === 1 ? "st" : e === 2 ? "nd" : e === 3 ? "rd" : "th"); };
-/** what kind of world it is, in one line */
-function planetStory(pi: number) {
+/** what kind of world it is, shown on hover over the TYPE row */
+function planetType(pi: number) {
   const g = galaxy, ty = g.ptype[pi], [tn, td] = PTYPE_INFO[ty];
   return `${tn[0]}${tn.slice(1).toLowerCase()}: ${td}${ty === "giant" && g.ringed[pi] ? `, with rings: ${PTYPE_INFO.ringed[1]}` : ""}.`;
 }
@@ -102,8 +102,7 @@ function planet(pi: number, o: Sel) {
     code: `PLANET // PL-${pad(pi, 4)}`, title: p.name.toUpperCase(),
     html: `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">PL-${pad(pi, 4)} // LABEL</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
-      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : ""))}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
-      <p class="note">${planetStory(pi)}</p>
+      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", `<span title="${esc(planetType(pi))}">${PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : "")}</span>`)}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
       ${activity}
       ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ PLAY THE ORBIT</button>` : ""}
       <button class="plot crt" data-route="${pi}"><span>⟶ PLOT AN ODYSSEY FROM HERE</span></button>
