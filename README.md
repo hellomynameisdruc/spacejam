@@ -23,7 +23,7 @@ Planets slowly orbit their stars; the camera follows whatever you select.
 - **Click** a star, planet or track to open its dossier on the right.
 - **Play** — tracks play in the embedded YouTube player. *Play the orbit* picks a random track from a label.
 - **Autopilot** — when a track ends, the ship flies to the nearest track you haven't heard yet.
-- **Routes** — on any planet press *Plot route from here*, then pick another planet. The route crosses every system on the way through at least three planets, entering and leaving through "gate" labels that release both neighbouring styles; inside a single system it tours around the star from the older label's era to the newer one's. Every route has at least 20 tracks and its own shareable link.
+- **Routes** — on any planet press *Plot route from here*, then pick another planet. Every route visits 10 planets in 5 systems, two in each: the start system, three neighbouring systems on the way and the destination system (if the two are close, the route detours through neighbours; if they share a system, it becomes a round trip). It enters and leaves each system through "gate" labels facing the previous and next systems, preferring labels that release both styles. Every route has at least 20 tracks and its own shareable link.
 - **Wormhole** — jump to a random point in the cosmos.
 - **Search** by style, label or artist.
 - **Flight log** — your listening history (kept in your browser).

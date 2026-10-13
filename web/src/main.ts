@@ -863,13 +863,8 @@ function starPath(a: number, b: number): number[] {
 }
 const midYear = (p: Planet) => (p.yr[0] && p.yr[1] ? (p.yr[0] + p.yr[1]) / 2 : p.yr[1] || 2000);
 const shareOf = (p: Planet, s: number) => p.xs?.find((e) => e[0] === s)?.[1] ?? 0;
-// Route rules:
-//  • every system on the way is crossed through at least 3 planets: in through an outer "gate" planet
-//    facing the previous system, a dive past the star, out through an outer gate facing the next one;
-//  • gates prefer labels that release both neighbouring styles;
-//  • inside a single system the route is a tour around the star, from the older label's era to the newer's;
-//  • at least 20 tracks, spread over the stops and across each label's years.
-// Planning uses the catalogue positions (orbits at t=0), so the same pair always gives the same route.
+// Route helpers (rules are described above planRoute). Planning uses catalogue positions (orbits at t=0),
+// so the same pair of planets always gives the same route.
 function poolOf(st: number, used: Set<number>) { return planetsByStar[st].filter((i) => !used.has(i) && planets[i].t1 > planets[i].t0); }
 const medianN = (pool: number[]) => { const ns = pool.map((i) => planets[i].n).sort((x, y) => x - y); return ns[ns.length >> 1] ?? 0; };
 function gate(inStar: number, toward: number, used: Set<number>): number {
@@ -906,36 +901,65 @@ function via(st: number, a: number, b: number, t: number, used: Set<number>, dip
   }
   return best;
 }
+// Route rules: 10 planets in 5 systems, 2 planets each. Between start and finish the flight always
+// crosses 3 neighbouring systems (if the two systems are close, it detours through neighbours); among
+// all 5-system paths it takes the one with the strongest style links and the shortest jumps.
+// In each system: in through a gate facing the previous system, out through a gate facing the next.
+// Start and finish in the same system → a round trip out through 3 neighbours and back.
+const ROUTE_SYSTEMS = 5;
+const wOf = new Map<number, number>();
+for (const [a, b, w] of links) { wOf.set(a * 1000 + b, w); wOf.set(b * 1000 + a, w); }
+const meanLink = links.reduce((acc, [a, b]) => acc + Math.hypot(stars[a].x - stars[b].x, stars[a].y - stars[b].y), 0) / Math.max(1, links.length);
+const edgeCost = (u: number, v: number, w: number) => 0.6 + 0.08 / Math.max(w, 0.01) + 0.35 * Math.hypot(stars[u].x - stars[v].x, stars[u].y - stars[v].y) / meanLink;
+// cheapest simple path a → … → b through exactly n systems (a may equal b: a loop)
+function pathOfLen(a: number, b: number, n: number): number[] | null {
+  let best: number[] | null = null, bc = Infinity;
+  const path = [a];
+  const dfs = (u: number, cost: number) => {
+    if (cost >= bc) return;
+    if (path.length === n - 1) {
+      const w = wOf.get(u * 1000 + b);
+      if (w !== undefined) { const c = cost + edgeCost(u, b, w); if (c < bc) { bc = c; best = [...path, b]; } }
+      return;
+    }
+    for (const { s: v, w } of adj[u]) {
+      if (v === b || path.includes(v)) continue;
+      path.push(v); dfs(v, cost + edgeCost(u, v, w)); path.pop();
+    }
+  };
+  dfs(a, 0);
+  return best;
+}
+function anyPlanet(st: number, used: Set<number>): number {
+  const pool = poolOf(st, used); if (!pool.length) return -1;
+  return pool.reduce((x, y) => (planets[y].n > planets[x].n ? y : x));
+}
 function planRoute(a: number, b: number): Omit<Route, "tracks" | "flat"> {
   const A = planets[a], B = planets[b], used = new Set([a, b]);
-  const hops = A.s === B.s ? [A.s] : starPath(A.s, B.s);
   const take = (i: number) => { if (i >= 0) used.add(i); return i; };
+  let hops: number[];
+  if (A.s === B.s) hops = pathOfLen(A.s, A.s, ROUTE_SYSTEMS) ?? [A.s];
+  else {
+    const short = starPath(A.s, B.s);
+    hops = short.length >= ROUTE_SYSTEMS ? short : pathOfLen(A.s, B.s, ROUTE_SYSTEMS) ?? short;
+  }
   if (hops.length === 1) {
-    // same system: a tour around the star (at least 3/4 of a turn), older era → newer era
+    // isolated system (no neighbours): tour around the star instead
     const stops = [a], era: [number, number] = [midYear(A), midYear(B)];
-    for (const t of [1 / 6, 2 / 6, 3 / 6, 4 / 6, 5 / 6]) { const w = take(via(A.s, a, b, t, used, 0.25, true, era)); if (w >= 0) stops.push(w); }
+    for (let k = 1; k <= 8; k++) { const w = take(via(A.s, a, b, k / 9, used, 0.25, true, era)); if (w >= 0) stops.push(w); }
     stops.push(b);
     return { a, b, stops, hops };
   }
-  // per system: entry gate → dive past the star → exit gate (≥ 3 planets each)
-  const mids = hops.length <= 2 ? 2 : 1;
-  const legs: number[][] = [];
+  const stops: number[] = [];
   for (let k = 0; k < hops.length; k++) {
     const st = hops[k], isFirst = k === 0, isLast = k === hops.length - 1;
-    const entry = isFirst ? a : take(gate(st, hops[k - 1], used));
-    const exit = isLast ? b : take(gate(st, hops[k + 1], used));
-    const leg: number[] = [];
-    if (entry >= 0) leg.push(entry);
-    if (entry >= 0 && exit >= 0) for (let m = 1; m <= mids; m++) { const w = take(via(st, entry, exit, m / (mids + 1), used)); if (w >= 0) leg.push(w); }
-    if (exit >= 0 && exit !== entry) leg.push(exit);
-    // still short of 3 (tiny system or missing gate): add whatever planet fits best
-    while (leg.length < 3) {
-      const ends = [leg[0] ?? a, leg[leg.length - 1] ?? b], w = take(via(st, ends[0], ends[1], 0.5, used, 0.5));
-      if (w < 0) break; leg.splice(Math.max(1, leg.length - 1), 0, w);
-    }
-    legs.push(leg);
+    let first = isFirst ? a : take(gate(st, hops[k - 1], used));
+    let second = isLast ? b : take(gate(st, hops[k + 1], used));
+    if (first < 0) first = take(anyPlanet(st, used));
+    if (second < 0) second = take(anyPlanet(st, used));
+    for (const p of [first, second]) if (p >= 0) stops.push(p);
   }
-  return { a, b, stops: legs.flat(), hops };
+  return { a, b, stops, hops };
 }
 async function buildRoute(a: number, b: number) {
   const plan = planRoute(a, b);
