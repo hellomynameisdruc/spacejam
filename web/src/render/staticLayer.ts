@@ -39,6 +39,8 @@ function drawSystemShape(lc: CanvasRenderingContext2D, si: number) {
   lc.stroke(); lc.setLineDash([]);
 }
 
+const SHOW_LINKS = false;
+
 /** looking at whole galaxies: their names speak, not the stars' */
 export const farView = () => galaxy.nebulae.length > 0 && cam.s < cam.homeScale() * 1.8;
 
@@ -93,7 +95,8 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   lc.setLineDash([2, 5]);
   // from afar only the stronger links: hundreds of faint lines just make a haze, and cost the most to draw
   const wMin = far ? 0.08 : 0;
-  for (const [a, b, w] of links) {
+  // dashed style links are switched off for now; flip SHOW_LINKS to bring them back
+  if (SHOW_LINKS) for (const [a, b, w] of links) {
     if (w < wMin) continue;
     const A = cam.toScreen(stars[a].x, stars[a].y), B = cam.toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);
     // skip links that can't cross the painted area (most of them once zoomed in)
