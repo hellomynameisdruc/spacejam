@@ -214,7 +214,7 @@ def layout_stars(names, radius, weight, iters=900):
 
 # ---------- galaxies (sectors) ----------
 GALAXY_GAP = 260  # least empty space around each galaxy
-GALAXY_GAP_SHARE = 0.55  # …or this share of its radius, whichever is more (big maps need wide gaps)
+GALAXY_GAP_SHARE = 0.15  # …or this share of its radius, whichever is more (big maps need wide gaps)
 
 
 def star_galaxies(rel, stars, sectors):

@@ -3,7 +3,7 @@
 import { $ } from "../core/dom";
 import { lcg } from "../core/util";
 import { chunk, galaxy, sameSel, state, tracks } from "../app/state";
-import { BG, glowS, nc, nebulaS, ph, sc } from "./palette";
+import { BG, FONT_LBL, glowS, nc, nebulaS, ph, sc } from "./palette";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS } from "./camera";
 import { inView, MARGIN, updateStaticView, view } from "./view";
 import { eachTrack } from "./beltGrid";
@@ -39,12 +39,31 @@ function drawSystemShape(lc: CanvasRenderingContext2D, si: number) {
   lc.stroke(); lc.setLineDash([]);
 }
 
+/** looking at whole galaxies: their names speak, not the stars' */
+export const farView = () => galaxy.nebulae.length > 0 && cam.s < cam.homeScale() * 1.8;
+
+/** from afar: each galaxy's name across its cloud, over the stars, with a dark rim (live layer) */
+export function drawGalaxyNames(g: CanvasRenderingContext2D) {
+  if (!farView()) return;
+  const size = cam.W < 600 ? 14 : 19;
+  g.font = `${size}px ${FONT_LBL}`; g.textAlign = "center"; g.lineJoin = "round"; g.lineWidth = 5; g.strokeStyle = BG;
+  galaxy.nebulae.forEach((n, k) => {
+    if (!inView(n.x, n.y, n.r)) return;
+    const p = cam.toScreen(n.x, n.y), txt = n.name.toUpperCase().split("").join(" ");
+    const w = g.measureText(txt).width + 24, h = size + 14;
+    g.globalAlpha = 0.55; g.fillStyle = BG; g.beginPath(); g.roundRect(p.x - w / 2, p.y - h / 2, w, h, h / 2); g.fill();
+    g.globalAlpha = 0.8; g.strokeText(txt, p.x, p.y + size / 3);
+    g.globalAlpha = 1; g.fillStyle = nc(k, 0.95); g.fillText(txt, p.x, p.y + size / 3);
+  });
+}
+
 export function drawStatic(lc: CanvasRenderingContext2D) {
   const { W, H } = cam, { stars, links } = galaxy;
   Object.assign(painted, { x: cam.x, y: cam.y, s: cam.s, at: performance.now() });
   labels.reset(); labels.g = lc;
   updateStaticView();
   const { V0, V1 } = view;
+  const far = farView();
   lc.fillStyle = BG; lc.fillRect(-MARGIN, -MARGIN, W + 2 * MARGIN, H + 2 * MARGIN);
 
   // coordinate grid
@@ -61,7 +80,7 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   if (gA > 0.03) galaxy.nebulae.forEach((n, k) => {
     const R = n.r * 1.3; if (!inView(n.x, n.y, R)) return;
     const p = cam.toScreen(n.x, n.y), Rs = R * cam.s;
-    lc.globalAlpha = gA; lc.drawImage(nebulaS[k], p.x - Rs, p.y - Rs, Rs * 2, Rs * 2);
+    lc.globalAlpha = gA; lc.imageSmoothingQuality = "low"; lc.drawImage(nebulaS[k], p.x - Rs, p.y - Rs, Rs * 2, Rs * 2);
   });
 
   // system nebulae (a glow sprite, no blur)
@@ -85,14 +104,17 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
 
   // system outlines and style links
   lc.setLineDash([1, 5]); lc.lineWidth = 1;
-  stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) drawSystemShape(lc, si); });
+  if (!far) stars.forEach((s, si) => { if (inView(s.x, s.y, s.R)) drawSystemShape(lc, si); });
   lc.setLineDash([2, 5]);
+  // from afar only the stronger links: hundreds of faint lines just make a haze, and cost the most to draw
+  const wMin = far ? 0.08 : 0;
   for (const [a, b, w] of links) {
+    if (w < wMin) continue;
     const A = cam.toScreen(stars[a].x, stars[a].y), B = cam.toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);
     // skip links that can't cross the painted area (most of them once zoomed in)
     if (Math.max(A.x, B.x) < -MARGIN || Math.min(A.x, B.x) > W + MARGIN || Math.max(A.y, B.y) < -MARGIN || Math.min(A.y, B.y) > H + MARGIN) continue;
-    const g = lc.createLinearGradient(A.x, A.y, B.x, B.y); g.addColorStop(0, sc(a, al)); g.addColorStop(1, sc(b, al));
-    lc.strokeStyle = g; lc.lineWidth = w > 0.15 ? 1.6 : 1;
+    // flat colour of the first star (a gradient per line was the most expensive thing on the layer)
+    lc.strokeStyle = sc(a, al); lc.lineWidth = w > 0.15 ? 1.6 : 1;
     lc.beginPath(); lc.moveTo(A.x, A.y); lc.lineTo(B.x, B.y); lc.stroke();
   }
   lc.setLineDash([]);
@@ -116,15 +138,15 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
     });
   }
 
-  // galaxy names, spaced out, above each cloud (only from afar)
-  if (cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
+  // galaxy names closer in: above each cloud (from afar the live layer writes them across the clouds)
+  if (!far && cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
     if (!inView(n.x, n.y, n.r * 1.3)) return;
     const p = cam.toScreen(n.x, n.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
-    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - n.r * 1.12 * cam.s - 12, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
+    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - n.r * 1.12 * cam.s - 12, W < 600 ? 13 : 16, nc(k, 0.9 * a), "center", true);
   });
 
   // star labels (the pulsars themselves are drawn live, every frame)
-  stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
+  if (!far) stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
     const p = cam.toScreen(s.x, s.y);
     labels.label(s.name.toUpperCase(), p.x, p.y - starSize(si) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", galaxy.starRank[si] < 12);

@@ -11,7 +11,7 @@ import { drawPlanets, tickSprites } from "./planets";
 import { drawSatellites } from "./satellites";
 import { drawRoute } from "./routeLine";
 import { drawMarker, isMoving } from "./markers";
-import { drawStatic, painted, readout } from "./staticLayer";
+import { drawGalaxyNames, drawStatic, painted, readout } from "./staticLayer";
 
 let vp: HTMLElement, cv: HTMLCanvasElement, ctx: CanvasRenderingContext2D;
 let layer: HTMLCanvasElement, lc: CanvasRenderingContext2D;
@@ -46,12 +46,13 @@ function paintStatic() {
 }
 
 function drawLive(t: number) {
-  // While the wheel is turning, let the browser scale the old layer and repaint it only a few times
-  // a second (and once more when zooming settles); panning just slides it.
+  // While the wheel is turning, let the browser scale the old layer (a repaint is the costliest thing
+  // we do) and repaint it when zooming settles or the scale has drifted far; panning just slides it.
   const now = performance.now(), { W, H } = cam;
   if (cam.s !== lastScale) { lastScale = cam.s; lastScaleT = now; }
   let k = cam.s / painted.s, ox = (cam.x - painted.x) * cam.s, oy = (cam.y - painted.y) * cam.s;
-  const stale = k !== 1 && (now - painted.at > 110 || now - lastScaleT > 140 || k < 0.84 || k > 1.2);
+  // repaint once the wheel rests, or when the stretched picture would get too blurry/small
+  const stale = k !== 1 && (now - lastScaleT > 160 || k < 0.62 || k > 1.6);
   if (stale || Math.abs(ox) > MARGIN - 4 || Math.abs(oy) > MARGIN - 4) { paintStatic(); k = 1; ox = oy = 0; }
   let shift = "";
   if (k !== 1) {
@@ -72,6 +73,7 @@ function drawLive(t: number) {
     const p = cam.toScreen(s.x, s.y);
     drawPulsar(ctx, si, p.x, p.y, starSize(si), t);
   });
+  drawGalaxyNames(ctx);
   const np = state.nowPlaying;
   if (np && chunk(np.s)) {
     const q = motion.trackPos(np.s, np.i, t), p = cam.toScreen(q.x, q.y), { bar } = pulseOf(np.s, t);
