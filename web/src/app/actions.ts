@@ -73,7 +73,7 @@ export function next() {
     const cur = route.flat[state.routeIdx];
     if (cur && cur.s === np.s && cur.i === np.i) {
       if (state.routeIdx + 1 < route.flat.length) { playRouteAt(state.routeIdx + 1); return; }
-      state.routeIdx = -1; renderRoutePanel(); $("routeMeta").textContent = "ROUTE COMPLETE · AUTOPILOT RESUMES";
+      state.routeIdx = -1; renderRoutePanel(); $("routeMeta").textContent = "ODYSSEY COMPLETE · AUTOPILOT RESUMES";
     } else { state.routeIdx = -1; renderRoutePanel(); }
   }
   const n = nearestTracks(np, 1, state.played)[0]; if (n) select({ kind: "track", ...n }, true, true);

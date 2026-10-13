@@ -1,7 +1,7 @@
 // The floating player dock: the visible YouTube monitor, transport keys, seek/volume, minimise to a
 // pill (minimising pauses — audio never plays from a hidden player), dragging by the header.
 import type { TrackRef } from "../core/types";
-import { mmss } from "../core/util";
+import { mmss, pad } from "../core/util";
 import { $ } from "../core/dom";
 import { Player } from "./youtubePlayer";
 import { beacons, chunk, galaxy, prefs, state } from "../app/state";
@@ -36,13 +36,21 @@ export function paintBeaconKey() {
   b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon");
 }
 
+/** "ODYSSEY 07/24" next to ON AIR while the track on air is a stop of the playing odyssey */
+export function paintOdysseyTag() {
+  const r = state.route, k = state.routeIdx, np = state.nowPlaying, cur = r && k >= 0 ? r.flat[k] : null;
+  const on = !!(cur && np && cur.s === np.s && cur.i === np.i);
+  $("dockOdy").hidden = !on;
+  if (on) $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;
+}
+
 /** put a track on air */
 export function loadInDock(ref: TrackRef) {
   const ch = chunk(ref.s)!;
   showDock(); $("pMsg").hidden = true;
   for (const id of ["playerBox", "dockPill"]) $(id).style.setProperty("--acc", galaxy.stars[ref.s].color);
   player.play(ch.yt[ref.i]);
-  paintBeaconKey();
+  paintBeaconKey(); paintOdysseyTag();
   $("npTitle").textContent = ch.t[ref.i]; $("npArtist").textContent = ch.an[ch.a[ref.i]];
   seekEl.value = "0"; paintRange(seekEl); $("tCur").textContent = "0:00"; $("tDur").textContent = "0:00";
 }

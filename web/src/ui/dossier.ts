@@ -86,7 +86,7 @@ function planet(pi: number, o: Sel) {
       <p class="note">${PTYPE_INFO[ty][0][0]}${PTYPE_INFO[ty][0].slice(1).toLowerCase()}: ${PTYPE_INFO[ty][1]}.</p>
       ${activity}
       ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ PLAY THE ORBIT</button>` : ""}
-      <button class="plot" data-route="${pi}">⟶ PLOT ROUTE FROM HERE</button>
+      <button class="plot crt" data-route="${pi}"><span>⟶ PLOT AN ODYSSEY FROM HERE</span></button>
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`,
   };

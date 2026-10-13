@@ -23,11 +23,11 @@ Planets slowly orbit their stars; the camera follows whatever you select.
 - **Click** a star, planet or track to open its dossier on the right.
 - **Play** — tracks play in the embedded YouTube player. *Play the orbit* picks a random track from a label.
 - **Autopilot** — when a track ends, the ship flies to the nearest track you haven't heard yet.
-- **Routes** — on any planet press *Plot route from here*, then pick another planet. Every route visits 10 planets in 5 systems, two in each: the start system, three neighbouring systems on the way and the destination system (if the two are close, the route detours through neighbours; if they share a system, it becomes a round trip). It enters and leaves each system through "gate" labels facing the previous and next systems, preferring labels that release both styles. Every route has at least 20 tracks and its own shareable link.
+- **Odysseys** — on any planet press *Plot an odyssey from here*, then pick another planet. Every odyssey visits 10 planets in 5 systems, two in each: the start system, three neighbouring systems on the way and the destination system (if the two are close, the odyssey detours through neighbours; if they share a system, it becomes a round trip). It enters and leaves each system through "gate" labels facing the previous and next systems, preferring labels that release both styles. Every odyssey has at least 20 tracks and its own shareable link; while one plays, the player shows ODYSSEY and the stop number next to ON AIR.
 - **Wormhole** — jump to a random point in the cosmos.
 - **Search** by style, label or artist.
 - **Flight log** — your listening history (kept in your browser).
-- **Share** — the address bar holds a link to the current track (`#t3-120`) or route (`#r81-0`).
+- **Share** — the address bar holds a link to the current track (`#t3-120`) or odyssey (`#r81-0`).
 - Three phosphor colours: violet, green, amber.
 
 ## Data

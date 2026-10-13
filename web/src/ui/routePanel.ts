@@ -5,9 +5,10 @@ import { chunk, galaxy, state } from "../app/state";
 import { stopKind } from "../model/routes";
 import { clearRoute, endPick, fitRoute, playRouteAt, select, toggleRoutePlayback } from "../app/actions";
 import { cam } from "../render/camera";
+import { paintOdysseyTag } from "./dock";
 
 export function showPickHint(planetName: string) {
-  $("routeHintText").innerHTML = `ROUTE FROM <b>${esc(planetName.toUpperCase())}</b> · CLICK A DESTINATION PLANET`;
+  $("routeHintText").innerHTML = `ODYSSEY FROM <b>${esc(planetName.toUpperCase())}</b> · CLICK A DESTINATION PLANET`;
   $("routeHint").hidden = false;
 }
 export function hidePickHint() { $("routeHint").hidden = true; }
@@ -16,7 +17,7 @@ export function hidePickHint() { $("routeHint").hidden = true; }
 export function routePanelWidth() { const box = $("routeBox"); return cam.W > 700 && !box.hidden ? box.offsetWidth + 20 : 0; }
 
 export function renderRoutePanel() {
-  const box = $("routeBox"), r = state.route; if (!r) { box.hidden = true; return; }
+  const box = $("routeBox"), r = state.route; paintOdysseyTag(); if (!r) { box.hidden = true; return; }
   const { planets, stars } = galaxy, A = planets[r.a], B = planets[r.b];
   box.hidden = false; box.style.setProperty("--acc", stars[A.s].color);
   $("routeTitle").innerHTML = `${esc(A.name.toUpperCase())} <i>→</i> ${esc(B.name.toUpperCase())}`;
@@ -30,7 +31,7 @@ export function renderRoutePanel() {
     }).join("");
     return `<li style="--c:${stars[p.s].color}"><div class="rs"><b>${pad(si + 1, 2)}</b><button class="rp" data-p="${pi}">${esc(p.name.toUpperCase())}</button><span>${stopKind(galaxy, r, si)} · ${esc(stars[p.s].name.toUpperCase())}</span></div>${tr}</li>`;
   }).join("");
-  $("routePlay").textContent = state.routeIdx >= 0 ? "■ STOP ROUTE" : "▶ PLAY ROUTE";
+  $("routePlay").textContent = state.routeIdx >= 0 ? "■ STOP ODYSSEY" : "▶ PLAY ODYSSEY";
   $("routePlay").hidden = !!galaxy.meta.sample;
 }
 
