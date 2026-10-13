@@ -1,72 +1,75 @@
-# Звуковий космос
+# Sound Cosmos
 
-Мапа хаус-музики у вигляді космосу.
+**An observatory terminal for house music.** Styles are stars, labels are planets, tracks are satellites.
 
-- **Зоря** — стиль Discogs (Deep House, Garage House, Acid House…)
-- **Планета** — лейбл на орбіті свого головного стилю. Більший лейбл — більша планета.
-- **Супутники** — треки довкола планети, розкладені спіраллю: старіші ближче до центру.
-- **Пояс астероїдів** — релізи без лейбла й з дрібних лейблів, на краю системи.
-- **Пунктир між зорями** — наскільки часто стилі трапляються разом в одних релізах.
+Live: **https://hellomynameisdruc.github.io/spacejam/**
 
-Дані беремо з відкритих дампів Discogs (ліцензія CC0): там до релізів уже прив'язані посилання на YouTube.
-Сайт грає ці відео через офіційний плеєр YouTube. **Ми нічого не завантажуємо з YouTube.**
+---
 
-## Де це живе
+## The map
 
-Сайт хоститься на **GitHub Pages**: процес «Викласти сайт» (`.github/workflows/deploy.yml`) викладає його після кожної зміни.
-Одноразове налаштування: **Settings → Pages → Source: GitHub Actions**.
+- **Star** — a Discogs style (Deep House, Garage House, Acid House…). Its size shows how many releases the style has, its glow shows how much of that came out in the last ten years, and it pulses at the tempo typical for the style.
+- **Planet** — a label, orbiting its main style. Bigger label, bigger planet. Five kinds:
+  gas giants (the biggest labels), ringed worlds (15+ years active), cratered worlds (went quiet before 2001), ice worlds (started after 2010) and terrestrial planets.
+- **Satellites** — the label's tracks, swarming around it on tilted orbits.
+- **Asteroid belt** — releases without a label or from very small labels, at the edge of a system.
+- **Dotted lines between stars** — how often two styles appear on the same release.
 
-### Звідки беруться дані
+Planets slowly orbit their stars; the camera follows whatever you select.
 
-З 2026 року Discogs роздає дампи тільки через `data.discogs.com`, і цей сайт не пускає сервери (зокрема GitHub).
-Тому дамп обробляється **у звичайному браузері**: скрипт `pipeline/browser_parse.js` запускається на сторінці
-`data.discogs.com`, читає дамп потоком (≈11 ГБ трафіку, ≈1 год, на диск нічого не пишеться) і зберігає
-невеликий `catalog.jsonl.gz`. З нього `build_map.py` рахує мапу, яка й потрапляє на сайт.
+## What you can do
 
-Discogs викладає новий дамп 1-го числа щомісяця — тоді процедуру можна повторити.
+- **Zoom** with the wheel or two fingers: styles → labels → tracks → track titles.
+- **Click** a star, planet or track to open its dossier on the right.
+- **Play** — tracks play in the embedded YouTube player. *Play the orbit* picks a random track from a label.
+- **Autopilot** — when a track ends, the ship flies to the nearest track you haven't heard yet.
+- **Routes** — on any planet press *Plot route from here*, then pick another planet. The route crosses every system on the way through at least three planets, entering and leaving through "gate" labels that release both neighbouring styles; inside a single system it tours around the star from the older label's era to the newer one's. Every route has at least 20 tracks and its own shareable link.
+- **Wormhole** — jump to a random point in the cosmos.
+- **Search** by style, label or artist.
+- **Flight log** — your listening history (kept in your browser).
+- **Share** — the address bar holds a link to the current track (`#t3-120`) or route (`#r81-0`).
+- Three phosphor colours: violet, green, amber.
 
-## Запуск на Маці (необов'язково)
+## Data
 
-Для розробки двічі клацни по черзі:
-1. **`1 Встановити`** — один раз ставить Python-пакети й пакети сайту.
-2. **`3 Запустити`** — відкриває мапу в браузері.
-3. **`2 Зібрати дані`** — збирає справжню мапу локально (дамп теж читається потоком, ~1–2 год).
+The catalogue comes from the monthly **Discogs data dump** (CC0 licence), where releases already carry YouTube links.
+Sound Cosmos only embeds the official YouTube player — **nothing is ever downloaded from YouTube.**
 
-`Тестові дані` повертає маленьку вигадану мапу.
+Since 2026 Discogs serves dumps only from `data.discogs.com`, which blocks servers, so the dump is processed in a regular
+browser: `pipeline/browser_parse.js` streams the ~11 GB file on that page and saves a small `catalog.jsonl.gz`.
+`pipeline/build_map.py` turns it into the map. A new dump appears on the 1st of every month.
 
-**Якщо Mac каже, що файл не можна відкрити:** правою кнопкою → «Відкрити» → «Відкрити».
+Current sector, House: 58 stars, 6,654 planets, 706,315 satellites from 384,690 releases.
 
-## Що де лежить
+## Hosting
+
+The site is built with Vite + TypeScript (canvas rendering) and published to **GitHub Pages** by
+`.github/workflows/deploy.yml` on every push. The full map lives on the `data` branch; `main` keeps a small sample.
+
+## Repository
 
 ```
-pipeline/            обробка даних (Python)
-  config.py          налаштування сектору: які стилі вважати хаусом, пороги для зір і планет
-  browser_parse.js   відбір хаус-релізів у браузері на data.discogs.com (той самий результат, що й parse.py)
-  remote.py          потокове читання дампу з інтернету (для серверів, якщо Discogs знову їх пустить)
-  parse.py           крок 1 — відбір хаус-релізів з YouTube-відео → data/catalog.jsonl.gz
-  build_map.py       крок 2 — розрахунок космосу → web/public/data/
-  make_sample.py     вигаданий дамп для перевірки
-.github/workflows/   автоматика GitHub: збір даних і викладання сайту
-web/                 сайт (Vite + TypeScript, малювання на canvas)
-  src/main.ts        мапа, камера, панель, пошук, червоточина
-  src/player.ts      YouTube-плеєр
-  public/data/       готова мапа: map.json, tracks/<зоря>.json, artists.json
-data/                великі файли (дамп, каталог), на сайт не потрапляють
+pipeline/            data processing (Python)
+  config.py          sector settings: which styles count as house, thresholds for stars and planets
+  browser_parse.js   picks house releases out of the Discogs dump inside a browser
+  parse.py           the same step for machines that can reach the dump directly
+  build_map.py       lays out the cosmos → web/public/data/
+  make_sample.py     generates a small fake catalogue for testing
+web/                 the site
+  src/main.ts        map, camera, dossier, routes, search, wormhole
+  src/player.ts      YouTube player wrapper
+  src/cursors.ts     pixel cursors
+  public/data/       map.json, tracks/<star>.json, artists.json
+.github/workflows/   deploy and data jobs
 ```
 
-## Можливості сайту
+## Next
 
-- Колесо миші або два пальці — масштаб. Що ближче, то більше деталей: стилі → лейбли → треки → назви треків.
-- Клік по зорі, планеті чи треку відкриває картку праворуч.
-- **Слухати** — відео грає у вбудованому плеєрі YouTube.
-- **Автопілот** — коли трек закінчився, корабель летить до найближчого ще не почутого треку.
-- **Червоточина** — стрибок у випадкову точку космосу.
-- Пошук за стилем, лейблом або артистом.
-- Посилання на трек можна скопіювати з адресного рядка (`#t3-120`) і поділитися.
-- **Бортовий журнал** — історія прослуханого (зберігається в браузері).
+- More sectors: techno, disco, jungle.
+- Saved and shared "flights" (playlists), accounts.
+- A custom domain.
 
-## Що далі
+---
 
-- Свій домен замість github.io.
-- Інші сектори: техно, дискотека, джангл — це зміна `CORE_STYLES` у `config.py`.
-- Маршрут між двома треками, плейлисти-«польоти», акаунти.
+© 2026 hellomynameisdruc. All rights reserved. See [LICENSE](LICENSE).
+Catalogue data © Discogs contributors, released under CC0. Videos are streamed from YouTube and belong to their owners.

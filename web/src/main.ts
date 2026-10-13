@@ -25,6 +25,7 @@ const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;",
 const fmt = (n: number) => n.toLocaleString("en-US").replace(/ /g, " ");
 const pad = (n: number, w: number) => String(n).padStart(w, "0");
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (matchMedia("(max-width: 600px)").matches) document.getElementById("q")?.setAttribute("placeholder", "search…");
 const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 
 const map: MapData = await fetch("./data/map.json").then((r) => r.json());
