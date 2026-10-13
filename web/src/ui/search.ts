@@ -3,7 +3,7 @@ import { esc } from "../core/util";
 import { $ } from "../core/dom";
 import { galaxy, tracks } from "../app/state";
 import { loadArtists } from "../data/loader";
-import { select } from "../app/actions";
+import { flyToNebula, select } from "../app/actions";
 
 type Hit = { label: string; kind: string; color?: string; go: () => void };
 let q: HTMLInputElement, res: HTMLElement;
@@ -22,6 +22,7 @@ export function initSearch() {
     const s = q.value.trim().toLowerCase(), { stars, planets } = galaxy;
     if (s.length < 2) { res.hidden = true; return; }
     hits = [];
+    galaxy.nebulae.forEach((n, k) => { if (n.name.toLowerCase().includes(s)) hits.push({ label: n.name, kind: "GALAXY", color: n.color, go: () => flyToNebula(k) }); });
     stars.forEach((st, i) => { if (st.name.toLowerCase().includes(s)) hits.push({ label: st.name, kind: "STAR", color: st.color, go: () => select({ kind: "star", s: i }) }); });
     for (let i = 0; i < planets.length && hits.length < 14; i++) if (planets[i].name.toLowerCase().includes(s)) hits.push({ label: planets[i].name, kind: "PLANET", color: stars[planets[i].s].color, go: () => select({ kind: "planet", p: i }) });
     if (artists) for (let i = 0; i < artists.length && hits.length < 24; i++) {
@@ -29,7 +30,7 @@ export function initSearch() {
       if (name.toLowerCase().includes(s)) hits.push({ label: name, kind: "ARTIST", go: () => tracks.load(st).then(() => select({ kind: "track", s: st, i: ti })) });
     }
     cur = 0; res.hidden = false;
-    res.innerHTML = hits.length ? hits.map((h, i) => `<button data-h="${i}" class="${i === 0 ? "on" : ""}"><span class="k">${h.kind}</span>${h.color ? `<i class="sw" style="background:${h.color}"></i>` : ""}<span>${esc(h.label)}</span></button>`).join("") : `<p class="note" style="padding:8px 10px">NOTHING FOUND IN THIS SECTOR.</p>`;
+    res.innerHTML = hits.length ? hits.map((h, i) => `<button data-h="${i}" class="${i === 0 ? "on" : ""}"><span class="k">${h.kind}</span>${h.color ? `<i class="sw" style="background:${h.color}"></i>` : ""}<span>${esc(h.label)}</span></button>`).join("") : `<p class="note" style="padding:8px 10px">NOTHING FOUND.</p>`;
   });
   q.addEventListener("keydown", (e) => {
     if (res.hidden || !hits.length) return;

@@ -6,8 +6,8 @@
   belt      = releases without a label or from small labels, at the edge of a system
 
 Distances between stars depend on how often two styles appear on the same release.
-Writes each sector into web/public/data/<sector>/ (map.json, tracks/<star>.json, artists.json)
-and the list of sectors into web/public/data/sectors.json.
+Sectors (pipeline/sectors.json) become galaxies: groups of stars on the same map.
+Writes the site's files into web/public/data/ (map.json, tracks/<star>.json, artists.json).
 
 The build is a chain of small steps (see build()); each one is a plain function over plain data,
 so they can be tested on a handful of fake releases (tests/test_build_map.py).
@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 
 import config as C
-from catalog import load_sectors, sector_catalogue
+from catalog import full_catalogue, load_sectors
 
 GOLDEN = math.pi * (3 - math.sqrt(5))
 HULL_N = 48
@@ -212,6 +212,83 @@ def layout_stars(names, radius, weight, iters=900):
     return pos - pos.mean(0)
 
 
+# ---------- galaxies (sectors) ----------
+GALAXY_GAP = 260  # extra empty space around each galaxy
+
+
+def star_galaxies(rel, stars, sectors):
+    """Which galaxy (sector) each star belongs to: the sector whose core style it is, otherwise the
+    sector most of its releases belong to. Returns {star: sector id} and the galaxies in use, in
+    sectors.json order. A catalogue without sector tags is one galaxy."""
+    if not sectors or not any(r.get("secs") for r in rel):
+        gid = sectors[0]["id"] if sectors else "all"
+        return {s: gid for s in stars}, [gid]
+    core = {}
+    for sec in sectors:
+        for st in sec["styles"]:
+            core.setdefault(st, sec["id"])
+    star_set, votes = set(stars), defaultdict(Counter)
+    for r in rel:
+        for st in star_set.intersection(r["styles"]):
+            votes[st].update(r.get("secs") or ())
+    gal = {}
+    for s in stars:
+        gal[s] = core.get(s) or (votes[s].most_common(1)[0][0] if votes[s] else sectors[0]["id"])
+    used = [sec["id"] for sec in sectors if sec["id"] in set(gal.values())]
+    return gal, used
+
+
+def _rot(v, a):
+    c, s = math.cos(a), math.sin(a)
+    return np.stack([v[:, 0] * c - v[:, 1] * s, v[:, 0] * s + v[:, 1] * c], axis=1)
+
+
+def layout_galaxies(stars, radius, weight, gal, gids, iters=900):
+    """Each galaxy is laid out on its own (layout_stars), then galaxies are placed like big systems
+    (more shared releases = closer) and turned so stars linked across galaxies face each other.
+    Returns star positions and, per galaxy, its centre and radius."""
+    groups = {g: [i for i, s in enumerate(stars) if gal[s] == g] for g in gids}
+    local, rad = {}, {}
+    for g, idx in groups.items():
+        lp = layout_stars([stars[i] for i in idx], radius[idx], weight, iters)
+        lp = lp - lp.mean(0)
+        local[g] = lp
+        rad[g] = float(max(np.linalg.norm(lp, axis=1) + radius[idx]))
+    pos = np.zeros((len(stars), 2))
+    if len(gids) == 1:
+        g = gids[0]
+        pos[groups[g]] = local[g]
+        return pos, {g: (0.0, 0.0, rad[g])}
+    # galaxy-to-galaxy affinity: shared releases between their stars, per star pair
+    gw = {}
+    for a in gids:
+        for b in gids:
+            if a != b:
+                tot = sum(weight.get((stars[i], stars[k]), 0.0) for i in groups[a] for k in groups[b])
+                gw[(a, b)] = tot / math.sqrt(len(groups[a]) * len(groups[b]))
+    cen = layout_stars(gids, np.array([rad[g] + GALAXY_GAP for g in gids]), gw, iters)
+    cpos = {g: cen[k] for k, g in enumerate(gids)}
+    for g in gids:
+        pos[groups[g]] = cpos[g] + local[g]
+    # turn each galaxy (biggest first) so its cross-linked stars face their partners
+    cross = defaultdict(list)
+    for (a, b), w in weight.items():
+        if a in gal and b in gal and gal[a] != gal[b] and w > 0:
+            cross[a].append((b, w))
+    sidx = {s: i for i, s in enumerate(stars)}
+    for g in sorted(gids, key=lambda g: -len(groups[g])):
+        idx = groups[g]
+        best, best_cost = 0.0, None
+        for k in range(36):
+            ang = k * math.pi / 18
+            p = cpos[g] + _rot(local[g], ang)
+            cost = sum(w * float(np.linalg.norm(p[j] - pos[sidx[o]])) for j, i in enumerate(idx) for o, w in cross[stars[i]])
+            if best_cost is None or cost < best_cost - 1e-9:
+                best, best_cost = ang, cost
+        pos[idx] = cpos[g] + _rot(local[g], best)
+    return pos, {g: (float(cpos[g][0]), float(cpos[g][1]), rad[g]) for g in gids}
+
+
 def place_planets(planets, star_r, prefs, gap=12, seed=0):
     """Planets scattered through wide bands around the star (big labels nearer the core).
     Inside a band each planet gets a random distance and a random spot near the angle that faces
@@ -308,16 +385,15 @@ def hsl_hex(h, s, l):
 
 
 # ---------- output ----------
-def assemble(stars, pos, systems, style_n, star_core, year_hist, weight):
+def assemble(stars, pos, systems, style_n, star_core, year_hist, weight, hues):
     """Builds map.json content, per-star track chunks and the artist search index.
     Tracks of a planet sit on a spiral around it (oldest nearest); then the belt."""
-    cen = pos.mean(0)
     sidx = {s: i for i, s in enumerate(stars)}
     stars_out, planets_out, chunks, search_artists = [], [], [], {}
     for si, s in enumerate(stars):
         sys = systems[s]
         sx, sy = pos[si]
-        hue = (math.atan2(sy - cen[1], sx - cen[0]) / (2 * math.pi)) + 0.08
+        hue = hues[si]
         ch = {"yt": [], "t": [], "a": [], "yr": [], "p": [], "x": [], "y": []}
         artists, a_idx = [], {}
 
@@ -362,11 +438,30 @@ def write_outputs(out_dir, map_json, chunks, artists):
 
 
 # ---------- the whole build ----------
-def build(rel, min_style, min_label, sample=False, sector="House", sector_id="house"):
-    """Catalogue releases → (map.json content, track chunks, artist index)."""
+def star_hues(stars, pos, gal, centres):
+    """Star colours: with one galaxy, the colour wheel goes round the map; with several, each galaxy
+    gets its own hue (by where it sits) and its stars vary a little around it."""
+    if len(centres) == 1:
+        cen = pos.mean(0)
+        return [math.atan2(y - cen[1], x - cen[0]) / (2 * math.pi) + 0.08 for x, y in pos]
+    mid = np.mean([[c[0], c[1]] for c in centres.values()], axis=0)
+    ghue = {g: math.atan2(c[1] - mid[1], c[0] - mid[0]) / (2 * math.pi) + 0.08 for g, c in centres.items()}
+    out = []
+    for s, (x, y) in zip(stars, pos, strict=True):
+        cx, cy, _ = centres[gal[s]]
+        frac = (math.atan2(y - cy, x - cx) / (2 * math.pi)) % 1
+        out.append(ghue[gal[s]] + 0.16 * (frac - 0.5))
+    return out, ghue
+
+
+def build(rel, min_style, min_label, sample=False, sectors=None):
+    """Catalogue releases → (map.json content, track chunks, artist index). Stars are grouped into
+    galaxies by sector (see star_galaxies)."""
+    sectors = sectors or []
     style_n, stars = style_counts(rel, min_style)
     weight = style_links(rel, stars, style_n)
     y0, y1, year_hist = year_histograms(rel, stars)
+    gal, gids = star_galaxies(rel, stars, sectors)
     rel = assign_homes(rel, stars, style_n)
     planets, belt = group_labels(rel, stars, min_label)
     sys_by_star = cap_planets(planets, belt)
@@ -374,7 +469,7 @@ def build(rel, min_style, min_label, sample=False, sector="House", sector_id="ho
     # first star layout from estimated system sizes, so planets know where their other styles are
     star_core = {s: 10 + 3.2 * math.log1p(style_n[s]) for s in stars}
     est = np.array([math.sqrt(sum((p["halo"] + 7) ** 2 * 3.6 for p in sys_by_star[s]) + star_core[s] ** 2 * 6) + 30 + math.sqrt(len(belt[s])) * 2 for s in stars])
-    pos = layout_stars(stars, est, weight)
+    pos, _ = layout_galaxies(stars, est, weight, gal, gids)
     spos = {s: pos[i] for i, s in enumerate(stars)}
 
     systems = {}
@@ -383,52 +478,47 @@ def build(rel, min_style, min_label, sample=False, sector="House", sector_id="ho
         systems[s] = {"planets": ps, "belt": belt_pts, "hull": hull, "radius": radius, "bands": bands}
 
     # final star layout with the real system sizes
-    pos = layout_stars(stars, np.array([systems[s]["radius"] for s in stars]), weight, iters=400)
-    stars_out, planets_out, links, chunks, artists = assemble(stars, pos, systems, style_n, star_core, year_hist, weight)
-    meta = {"sector": sector, "id": sector_id, "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
-    return {"meta": meta, "stars": stars_out, "links": links, "planets": planets_out}, chunks, artists
+    pos, centres = layout_galaxies(stars, np.array([systems[s]["radius"] for s in stars]), weight, gal, gids, iters=400)
+    hues = star_hues(stars, pos, gal, centres)
+    ghue = None
+    if isinstance(hues, tuple):
+        hues, ghue = hues
+    stars_out, planets_out, links, chunks, artists = assemble(stars, pos, systems, style_n, star_core, year_hist, weight, hues)
+
+    names = {sec["id"]: sec["name"] for sec in sectors}
+    gindex = {g: k for k, g in enumerate(gids)}
+    galaxies = []
+    for g in gids:
+        cx, cy, r = centres[g]
+        mine = [k for k, s in enumerate(stars) if gal[s] == g]
+        for k in mine:
+            stars_out[k]["g"] = gindex[g]
+        galaxies.append({"id": g, "name": names.get(g, g.title()), "x": round(cx, 1), "y": round(cy, 1), "r": round(r, 1),
+                         "color": hsl_hex(ghue[g] if ghue else 0.75, 0.85, 0.62),
+                         "stars": len(mine), "tracks": sum(stars_out[k]["tracks"] for k in mine)})
+    name = "Electronic" if len(gids) > 1 else names.get(gids[0], "House")
+    meta = {"sector": name, "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
+    return {"meta": meta, "galaxies": galaxies, "stars": stars_out, "links": links, "planets": planets_out}, chunks, artists
 
 
-def min_style_for(sector, n_releases):
-    return sector.get("min_style") or max(C.MIN_STYLE_FLOOR, round(C.MIN_STYLE_SHARE * n_releases))
-
-
-def build_sector(rel, sector, out_root, min_label, sample=False):
-    """One sector's catalogue → its files in out_root/<id>/; returns its entry for sectors.json."""
-    min_style = min_style_for(sector, len(rel))
-    map_json, chunks, artists = build(rel, min_style, min_label, sample, sector["name"], sector["id"])
-    write_outputs(out_root / sector["id"], map_json, chunks, artists)
-    m = map_json["meta"]
-    print(f"{sector['name']}: {len(rel):,} releases → {len(map_json['stars'])} stars (≥ {min_style} releases), "
-          f"{len(map_json['planets']):,} planets, {m['tracks']:,} tracks")
-    return {"id": sector["id"], "name": sector["name"], "releases": m["releases"], "tracks": m["tracks"],
-            "stars": len(map_json["stars"]), "planets": len(map_json["planets"])}
-
-
-def write_index(out_root, entries, sectors, sample=False):
-    """sectors.json: the sectors the site offers, in sectors.json order; keeps ones built earlier."""
-    path = out_root / "sectors.json"
-    old = {e["id"]: e for e in json.loads(path.read_text(encoding="utf-8"))["sectors"]} if path.exists() else {}
-    old.update({e["id"]: e for e in entries})
-    order = [s["id"] for s in sectors]
-    keep = [old[i] for i in order if i in old and (out_root / i / "map.json").exists()]
-    path.write_text(json.dumps({"sample": sample, "sectors": keep}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-
-
-def main(src, out_root, only, min_label, sample):
-    sectors = load_sectors()
-    todo = [s for s in sectors if not only or s["id"] in only]
-    entries = [build_sector(sector_catalogue(src, s), s, out_root, min_label, sample) for s in todo]
-    write_index(out_root, entries, sectors, sample)
-    print(f"Sectors ready → {out_root}")
+def main(src, out_dir, min_style, min_label, sample, only):
+    sectors = [s for s in load_sectors() if not only or s["id"] in only]
+    rel = full_catalogue(src, sectors)
+    print(f"Catalogue: {len(rel):,} releases in {len(sectors)} sectors")
+    map_json, chunks, artists = build(rel, min_style, min_label, sample, sectors)
+    write_outputs(out_dir, map_json, chunks, artists)
+    gal = ", ".join(f"{g['name']} {g['stars']}" for g in map_json["galaxies"])
+    print(f"Map ready: {len(map_json['stars'])} stars (≥ {min_style} releases) in galaxies [{gal}], "
+          f"{len(map_json['planets']):,} planets, {map_json['meta']['tracks']:,} tracks → {out_dir}")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default=str(C.DATA_DIR / "sectors.jsonl.gz"), help="raw releases from parse.py / browser_parse.js")
     ap.add_argument("--out", default=str(C.WEB_DATA_DIR))
-    ap.add_argument("--sectors", default="", help="comma-separated sector ids (default: all in sectors.json)")
+    ap.add_argument("--sectors", default="", help="comma-separated sector ids to include (default: all in sectors.json)")
+    ap.add_argument("--min-style", type=int, default=C.MIN_STYLE_RELEASES)
     ap.add_argument("--min-label", type=int, default=C.MIN_LABEL_RELEASES)
     ap.add_argument("--sample", action="store_true", help="mark the data as a test sample")
     a = ap.parse_args()
-    main(a.src, Path(a.out), {x for x in a.sectors.split(",") if x}, a.min_label, a.sample)
+    main(a.src, Path(a.out), a.min_style, a.min_label, a.sample, {x for x in a.sectors.split(",") if x})

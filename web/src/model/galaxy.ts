@@ -1,6 +1,6 @@
 // The catalogue as a galaxy: stars (styles), planets (labels), links between styles, and everything
 // derived from them — planet types, star classes, tempo, glow. Pure: no DOM, no rendering.
-import type { MapData, MapMeta, Planet, PType, Star } from "../core/types";
+import type { MapData, MapMeta, Nebula, Planet, PType, Star } from "../core/types";
 import { hash } from "../core/util";
 
 export const PTYPE_INFO: Record<PType, [string, string]> = {
@@ -28,6 +28,8 @@ export const orbitR = (pl: Planet) => pl.r + 6 + 1.5 * Math.sqrt(pl.t1 - pl.t0);
 
 export class Galaxy {
   readonly meta: MapMeta;
+  /** galaxies (sectors); empty for a single-sector map */
+  readonly nebulae: Nebula[];
   readonly stars: Star[];
   readonly planets: Planet[];
   readonly links: [number, number, number][];
@@ -57,6 +59,7 @@ export class Galaxy {
   constructor(map: MapData) {
     const { stars, planets, links } = map;
     this.meta = map.meta; this.stars = stars; this.planets = planets; this.links = links;
+    this.nebulae = map.galaxies && map.galaxies.length > 1 ? map.galaxies : [];
     this.planetsByStar = stars.map(() => []);
     planets.forEach((p, i) => this.planetsByStar[p.s].push(i));
     this.planetsByStar.forEach((l) => l.sort((a, b) => planets[b].n - planets[a].n));
@@ -97,12 +100,17 @@ export class Galaxy {
 
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const s of stars) { x0 = Math.min(x0, s.x - s.R); y0 = Math.min(y0, s.y - s.R); x1 = Math.max(x1, s.x + s.R); y1 = Math.max(y1, s.y + s.R); }
+    // galaxies: their clouds and the names above them stay in the home view
+    for (const n of this.nebulae) { const r = n.r * 1.12; x0 = Math.min(x0, n.x - r); y0 = Math.min(y0, n.y - r * 1.2); x1 = Math.max(x1, n.x + r); y1 = Math.max(y1, n.y + r); }
     this.bounds = { x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
   }
 
   /** link weight between two styles, or undefined when they never share a release */
   link(a: number, b: number) { return this.linkW.get(a * 1000 + b); }
   /** the six strongest neighbours of a style */
+  /** the galaxy a star belongs to (null on a single-sector map) */
+  nebulaOf(si: number): Nebula | null { const g = this.stars[si]?.g; return g != null && this.nebulae[g] ? this.nebulae[g] : null; }
+
   neighbours(s: number) {
     return this.links.filter((l) => l[0] === s || l[1] === s).map((l) => ({ s: l[0] === s ? l[1] : l[0], w: l[2] })).sort((a, b) => b.w - a.w).slice(0, 6);
   }

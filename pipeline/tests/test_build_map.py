@@ -162,3 +162,29 @@ def test_browser_script_has_the_same_sectors():
         assert f'id: "{s["id"]}"' in body
         assert "genres: " + json.dumps(s["genres"]).replace('","', '", "') in body
         assert "styles: " + json.dumps(s["styles"]).replace('","', '", "') in body
+
+
+def test_sectors_become_galaxies():
+    sectors = [{"id": "house", "name": "House", "genres": ["Electronic"], "styles": ["House", "Deep House"]},
+               {"id": "techno", "name": "Techno", "genres": ["Electronic"], "styles": ["Techno", "Minimal"]}]
+    ids = iter(range(10**9))
+    out = []
+    for k in range(400):
+        st = [["House"], ["Deep House", "House"], ["Techno"], ["Minimal", "Techno"], ["Tech House", "House"]][k % 5]
+        r = rel_(st, f"L{k % 7}", 1995 + k % 20, ids)
+        r["secs"] = [s["id"] for s in sectors if set(st) & set(s["styles"])]
+        out.append(r)
+    m, _, _ = B.build(out, 50, 3, sample=True, sectors=sectors)
+    names = {g["id"]: k for k, g in enumerate(m["galaxies"])}
+    assert set(names) == {"house", "techno"} and m["meta"]["sector"] == "Electronic"
+    by = {s["name"]: s["g"] for s in m["stars"]}
+    assert by["House"] == by["Deep House"] == by["Tech House"] == names["house"]  # Tech House: most releases are house
+    assert by["Techno"] == by["Minimal"] == names["techno"]
+    # each galaxy's stars sit inside its cloud
+    for s in m["stars"]:
+        g = m["galaxies"][s["g"]]
+        assert math.hypot(s["x"] - g["x"], s["y"] - g["y"]) <= g["r"] + 1
+
+
+def rel_(styles, label, year, ids):
+    return rel(styles, label, year, ids=ids)

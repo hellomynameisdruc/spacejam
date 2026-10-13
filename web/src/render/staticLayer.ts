@@ -3,7 +3,7 @@
 import { $ } from "../core/dom";
 import { lcg } from "../core/util";
 import { chunk, galaxy, sameSel, state, tracks } from "../app/state";
-import { BG, glowS, ph, sc } from "./palette";
+import { BG, glowS, nc, nebulaS, ph, sc } from "./palette";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS } from "./camera";
 import { inView, MARGIN, updateStaticView, view } from "./view";
 import { eachTrack } from "./beltGrid";
@@ -55,8 +55,16 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   for (let y = Math.floor(V0.y / st) * st; y < V1.y; y += st) { const p = cam.toScreen(0, y).y; lc.moveTo(-MARGIN, Math.round(p) + 0.5); lc.lineTo(W + MARGIN, Math.round(p) + 0.5); }
   lc.stroke();
 
-  // system nebulae (a glow sprite, no blur)
+  // galaxies: a big dithered cloud per sector, fading as you fly into its systems
   lc.globalCompositeOperation = "lighter";
+  const gA = Math.min(1, 0.06 / cam.s) * 0.85;
+  if (gA > 0.03) galaxy.nebulae.forEach((n, k) => {
+    const R = n.r * 1.3; if (!inView(n.x, n.y, R)) return;
+    const p = cam.toScreen(n.x, n.y), Rs = R * cam.s;
+    lc.globalAlpha = gA; lc.drawImage(nebulaS[k], p.x - Rs, p.y - Rs, Rs * 2, Rs * 2);
+  });
+
+  // system nebulae (a glow sprite, no blur)
   stars.forEach((s, si) => {
     if (!inView(s.x, s.y, s.R)) return;
     const p = cam.toScreen(s.x, s.y), R = s.R * cam.s, al = 0.16 * Math.min(1, 0.6 / cam.s);
@@ -108,6 +116,13 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
     });
   }
 
+  // galaxy names, spaced out, above each cloud (only from afar)
+  if (cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
+    if (!inView(n.x, n.y, n.r * 1.3)) return;
+    const p = cam.toScreen(n.x, n.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
+    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - n.r * cam.s - 10, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
+  });
+
   // star labels (the pulsars themselves are drawn live, every frame)
   stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
     if (!inView(s.x, s.y, 300 / cam.s)) return;
@@ -121,5 +136,5 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   if (!isMoving(state.sel)) drawMarker(state.sel, true);
 
   gridStep = st; readout();
-  $("scaleName").textContent = cam.s < LOD_PLANETS ? "GALAXY" : cam.s < LOD_TRACKS ? "SYSTEMS" : cam.s < LOD_TITLES ? "ORBITS" : "SIGNALS";
+  $("scaleName").textContent = cam.s < LOD_PLANETS ? (galaxy.nebulae.length ? "UNIVERSE" : "GALAXY") : cam.s < LOD_TRACKS ? "SYSTEMS" : cam.s < LOD_TITLES ? "ORBITS" : "SIGNALS";
 }

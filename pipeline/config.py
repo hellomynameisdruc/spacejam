@@ -7,11 +7,8 @@ WEB_DATA_DIR = ROOT / "web" / "public" / "data"  # те, що читає сай�
 
 # Sectors (which genres and styles each map takes) live in sectors.json
 
-# Releases a style needs to become a star: this share of the sector, at least MIN_STYLE_FLOOR
-# (a sector can set its own min_style in sectors.json)
-MIN_STYLE_SHARE = 0.004
-MIN_STYLE_FLOOR = 300
-MIN_STYLE_RELEASES = 1500  # house, and the default for a whole catalogue built without sectors
+# Releases a style needs to become a star
+MIN_STYLE_RELEASES = 1500
 # Скільки релізів має бути в лейбла, щоб він став планетою (менші йдуть у пояс астероїдів)
 MIN_LABEL_RELEASES = 6
 # Максимум треків довкола однієї планети (щоб гіганти не з'їли простір)

@@ -1,6 +1,6 @@
 # Sound Cosmos
 
-**An observatory terminal for house music.** Styles are stars, labels are planets, tracks are satellites.
+**An observatory terminal for electronic music.** Genres are galaxies, styles are stars, labels are planets, tracks are satellites.
 
 Live: **https://hellomynameisdruc.github.io/spacejam/**
 
@@ -8,6 +8,7 @@ Live: **https://hellomynameisdruc.github.io/spacejam/**
 
 ## The map
 
+- **Galaxy** — a sector of electronic music: House, Techno, Disco, Trance, Drum n Bass, Ambient. A dithered cloud of its star systems; galaxies that share many releases sit side by side, and their border stars face each other.
 - **Star** — a Discogs style (Deep House, Garage House, Acid House…). Its size shows how many releases the style has, its glow shows how much of that came out in the last ten years, and it pulses at the tempo typical for the style.
 - **Planet** — a label, orbiting its main style. Bigger label, bigger planet. Five kinds:
   gas giants (the biggest labels), ringed worlds (15+ years active), cratered worlds (went quiet before 2001), ice worlds (started after 2010) and terrestrial planets.
@@ -25,7 +26,7 @@ Planets slowly orbit their stars; the camera follows whatever you select.
 - **Autopilot** — when a track ends, the ship flies to the nearest track you haven't heard yet.
 - **Odysseys** — on any planet press *Plot an odyssey from here*, then pick another planet. Every odyssey visits 10 planets in 5 systems, two in each: the start system, three neighbouring systems on the way and the destination system (if the two are close, the odyssey detours through neighbours; if they share a system, it becomes a round trip). It enters and leaves each system through "gate" labels facing the previous and next systems, preferring labels that release both styles. Every odyssey has at least 20 tracks and its own shareable link; while one plays, the player shows ODYSSEY and the stop number next to ON AIR.
 - **Wormhole** — jump to a random point in the cosmos.
-- **Search** by style, label or artist.
+- **Search** by galaxy, style, label or artist.
 - **Flight log** — your listening history (kept in your browser).
 - **Share** — the address bar holds a link to the current track (`#t3-120`) or odyssey (`#r81-0`).
 - Three phosphor colours: violet, green, amber.
@@ -36,10 +37,9 @@ The catalogue comes from the monthly **Discogs data dump** (CC0 licence), where 
 Sound Cosmos only embeds the official YouTube player — **nothing is ever downloaded from YouTube.**
 
 Since 2026 Discogs serves dumps only from `data.discogs.com`, which blocks servers, so the dump is processed in a regular
-browser: `pipeline/browser_parse.js` streams the ~11 GB file on that page and saves a small `catalog.jsonl.gz`.
-`pipeline/build_map.py` turns it into the map. A new dump appears on the 1st of every month.
-
-Current sector, House: 58 stars, 6,654 planets, 706,315 satellites from 384,690 releases.
+browser: `pipeline/browser_parse.js` streams the ~11 GB file on that page and saves `sectors.jsonl.gz` — every release of
+every sector (`pipeline/sectors.json`: the genres and core styles of each galaxy). `pipeline/catalog.py` merges editions,
+`pipeline/build_map.py` turns the catalogue into the map. A new dump appears on the 1st of every month.
 
 ## Hosting
 

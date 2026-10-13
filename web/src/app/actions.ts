@@ -159,4 +159,11 @@ export async function warp() {
     select({ kind: "track", s, i }, false, autoplay);
   });
 }
+/** fly to a galaxy (sector) so it fills the view */
+export function flyToNebula(k: number) {
+  const n = galaxy.nebulae[k]; if (!n) return;
+  select(null);
+  const pw = routePanelWidth();
+  cam.fly(n.x - pw / 2 / cam.s, n.y, Math.min((cam.W - pw) / (n.r * 2.5), cam.H / (n.r * 2.5)), 1500);
+}
 export function zoomBy(k: number) { cam.s = cam.clampS(cam.s * k); state.dirty = true; }

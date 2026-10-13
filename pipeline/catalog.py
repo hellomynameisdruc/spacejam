@@ -1,9 +1,9 @@
 """Step 2½. From the raw releases picked out of the dump (sectors.jsonl.gz: every release of every
-sector, as it is) to one sector's catalogue: only that sector's releases, editions of the same
-master merged into one point, each YouTube video kept once (the first time it appears).
+sector, as it is) to the catalogue: editions of the same master merged into one point, each YouTube
+video kept once (the first time it appears), and each release tagged with the sectors it belongs to
+(`secs`). Sectors become galaxies on the one map.
 
-The merge is the one the old house-only parser did, so a sector's catalogue doesn't depend on
-which other sectors were collected in the same pass.
+The merge is the one the old house-only parser did (sector_catalogue gives exactly its output).
 """
 import gzip
 import json
@@ -20,10 +20,12 @@ def in_sector(rec, sector):
     return bool(set(rec.get("genres", ())) & set(sector["genres"])) and bool(set(rec["styles"]) & set(sector["styles"]))
 
 
-def merge(records):
-    """Raw releases (in dump order) → merged catalogue entries with at least one video."""
+def merge(records, sectors=None):
+    """Raw releases (in dump order) → merged catalogue entries with at least one video.
+    With `sectors`, each entry gets `secs`: ids of the sectors any of its editions belongs to."""
     by_key, seen = {}, set()
     for rec in records:
+        secs = [s["id"] for s in sectors if in_sector(rec, s)] if sectors else None
         key = rec["master"] or -rec["id"]
         new = [v for v in rec["videos"] if v["yt"] not in seen]
         prev = by_key.get(key)
@@ -33,9 +35,13 @@ def merge(records):
             if not prev["label"] and rec["label"]:
                 prev["label"] = rec["label"]
             prev["styles"] = sorted(set(prev["styles"]) | set(rec["styles"]))
+            if secs:
+                prev["secs"] = list(dict.fromkeys(prev["secs"] + secs))
         else:
             prev = {k: v for k, v in rec.items() if k != "genres"}
             prev["videos"] = []
+            if sectors is not None:
+                prev["secs"] = secs
             by_key[key] = prev
         for v in new:
             seen.add(v["yt"])
@@ -52,3 +58,8 @@ def read_raw(path):
 
 def sector_catalogue(raw_path, sector):
     return merge(r for r in read_raw(raw_path) if in_sector(r, sector))
+
+
+def full_catalogue(raw_path, sectors):
+    """Every sector's releases in one catalogue (a release in two sectors appears once)."""
+    return merge((r for r in read_raw(raw_path) if any(in_sector(r, s) for s in sectors)), sectors)
