@@ -101,6 +101,7 @@ document.querySelectorAll<HTMLButtonElement>(".phos button").forEach((b) => (b.o
 // Кожен стиль має свій колір (сусідні стилі — схожі відтінки). Зоря спалахує в типовому
 // для стилю темпі й раз на такт (4 удари) скидає оболонку-нову.
 const SC = stars.map((s) => { const h = s.color.replace("#", ""); return [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16)); });
+const mixW = (si: number, k: number, a: number) => `rgba(${SC[si].map((v) => Math.round(v + (255 - v) * k)).join(",")},${a})`;
 const sc = (si: number, a = 1) => `rgba(${SC[si][0]},${SC[si][1]},${SC[si][2]},${a})`;
 const Y0 = map.meta.years?.[0] ?? 1980;
 const peakYear = stars.map((s) => { const yh = s.yh || []; let b = 0; yh.forEach((v, i) => { if (v > yh[b]) b = i; }); return Y0 + b; });
@@ -521,7 +522,7 @@ function drawSatellites(t: number) {
   stars.forEach((st, si) => {
     if (!inLive(st.x, st.y, st.R)) return;
     const ch = chunks[si], o = ch && orbitOf(si); if (!ch || !o) return;
-    const back = new Path2D(), front = new Path2D();
+    const back = new Path2D(), front = new Path2D(), liked = new Path2D();
     for (const pi of planetsByStar[si]) {
       const pl = planets[pi], c = planetPos(pi, t), cx = c.x, cy = c.y, rr = pl.r * pl.r;
       if (!inLive(cx, cy, orbitR(pl))) continue;
@@ -534,11 +535,13 @@ function drawSatellites(t: number) {
         const sx = (cx + dx) * k + ox, sy = (cy + dy) * k + oy;
         if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue;
         (z >= 0 ? front : back).rect(Math.round(sx - half), Math.round(sy - half), sz, sz);
+        if (likedYt.size && likedYt.has(ch.yt[i])) liked.rect(Math.round(sx - half) - 2.5, Math.round(sy - half) - 2.5, sz + 5, sz + 5);
         if (titles && z > 0 && nT < 160 && label(ch.t[i], sx + 6, sy + 4, 11, sc(si, 0.75), "left")) nT++;
       }
     }
     ctx.fillStyle = sc(si, 0.35); ctx.fill(back);
     ctx.fillStyle = sc(si, 0.95); ctx.fill(front);
+    ctx.strokeStyle = mixW(si, 0.5, 0.95); ctx.lineWidth = 1; ctx.stroke(liked);
   });
 }
 function drawRoute(t: number) {
@@ -1095,6 +1098,7 @@ function render() {
         ${row("COORDINATES", `${ch.x[o.i].toFixed(0)} / ${ch.y[o.i].toFixed(0)}`)}</div>
       <div class="scope-c"><canvas id="wave"></canvas></div>
       ${map.meta.sample ? `<p class="note">TEST SIGNAL: videos won't play.</p>` : `<button class="play" data-r="${R(o)}" data-play="1">${nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i ? "◉ ON AIR" : "▶ PLAY"}</button>`}
+      <button class="plot like${isLiked(o) ? " on" : ""}" data-like="1">${isLiked(o) ? "♥ LIKED" : "♡ LIKE"}</button>
       <a class="out" href="https://www.youtube.com/watch?v=${esc(yt)}" target="_blank" rel="noopener">OPEN ON YOUTUBE ↗</a>
       ${near.length ? `<div><div class="ph-sub">NEAREST SIGNALS</div><div class="list">${near.map((r, k) => trackItem(r.s, r.i, k + 1)).join("")}</div></div>` : ""}`;
     const sd = hash(yt) % 97;
@@ -1116,6 +1120,7 @@ function render() {
 $("detail").addEventListener("click", (e) => {
   const pr = (e.target as HTMLElement).closest<HTMLElement>("[data-route]"); if (pr) { startPick(+pr.dataset.route!); return; }
   const po = (e.target as HTMLElement).closest<HTMLElement>("[data-orbit]"); if (po) { playOrbit(+po.dataset.orbit!); return; }
+  if ((e.target as HTMLElement).closest("[data-like]")) { if (sel?.kind === "track") toggleLike(sel); return; }
   const b = (e.target as HTMLElement).closest<HTMLElement>("[data-r]"); if (!b) return;
   const o = refs[+b.dataset.r!];
   if (o?.kind === "track") { select(o, true, !!b.dataset.play); return; }
@@ -1161,7 +1166,7 @@ function playTrack(ref: TrackRef) {
   if (!last || last.i !== ref.i || last.s !== ref.s) hist_.push(ref);
   showDock(); $("pMsg").hidden = true;
   for (const id of ["playerBox", "dockPill"]) $(id).style.setProperty("--acc", stars[ref.s].color);
-  player.play(ch.yt[ref.i]); logTrack(ref); ticker(); dirty = true;
+  player.play(ch.yt[ref.i]); logTrack(ref); ticker(); paintLikes(); dirty = true;
   $("npTitle").textContent = ch.t[ref.i]; $("npArtist").textContent = ch.an[ch.a[ref.i]];
   seekEl.value = "0"; paintRange(seekEl); $("tCur").textContent = "0:00"; $("tDur").textContent = "0:00";
 }
@@ -1228,6 +1233,69 @@ setInterval(() => {
 }, 250);
 
 // ---------- Журнал ----------
+// ---------- Likes ----------
+// Kept in this browser. Each like remembers the YouTube id plus title/artist, so it survives map rebuilds.
+type Like = { y: string; s: number; i: number; t: string; a: string; at: number };
+const LIKEKEY = "kosmos-likes";
+let likes: Like[] = [];
+try { likes = JSON.parse(localStorage.getItem(LIKEKEY) || "[]"); } catch { /* */ }
+const likedYt = new Set(likes.map((l) => l.y));
+const isLiked = (r: TrackRef | null) => !!r && !!chunks[r.s] && likedYt.has(chunks[r.s]!.yt[r.i]);
+function toggleLike(r: TrackRef | null) {
+  if (!r || !chunks[r.s]) return;
+  const ch = chunks[r.s]!, y = ch.yt[r.i];
+  if (likedYt.has(y)) { likedYt.delete(y); likes = likes.filter((l) => l.y !== y); }
+  else { likedYt.add(y); likes = [{ y, s: r.s, i: r.i, t: ch.t[r.i], a: ch.an[ch.a[r.i]], at: Date.now() }, ...likes]; }
+  try { localStorage.setItem(LIKEKEY, JSON.stringify(likes)); } catch { /* */ }
+  paintLikes(); renderLiked(); ticker(); dirty = true;
+}
+// where a liked track sits on the current map (indices can move between map builds)
+function likeRef(l: Like): TrackRef | null {
+  const ch = chunks[l.s];
+  if (ch && ch.yt[l.i] === l.y) return { s: l.s, i: l.i };
+  if (ch) { const i = ch.yt.indexOf(l.y); if (i >= 0) return { s: l.s, i }; }
+  return null;
+}
+function paintLikes() {
+  $("likedN").textContent = String(likes.length);
+  const cur = nowPlaying, on = isLiked(cur), b = $("pLike");
+  b.textContent = on ? "♥" : "♡"; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
+  b.setAttribute("aria-label", on ? "Unlike" : "Like");
+  const d = document.querySelector<HTMLElement>("#detail [data-like]");
+  if (d && sel?.kind === "track") { const v = isLiked(sel); d.textContent = v ? "♥ LIKED" : "♡ LIKE"; d.classList.toggle("on", v); }
+}
+// YouTube builds a temporary playlist from a list of video ids; it can then be saved to the account
+const YT_BATCH = 50;
+async function renderLiked() {
+  const el = $("liked");
+  if (!likes.length) { el.innerHTML = `<p class="note">NO LIKES YET. PRESS ♡ OR <kbd>L</kbd> ON A TRACK YOU LOVE.</p>`; return; }
+  await Promise.all([...new Set(likes.map((l) => l.s))].filter((s) => s < stars.length).map(loadChunk));
+  const parts = Math.ceil(likes.length / YT_BATCH);
+  const links = Array.from({ length: parts }, (_, k) => {
+    const ids = likes.slice(k * YT_BATCH, (k + 1) * YT_BATCH).map((l) => l.y).join(",");
+    return `<a class="ytlist" href="https://www.youtube.com/watch_videos?video_ids=${ids}" target="_blank" rel="noopener">▶ OPEN AS YOUTUBE PLAYLIST${parts > 1 ? ` · PART ${k + 1}/${parts}` : ""} ↗</a>`;
+  }).join("");
+  el.innerHTML = links + `<p class="note ythint">Opens on YouTube; use “Save” there to keep it in your library.</p>` +
+    likes.map((l, k) => {
+      const r = likeRef(l);
+      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span>▸ ${esc(l.a)} — ${esc(l.t)}${l.s < stars.length ? ` · ${esc(stars[l.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(l.y)}" aria-label="Remove like">×</button></div>`;
+    }).join("");
+}
+$("liked").addEventListener("click", (e) => {
+  const t = e.target as HTMLElement;
+  const u = t.closest<HTMLElement>("[data-y]");
+  if (u) { const l = likes.find((x) => x.y === u.dataset.y); if (l) { const r = likeRef(l) ?? { s: l.s, i: l.i }; if (chunks[r.s]?.yt[r.i] === l.y) toggleLike(r); else { likedYt.delete(l.y); likes = likes.filter((x) => x.y !== l.y); try { localStorage.setItem(LIKEKEY, JSON.stringify(likes)); } catch { /* */ } paintLikes(); renderLiked(); } } return; }
+  const b = t.closest<HTMLElement>("[data-s]"); if (b) select({ kind: "track", s: +b.dataset.s!, i: +b.dataset.i! }, true, true);
+});
+function showTab(liked: boolean) {
+  $("log").hidden = liked; $("liked").hidden = !liked;
+  $("tabLog").setAttribute("aria-selected", String(!liked)); $("tabLiked").setAttribute("aria-selected", String(liked));
+  if (liked) renderLiked();
+}
+$("tabLog").onclick = () => showTab(false);
+$("tabLiked").onclick = () => showTab(true);
+$("pLike").onclick = () => toggleLike(nowPlaying);
+
 const LOGKEY = "kosmos-log2";
 let log: { k: string; t: number }[] = [];
 try { log = JSON.parse(localStorage.getItem(LOGKEY) || "[]"); } catch { /* */ }
@@ -1254,7 +1322,7 @@ function ticker() {
   let np = "ON AIR: SILENCE";
   if (nowPlaying && chunks[nowPlaying.s]) { const ch = chunks[nowPlaying.s]!; np = `ON AIR: <b>${esc(ch.an[ch.a[nowPlaying.i]])} — ${esc(ch.t[nowPlaying.i])}</b>${player.playing ? "" : " [PAUSED]"}`; }
   const parts = [np, `STARS <b>${stars.length}</b>`, `PLANETS <b>${fmt(planets.length)}</b>`, `SATELLITES <b>${fmt(map.meta.tracks)}</b>`, `RELEASES <b>${fmt(map.meta.releases)}</b>`,
-    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `LARGEST SYSTEM <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `LINKS <b>${links.length}</b>`, `PLAYED <b>${log.length}</b>`, `SOURCE <b>DISCOGS CC0</b>`];
+    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `LARGEST SYSTEM <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `LINKS <b>${links.length}</b>`, `PLAYED <b>${log.length}</b>`, `LIKED <b>${likes.length}</b>`, `SOURCE <b>DISCOGS CC0</b>`];
   const one = parts.map((p) => `<span>${p}</span>`).join("");
   if (one !== lastTicker) { lastTicker = one; $("ticker").innerHTML = one + one; }
 }
@@ -1418,6 +1486,7 @@ addEventListener("keydown", (e) => {
   else if (k === "w" || k === "ц") warp();
   else if (k === "h" || k === "р") goHome();
   else if (k === "n" || k === "т") next();
+  else if (k === "l" || k === "д") toggleLike(sel?.kind === "track" ? sel : nowPlaying);
   else if (k === " ") { e.preventDefault(); player.toggle(); }
   else if (k === "+" || k === "=") { cam.s = clampS(cam.s * 1.5); dirty = true; }
   else if (k === "-") { cam.s = clampS(cam.s / 1.5); dirty = true; }
@@ -1456,7 +1525,7 @@ setPhosphor(["violet", "green", "amber"].includes(savedPh) ? savedPh : "violet")
 $("sector").textContent = map.meta.sector.toUpperCase();
 if (map.meta.sample) { const b = $("sampleBanner"); b.hidden = false; b.onclick = () => { b.hidden = true; }; }
 cam.s = homeScale();
-render(); renderLog(); ticker(); requestAnimationFrame(frame);
+render(); renderLog(); paintLikes(); ticker(); requestAnimationFrame(frame);
 document.fonts?.ready.then(() => { dirty = true; });
 // Test hook: #test-<videoId> plays one YouTube video through the transport (works with the test map too)
 const tm = location.hash.match(/^#test-([A-Za-z0-9_-]{11})$/);

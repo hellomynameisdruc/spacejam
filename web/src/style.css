@@ -314,3 +314,19 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .copy { font-size: 8.5px; letter-spacing: .03em; padding-left: 7px }
   .cmdfield { min-width: 96px }
 }
+
+/* ---------- likes ---------- */
+.logtabs { display: flex; gap: 14px }
+.logtabs button { background: none; border: 0; padding: 0 0 2px; font: inherit; letter-spacing: inherit; color: var(--dim); cursor: var(--cur-hand, pointer); border-bottom: 1px solid transparent }
+.logtabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink) }
+.logtabs b { font-weight: 400; color: var(--acc) }
+.like.on { border-style: solid; background: color-mix(in srgb, var(--acc) 14%, transparent) }
+.like-k.on { color: var(--acc); border-color: var(--acc) }
+.ytlist { display: block; margin: 2px 0 2px; padding: 5px 8px; border: 1px dashed var(--acc); color: var(--acc); font-family: var(--f-dot); font-size: 11px; letter-spacing: .1em; text-decoration: none }
+.ytlist:hover { background: color-mix(in srgb, var(--acc) 12%, transparent) }
+.ythint { margin: 0 0 6px; font-size: 10px }
+.lk { display: flex; align-items: baseline; gap: 6px; min-width: 0 }
+.lk button:first-child { flex: 1; min-width: 0 }
+.lk button:disabled { opacity: .5; cursor: default }
+.unlike { flex: none; background: none; border: 0; color: var(--dim); cursor: var(--cur-hand, pointer); font-size: 12px; padding: 0 2px }
+.unlike:hover { color: var(--acc) }
