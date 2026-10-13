@@ -43,7 +43,7 @@ export const FONT_LBL = "DotGothic16, 'Martian Mono', monospace";
 const rgbOf = (hex: string) => [0, 2, 4].map((k) => parseInt(hex.replace("#", "").slice(k, k + 2), 16));
 /** a galaxy's cloud: soft noise in its colour, dithered like the rest of the screen (seeded by name) */
 export const nebulaS = galaxy.nebulae.map((n) => {
-  const N = 128, rnd = lcg(hash(n.id) || 1), [r, g, b] = rgbOf(n.color);
+  const N = 256, rnd = lcg(hash(n.id) || 1), [r, g, b] = rgbOf(n.color);
   // value noise: a few octaves of random grids, smoothly interpolated
   const oct = [4, 8, 16, 32].map((m) => ({ m, v: Array.from({ length: (m + 1) * (m + 1) }, () => rnd()) }));
   const sm = (t: number) => t * t * (3 - 2 * t);
@@ -63,7 +63,7 @@ export const nebulaS = galaxy.nebulae.map((n) => {
       let fall = Math.max(0, 1 - Math.hypot(dx, dy) / 0.5);
       for (const l of lobes) fall = Math.max(fall, l.w * Math.max(0, 1 - Math.hypot(dx - Math.cos(l.a) * l.d, dy - Math.sin(l.a) * l.d) / 0.3));
       const d = Math.max(0, noise(u, v) * 1.3 - 0.28) * fall ** 1.2;
-      const k = (y * N + x) * 4, q = bayer[(y % 4) * 4 + (x % 4)] / 16;
+      const k = (y * N + x) * 4, q = bayer[((y >> 1) % 4) * 4 + ((x >> 1) % 4)] / 16;
       const on = d > q * 0.9 ? 1 : 0.35;
       img.data[k] = r; img.data[k + 1] = g; img.data[k + 2] = b; img.data[k + 3] = Math.min(255, d * 620 * on);
     }

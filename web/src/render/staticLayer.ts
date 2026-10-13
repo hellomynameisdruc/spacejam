@@ -57,7 +57,7 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
 
   // galaxies: a big dithered cloud per sector, fading as you fly into its systems
   lc.globalCompositeOperation = "lighter";
-  const gA = Math.min(1, 0.06 / cam.s) * 0.85;
+  const gA = Math.min(1, 0.035 / cam.s) * 0.85;
   if (gA > 0.03) galaxy.nebulae.forEach((n, k) => {
     const R = n.r * 1.3; if (!inView(n.x, n.y, R)) return;
     const p = cam.toScreen(n.x, n.y), Rs = R * cam.s;
@@ -120,7 +120,7 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   if (cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
     if (!inView(n.x, n.y, n.r * 1.3)) return;
     const p = cam.toScreen(n.x, n.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
-    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - n.r * cam.s - 10, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
+    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - n.r * 1.12 * cam.s - 12, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
   });
 
   // star labels (the pulsars themselves are drawn live, every frame)

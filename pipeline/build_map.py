@@ -213,7 +213,8 @@ def layout_stars(names, radius, weight, iters=900):
 
 
 # ---------- galaxies (sectors) ----------
-GALAXY_GAP = 260  # extra empty space around each galaxy
+GALAXY_GAP = 260  # least empty space around each galaxy
+GALAXY_GAP_SHARE = 0.55  # …or this share of its radius, whichever is more (big maps need wide gaps)
 
 
 def star_galaxies(rel, stars, sectors):
@@ -266,7 +267,7 @@ def layout_galaxies(stars, radius, weight, gal, gids, iters=900):
             if a != b:
                 tot = sum(weight.get((stars[i], stars[k]), 0.0) for i in groups[a] for k in groups[b])
                 gw[(a, b)] = tot / math.sqrt(len(groups[a]) * len(groups[b]))
-    cen = layout_stars(gids, np.array([rad[g] + GALAXY_GAP for g in gids]), gw, iters)
+    cen = layout_stars(gids, np.array([rad[g] + max(GALAXY_GAP, GALAXY_GAP_SHARE * rad[g]) for g in gids]), gw, iters)
     cpos = {g: cen[k] for k, g in enumerate(gids)}
     for g in gids:
         pos[groups[g]] = cpos[g] + local[g]
