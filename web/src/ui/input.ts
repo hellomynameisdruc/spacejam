@@ -1,6 +1,6 @@
 // Pointer, wheel, keyboard and the map's buttons.
 import type { Vec } from "../core/types";
-import { $ } from "../core/dom";
+import { $, uiZoom } from "../core/dom";
 import { galaxy, sameSel, state } from "../app/state";
 import { endPick, goHome, next, select, toggleBeacon, warp, zoomBy } from "../app/actions";
 import { cam } from "../render/camera";
@@ -13,7 +13,7 @@ import { closeSearch, searchInput } from "./search";
 
 export function initInput() {
   const cv = sceneCanvas();
-  const local = (e: PointerEvent | WheelEvent): Vec => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  const local = (e: PointerEvent | WheelEvent): Vec => { const r = cv.getBoundingClientRect(), z = uiZoom(cv); return { x: (e.clientX - r.left) / z, y: (e.clientY - r.top) / z }; };
   const ptrs = new Map<number, Vec>();
   let dragged = 0, pinch0: { d: number; s: number } | null = null, hoverT = 0;
 

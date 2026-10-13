@@ -18,7 +18,7 @@ export function initWormhole() {
 export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () => void) {
   if (reduce) { onPeak(); return; }
   state.warping = true;
-  const dpr = Math.min(2, devicePixelRatio || 1), w = cam.W, h = cam.H;
+  const dpr = cam.DPR, w = cam.W, h = cam.H;
   wf.width = w * dpr; wf.height = h * dpr; wg.setTransform(dpr, 0, 0, dpr, 0, 0); wf.style.display = "block";
   const A = SC[fromSi], B = SC[toSi];
   const mix = (k: number, a: number) => { k = Math.max(0, Math.min(1, k)); return `rgba(${(A[0] + (B[0] - A[0]) * k) | 0},${(A[1] + (B[1] - A[1]) * k) | 0},${(A[2] + (B[2] - A[2]) * k) | 0},${a})`; };

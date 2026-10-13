@@ -372,3 +372,17 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 .howto li { padding-left: 14px; position: relative }
 .howto li::before { content: "▸"; position: absolute; left: 0; color: var(--acc, var(--ink)) }
 .howto b { color: var(--ink); font-weight: 400 }
+
+/* Desktop screens: the whole page a little smaller, as it reads best (80% on laptops, 90% on big
+   monitors where text would get too fine). The YouTube player is enlarged to match, so on screen it
+   always stays at least 200x200 px. */
+@media (min-width: 1100px) and (pointer: fine) {
+  html { zoom: .8 }
+  .dock { width: 272px }
+  .video { width: 250px; height: 250px }
+}
+@media (min-width: 1800px) and (pointer: fine) {
+  html { zoom: .9 }
+  .dock { width: 245px }
+  .video { width: 223px; height: 223px }
+}

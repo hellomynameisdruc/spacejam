@@ -2,7 +2,7 @@
 // pill (minimising pauses — audio never plays from a hidden player), dragging by the header.
 import type { TrackRef } from "../core/types";
 import { mmss, pad } from "../core/util";
-import { $ } from "../core/dom";
+import { $, uiZoom } from "../core/dom";
 import { Player } from "./youtubePlayer";
 import { beacons, chunk, galaxy, prefs, state } from "../app/state";
 import { next, prev, toggleBeacon } from "../app/actions";
@@ -92,14 +92,15 @@ export function initDock() {
   head.addEventListener("pointerdown", (e) => {
     if ((e.target as HTMLElement).closest("button")) return;
     const r = dock.getBoundingClientRect(), v = vp.getBoundingClientRect();
-    start = { x: e.clientX, y: e.clientY, l: r.left - v.left, t: r.top - v.top };
+    const z = uiZoom(vp);
+    start = { x: e.clientX, y: e.clientY, l: (r.left - v.left) / z, t: (r.top - v.top) / z };
     head.setPointerCapture(e.pointerId);
   });
   head.addEventListener("pointermove", (e) => {
     if (!start) return;
-    const v = vp.getBoundingClientRect();
-    const l = Math.max(0, Math.min(v.width - dock.offsetWidth, start.l + e.clientX - start.x));
-    const t = Math.max(0, Math.min(v.height - dock.offsetHeight, start.t + e.clientY - start.y));
+    const z = uiZoom(vp);
+    const l = Math.max(0, Math.min(vp.offsetWidth - dock.offsetWidth, start.l + (e.clientX - start.x) / z));
+    const t = Math.max(0, Math.min(vp.offsetHeight - dock.offsetHeight, start.t + (e.clientY - start.y) / z));
     Object.assign(dock.style, { left: `${l}px`, top: `${t}px`, right: "auto", bottom: "auto" });
   });
   const end = () => { start = null; };

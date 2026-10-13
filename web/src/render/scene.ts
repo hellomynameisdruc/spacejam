@@ -1,6 +1,6 @@
 // The two canvases and the frame loop. The static layer (under) is repainted rarely and slid/scaled by
 // CSS in between; the live layer (over) is cleared and redrawn every frame with everything that moves.
-import { $ } from "../core/dom";
+import { $, uiZoom } from "../core/dom";
 import { chunk, galaxy, motion, sameSel, state } from "../app/state";
 import { sc } from "./palette";
 import { cam, LOD_TRACKS } from "./camera";
@@ -24,8 +24,9 @@ export const viewportEl = () => vp;
 export const onFrame = (fn: (t: number) => void) => { perFrame.push(fn); };
 
 function resize() {
-  const r = vp.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
-  cam.W = Math.max(1, r.width); cam.H = Math.max(1, r.height); cam.DPR = dpr;
+  // sizes in the page's own px; DPR counts the page zoom so the canvases stay pixel-sharp
+  const r = vp.getBoundingClientRect(), z = uiZoom(vp), dpr = Math.min(2, devicePixelRatio || 1) * z;
+  cam.W = Math.max(1, r.width / z); cam.H = Math.max(1, r.height / z); cam.DPR = dpr;
   cv.width = cam.W * dpr; cv.height = cam.H * dpr;
   layer.width = (cam.W + 2 * MARGIN) * dpr; layer.height = (cam.H + 2 * MARGIN) * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); lc.setTransform(dpr, 0, 0, dpr, MARGIN * dpr, MARGIN * dpr); ctx.imageSmoothingEnabled = false;

@@ -1,15 +1,16 @@
 // Small CRT "scopes" in the dossier: dithered planet sphere, sector radar, signal wave, star pulsar.
 import type { PType } from "../core/types";
 import { galaxy } from "../app/state";
+import { uiZoom } from "../core/dom";
 import { BG, FONT_LBL, ph, sc } from "../render/palette";
 import { drawPulsar } from "../render/pulsar";
 import { tempoLabel } from "../model/tempo";
 
 export function fitCanvas(c: HTMLCanvasElement) {
-  const r = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
-  c.width = Math.max(1, r.width * dpr); c.height = Math.max(1, r.height * dpr);
+  const r = c.getBoundingClientRect(), z = uiZoom(c), dpr = Math.min(2, devicePixelRatio || 1) * z;
+  c.width = Math.max(1, r.width * Math.min(2, devicePixelRatio || 1)); c.height = Math.max(1, r.height * Math.min(2, devicePixelRatio || 1));
   const g = c.getContext("2d")!; g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = false;
-  return { g, w: r.width, h: r.height };
+  return { g, w: r.width / z, h: r.height / z };
 }
 const fits = new WeakMap<HTMLCanvasElement, ReturnType<typeof fitCanvas>>();
 /** fitted context of a canvas, measured once per canvas element */
