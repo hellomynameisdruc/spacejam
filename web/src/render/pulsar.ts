@@ -13,6 +13,13 @@ export function pulseOf(si: number, t: number) {
 /** on-screen star radius: popularity sets it, zoom scales it within limits */
 export const starSize = (si: number) => { const k = galaxy.starRel[si]; return Math.max(3.5 + 8 * k, Math.min(54, (12 + 44 * k) * cam.s)); };
 
+// the dither pattern of each star, created once per canvas
+const patterns = new WeakMap<CanvasRenderingContext2D, CanvasPattern[]>();
+function ditherOf(c: CanvasRenderingContext2D, si: number) {
+  let list = patterns.get(c); if (!list) patterns.set(c, (list = []));
+  return (list[si] ||= c.createPattern(starDither[si], "repeat")!);
+}
+
 export function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y: number, s: number, t: number) {
   const { p, bar } = pulseOf(si, t), lum = galaxy.lum[si];
   const prev = c.globalCompositeOperation;
@@ -32,7 +39,7 @@ export function drawPulsar(c: CanvasRenderingContext2D, si: number, x: number, y
   const r = s * (1 + 0.1 * p);
   c.save(); c.beginPath(); c.arc(x, y, r, 0, 7); c.clip();
   c.fillStyle = BG; c.fillRect(x - r, y - r, r * 2, r * 2);
-  c.fillStyle = c.createPattern(starDither[si], "repeat")!; c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.fillStyle = ditherOf(c, si); c.fillRect(x - r, y - r, r * 2, r * 2);
   c.globalCompositeOperation = "lighter";
   const g = c.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `rgba(255,255,255,${0.85 + 0.15 * p})`); g.addColorStop(0.35 + 0.15 * p, sc(si, 0.9)); g.addColorStop(1, sc(si, 0));

@@ -1,4 +1,5 @@
-// Spatial grid over each system's tracks: finds the points inside an area quickly.
+// Spatial grid over each system's asteroid-belt tracks (planet satellites move, and are found through
+// their planet instead): finds the belt points inside an area quickly.
 import { chunk, galaxy } from "../app/state";
 
 const CELL = 48;
@@ -10,11 +11,11 @@ function gridOf(si: number): Grid | null {
   if (grids[si]) return grids[si];
   const ch = chunk(si); if (!ch) return null;
   const g: Grid = new Map();
-  for (let i = 0; i < ch.x.length; i++) { const k = gkey(Math.floor(ch.x[i] / CELL), Math.floor(ch.y[i] / CELL)); let a = g.get(k); if (!a) g.set(k, (a = [])); a.push(i); }
+  for (let i = 0; i < ch.x.length; i++) { if (ch.p[i] >= 0) continue; const k = gkey(Math.floor(ch.x[i] / CELL), Math.floor(ch.y[i] / CELL)); let a = g.get(k); if (!a) g.set(k, (a = [])); a.push(i); }
   return (grids[si] = g);
 }
 
-/** calls fn(i) for each track of star si whose catalogue position may lie in the box */
+/** calls fn(i) for each belt track of star si whose position may lie in the box */
 export function eachTrack(si: number, x0: number, y0: number, x1: number, y1: number, fn: (i: number) => void) {
   const g = gridOf(si); if (!g) return;
   const st = galaxy.stars[si];

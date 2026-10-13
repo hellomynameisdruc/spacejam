@@ -31,7 +31,7 @@ export function pick(sx: number, sy: number): Sel {
       eachTrack(s, w.x - rad, w.y - rad, w.x + rad, w.y + rad, (i) => { if (ch.p[i] < 0) consider({ kind: "track", s, i }, ch.x[i], ch.y[i], 10); });
       if (!motion.orbitOf(s)) return;
       for (const pi of planetsByStar[s]) {
-        const pl = planets[pi], c = motion.planetPos(pi); if (Math.hypot(w.x - c.x, w.y - c.y) > orbitR(pl) + rad) continue;
+        const pl = planets[pi], c = motion.planetPos(pi); if (Math.hypot(w.x - c.x, w.y - c.y) > orbitR(pl) + rad || !motion.ensurePlanet(pi)) continue;
         for (let i = pl.t0; i < pl.t1; i++) { const q = motion.trackPos(s, i); if (!motion.hiddenBehind(s, i, q)) consider({ kind: "track", s, i }, q.x, q.y, 10); }
       }
     });

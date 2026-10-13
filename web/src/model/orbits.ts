@@ -13,21 +13,27 @@ const PLANET_PERIOD = 360;
 /** a satellite's period at the planet's surface, seconds (Kepler: farther = slower) */
 const SAT_PERIOD = 46;
 
+export const emptyOrbit = (n: number): Orbit => ({ d: new Float32Array(n), th: new Float32Array(n), ci: new Float32Array(n), si: new Float32Array(n), cO: new Float32Array(n), sO: new Float32Array(n), w: new Float32Array(n) });
+
 /**
  * Satellites orbit their planet on tilted circular orbits with random orientations, which makes a
- * spherical swarm. Seeded per star, so every visitor sees the same sky.
+ * spherical swarm. Seeded per planet, so every visitor sees the same sky and planets can be filled
+ * in any order (only the ones on screen, the first time they appear).
  */
-export function buildOrbit(g: Galaxy, s: number, ch: Chunk): Orbit {
-  const n = ch.x.length;
-  const o: Orbit = { d: new Float32Array(n), th: new Float32Array(n), ci: new Float32Array(n), si: new Float32Array(n), cO: new Float32Array(n), sO: new Float32Array(n), w: new Float32Array(n) };
-  const r1 = lcg(1 + s * 7919);
-  for (let i = 0; i < n; i++) {
-    const pi = ch.p[i]; if (pi < 0) continue;
-    const P = g.planets[pi], dx = ch.x[i] - P.x, dy = ch.y[i] - P.y, d = Math.hypot(dx, dy);
+export function fillPlanetOrbits(g: Galaxy, o: Orbit, pi: number, ch: Chunk) {
+  const P = g.planets[pi], r1 = lcg(1 + pi * 7919);
+  for (let i = P.t0; i < P.t1; i++) {
+    const dx = ch.x[i] - P.x, dy = ch.y[i] - P.y, d = Math.hypot(dx, dy);
     const ci = 2 * r1() - 1, O = r1() * TAU;
     o.d[i] = d; o.th[i] = Math.atan2(dy, dx); o.ci[i] = ci; o.si[i] = Math.sqrt(1 - ci * ci); o.cO[i] = Math.cos(O); o.sO[i] = Math.sin(O);
     o.w[i] = (TAU / SAT_PERIOD) * Math.pow((P.r + 4) / Math.max(d, P.r + 4), 1.5);
   }
+}
+
+/** all satellite orbits of a star at once (tests, tools) */
+export function buildOrbit(g: Galaxy, s: number, ch: Chunk): Orbit {
+  const o = emptyOrbit(ch.x.length);
+  for (const pi of g.planetsByStar[s]) fillPlanetOrbits(g, o, pi, ch);
   return o;
 }
 
@@ -35,6 +41,8 @@ export class Motion {
   /** angular speed of each planet (rad/s); a whole band turns together, so planets never collide */
   readonly pOmega: number[];
   private readonly orbits: (Orbit | null)[];
+  /** planets whose satellite orbits are computed */
+  private readonly filled: Uint8Array;
   /** time used when a caller doesn't pass one (the current frame) */
   now = 0;
   private readonly PP: Vec = { x: 0, y: 0 };
@@ -42,6 +50,7 @@ export class Motion {
 
   constructor(private g: Galaxy, private chunk: (s: number) => Chunk | null, private frozen = false) {
     this.orbits = g.stars.map(() => null);
+    this.filled = new Uint8Array(g.planets.length);
     this.pOmega = g.planets.map((p) => {
       if (!p.o) return 0;
       const o0 = g.stars[p.s].orb?.[0] || p.o;
@@ -59,15 +68,23 @@ export class Motion {
     PP.x = st.x + Math.cos(a) * p.o; PP.y = st.y + Math.sin(a) * p.o; return PP;
   }
 
+  /** the star's satellite-orbit arrays (filled per planet on demand, see ensurePlanet) */
   orbitOf(s: number): Orbit | null {
     if (this.orbits[s]) return this.orbits[s];
     const ch = this.chunk(s); if (!ch) return null;
-    return (this.orbits[s] = buildOrbit(this.g, s, ch));
+    return (this.orbits[s] = emptyOrbit(ch.x.length));
+  }
+  /** make sure planet pi's satellites have their orbits; false if its tracks aren't loaded */
+  ensurePlanet(pi: number): boolean {
+    if (this.filled[pi]) return true;
+    const s = this.g.planets[pi].s, o = this.orbitOf(s), ch = this.chunk(s); if (!o || !ch) return false;
+    fillPlanetOrbits(this.g, o, pi, ch); this.filled[pi] = 1; return true;
   }
 
   /** world position of track i of star s at time t; z > 0 means in front of its planet. Shared object. */
   trackPos(s: number, i: number, t = this.now) {
     const ch = this.chunk(s)!, o = this.orbitOf(s), OP = this.OP;
+    if (o && ch.p[i] >= 0) this.ensurePlanet(ch.p[i]);
     if (!o || ch.p[i] < 0 || !o.d[i]) { OP.x = ch.x[i]; OP.y = ch.y[i]; OP.z = 1; return OP; }
     const P = this.planetPos(ch.p[i], t), th = o.th[i] + this.secs(t) * o.w[i], d = o.d[i];
     const X = d * Math.cos(th), Y = d * Math.sin(th) * o.ci[i];

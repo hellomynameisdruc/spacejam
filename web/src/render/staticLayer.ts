@@ -81,6 +81,8 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   lc.setLineDash([2, 5]);
   for (const [a, b, w] of links) {
     const A = cam.toScreen(stars[a].x, stars[a].y), B = cam.toScreen(stars[b].x, stars[b].y), al = Math.min(0.75, 0.12 + w * 1.4);
+    // skip links that can't cross the painted area (most of them once zoomed in)
+    if (Math.max(A.x, B.x) < -MARGIN || Math.min(A.x, B.x) > W + MARGIN || Math.max(A.y, B.y) < -MARGIN || Math.min(A.y, B.y) > H + MARGIN) continue;
     const g = lc.createLinearGradient(A.x, A.y, B.x, B.y); g.addColorStop(0, sc(a, al)); g.addColorStop(1, sc(b, al));
     lc.strokeStyle = g; lc.lineWidth = w > 0.15 ? 1.6 : 1;
     lc.beginPath(); lc.moveTo(A.x, A.y); lc.lineTo(B.x, B.y); lc.stroke();

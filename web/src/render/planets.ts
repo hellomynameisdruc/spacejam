@@ -46,11 +46,19 @@ export function drawPlanetBody(G: CanvasRenderingContext2D, i: number, x: number
 // Planet bodies are cached as sprites at bucketed sizes (~12% steps) and scaled to the exact size,
 // so zooming doesn't repaint every planet on every wheel tick. Unused sprites are dropped.
 const pSprite: ({ c: HTMLCanvasElement; rb: number; used: number } | null)[] = galaxy.planets.map(() => null);
-let frameNo = 0, spriteCount = 0;
-function planetSprite(i: number, r: number) {
+/**
+ * Sprites are (re)painted for at most SPRITE_MS per frame (and at least two). When a zoom step crosses a size bucket, hundreds
+ * of planets would otherwise repaint in one frame (a visible hitch); over budget, a planet shows its
+ * previous sprite scaled, or a plain disc for a few frames until its turn comes.
+ */
+const SPRITE_MS = 4;
+let frameNo = 0, spriteCount = 0, budgetEnd = 0, painted = 0;
+function planetSprite(i: number, r: number): { c: HTMLCanvasElement; k: number } | null {
   const rb = Math.pow(2, Math.round(Math.log2(r) * 6) / 6), DPR = cam.DPR;
   let e = pSprite[i];
   if (!e || e.rb !== rb) {
+    if (painted >= 2 && performance.now() > budgetEnd) { if (!e) return null; e.used = frameNo; return { c: e.c, k: r / e.rb }; }
+    painted++;
     const half = Math.ceil((galaxy.ringed[i] ? rb * 2.05 : rb) + 3), w = half * 2;
     const c = e?.c ?? document.createElement("canvas"), px = Math.ceil(w * DPR);
     if (c.width !== px) { c.width = c.height = px; } else c.getContext("2d")!.clearRect(0, 0, px, px);
@@ -64,7 +72,7 @@ function planetSprite(i: number, r: number) {
 }
 /** call once per frame */
 export function tickSprites() {
-  frameNo++;
+  frameNo++; painted = 0; budgetEnd = performance.now() + SPRITE_MS;
   if (frameNo % 120 !== 0 || spriteCount < 600) return;
   for (let i = 0; i < pSprite.length; i++) { const e = pSprite[i]; if (e && frameNo - e.used > 240) { pSprite[i] = null; spriteCount--; } }
 }
@@ -81,8 +89,10 @@ export function drawPlanets(ctx: CanvasRenderingContext2D, t: number) {
     const pl = planets[i], q = motion.planetPos(i, t), p = cam.toScreen(q.x, q.y), r = Math.max(1.5, pl.r * cam.s);
     if (r < 3) { ctx.fillStyle = sc(pl.s, 0.95); ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
     if (r > 180) { drawPlanetBody(ctx, i, p.x, p.y, r); continue; }
-    const { c, k } = planetSprite(i, r), w = c.width / cam.DPR * k;
-    ctx.drawImage(c, p.x - w / 2, p.y - w / 2, w, w);
+    const sp = planetSprite(i, r);
+    if (!sp) { ctx.fillStyle = sc(pl.s, 0.55); ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill(); continue; }
+    const w = sp.c.width / cam.DPR * sp.k;
+    ctx.drawImage(sp.c, p.x - w / 2, p.y - w / 2, w, w);
   }
   vis.sort((a, b) => planets[b].n - planets[a].n);
   for (const i of vis) {

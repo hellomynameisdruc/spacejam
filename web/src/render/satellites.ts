@@ -19,7 +19,7 @@ export function drawSatellites(ctx: CanvasRenderingContext2D, t: number) {
     const back = new Path2D(), front = new Path2D(), marked = new Path2D();
     for (const pi of galaxy.planetsByStar[si]) {
       const pl = galaxy.planets[pi], c = motion.planetPos(pi, t), cx = c.x, cy = c.y, rr = pl.r * pl.r;
-      if (!inLive(cx, cy, orbitR(pl))) continue;
+      if (!inLive(cx, cy, orbitR(pl)) || !motion.ensurePlanet(pi)) continue;
       for (let i = pl.t0; i < pl.t1; i++) {
         const d = o.d[i]; if (!d) continue;
         const th = o.th[i] + ts * o.w[i], cs = Math.cos(th), sn = Math.sin(th);
