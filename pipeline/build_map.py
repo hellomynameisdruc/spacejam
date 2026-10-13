@@ -1,12 +1,15 @@
-"""Крок 3. Перетворює каталог на космос.
+"""Step 3. Turns the catalogue into a cosmos.
 
-  зоря     = стиль Discogs (Deep House, Garage House…)
-  планета  = лейбл, на орбіті того стилю, який у нього найчастіший
-  супутник = трек (YouTube-відео), довкола планети; старіші ближче до центру
-  пояс     = релізи без лейбла або з дрібних лейблів
+  star      = a Discogs style (Deep House, Garage House…)
+  planet    = a label, orbiting the style it releases most
+  satellite = a track (YouTube video) around its planet
+  belt      = releases without a label or from small labels, at the edge of a system
 
-Відстані між зорями залежать від того, як часто стилі трапляються разом в одних релізах.
-Повертає файли для сайту у web/public/data/.
+Distances between stars depend on how often two styles appear on the same release.
+Writes the site's files into web/public/data/ (map.json, tracks/<star>.json, artists.json).
+
+The build is a chain of small steps (see build()); each one is a plain function over plain data,
+so they can be tested on a handful of fake releases (tests/test_build_map.py).
 """
 import argparse
 import colorsys
@@ -14,21 +17,138 @@ import gzip
 import json
 import math
 import random
+import zlib
 from collections import Counter, defaultdict
+from pathlib import Path
 
 import numpy as np
 
 import config as C
 
 GOLDEN = math.pi * (3 - math.sqrt(5))
+HULL_N = 48
+LINK_MIN = 0.03  # weaker style links are not drawn
 
 
+def seed_of(name):
+    """Per-style random seed, stable across runs (Python's hash() of a str changes every run,
+    which used to reshuffle the planets on every rebuild)."""
+    return zlib.crc32(name.encode("utf-8")) & 0xFFFF
+
+
+# ---------- loading ----------
 def load(path):
     with gzip.open(path, "rt", encoding="utf-8") as f:
         return [json.loads(line) for line in f]
 
 
+# ---------- styles ----------
+def style_counts(rel, min_style):
+    """Releases per style, and the styles big enough to become stars (most common first)."""
+    # dict.fromkeys de-duplicates in a fixed order (a set's order changes between runs)
+    style_n = Counter(s for r in rel for s in dict.fromkeys(r["styles"]))
+    stars = [s for s, n in style_n.most_common() if n >= min_style]
+    return style_n, stars
+
+
+def style_links(rel, stars, style_n):
+    """Link strength between two styles: cosine similarity of the releases they share."""
+    star_set = set(stars)
+    pair = Counter()
+    for r in rel:
+        ss = sorted(star_set.intersection(r["styles"]))
+        for i in range(len(ss)):
+            for k in range(i + 1, len(ss)):
+                pair[(ss[i], ss[k])] += 1
+    weight = {}
+    for (a, b), c in pair.items():
+        w = c / math.sqrt(style_n[a] * style_n[b])
+        weight[(a, b)] = weight[(b, a)] = w
+    return weight
+
+
+def year_histograms(rel, stars):
+    """Releases per year for each style (drives a star's glow and the activity chart)."""
+    star_set = set(stars)
+    years_all = [r["year"] for r in rel if r["year"]]
+    y1 = max(years_all) if years_all else 2025
+    y0 = min(1980, y1 - 1)
+    hist = {s: [0] * (y1 - y0 + 1) for s in stars}
+    for r in rel:
+        y = r["year"]
+        if y0 <= y <= y1:
+            for st in star_set.intersection(r["styles"]):
+                hist[st][y - y0] += 1
+    return y0, y1, hist
+
+
+def assign_homes(rel, stars, style_n):
+    """A release's home is its narrowest (rarest) star style; releases without one are dropped."""
+    star_set = set(stars)
+    for r in rel:
+        ss = [s for s in r["styles"] if s in star_set]
+        r["home"] = min(ss, key=lambda s: style_n[s]) if ss else None
+    return [r for r in rel if r["home"]]
+
+
+# ---------- labels → planets ----------
+def even_sample(items, cap):
+    """Keep at most `cap` items, evenly spread over the list (e.g. across a label's whole history)."""
+    if len(items) <= cap:
+        return items
+    step = len(items) / cap
+    return [items[int(k * step)] for k in range(cap)]
+
+
+def group_labels(rel, stars, min_label):
+    """Labels with enough releases become planets of their most common home style; the rest of the
+    releases (small labels, no label) go to that style's asteroid belt."""
+    star_set = set(stars)
+    by_label = defaultdict(list)
+    for r in rel:
+        if r["label"]:
+            by_label[r["label"]].append(r)
+    planets, belt = [], defaultdict(list)
+    for name, rs in by_label.items():
+        if len(rs) < min_label:
+            for r in rs:
+                belt[r["home"]].append(r)
+            continue
+        star = Counter(r["home"] for r in rs).most_common(1)[0][0]
+        side = Counter(s for r in rs for s in r["styles"] if s in star_set and s != star)
+        tracks = sorted(((r, v) for r in rs for v in r["videos"]), key=lambda rv: (rv[0]["year"] or 9999))
+        tracks = even_sample(tracks, C.MAX_TRACKS_PER_PLANET)
+        r_pl = min(26, 3 + 1.25 * math.sqrt(len(rs)))
+        planets.append({
+            "name": name, "star": star, "n": len(rs), "side": side, "tracks": tracks,
+            "r": r_pl, "halo": r_pl + 4 + 1.5 * math.sqrt(len(tracks)),
+            "years": [min((r["year"] for r in rs if r["year"]), default=0), max(r["year"] for r in rs)],
+            "active_years": len({r["year"] for r in rs if r["year"]}),
+            "rs": rs,
+        })
+    for r in rel:
+        if not r["label"]:
+            belt[r["home"]].append(r)
+    return planets, belt
+
+
+def cap_planets(planets, belt):
+    """Only the biggest labels of each style become planets (keeps the map readable and fast);
+    the others join the belt. Returns planets grouped by star, biggest first."""
+    sys_by_star = defaultdict(list)
+    for p in planets:
+        sys_by_star[p["star"]].append(p)
+    for s in list(sys_by_star):
+        ps = sorted(sys_by_star[s], key=lambda p: -p["n"])
+        for p in ps[C.MAX_PLANETS_PER_STAR:]:
+            belt[s].extend(p["rs"])
+        sys_by_star[s] = ps[:C.MAX_PLANETS_PER_STAR]
+    return sys_by_star
+
+
+# ---------- layout ----------
 def mds(dist: np.ndarray) -> np.ndarray:
+    """Classical multidimensional scaling into 2D."""
     n = len(dist)
     if n == 1:
         return np.zeros((1, 2))
@@ -40,10 +160,10 @@ def mds(dist: np.ndarray) -> np.ndarray:
 
 
 def layout_stars(names, radius, weight, iters=900):
-    """Сильно пов'язані стилі притягуються, усі системи відштовхуються, щоб не накладатися."""
+    """Strongly linked styles attract, every system repels the others so they don't overlap."""
     n = len(names)
     w = np.array([[weight.get((a, b), 0.0) for b in names] for a in names])
-    pos = mds(1 - np.clip(w * 3, 0, 1) + np.eye(n) * 0)
+    pos = mds(1 - np.clip(w * 3, 0, 1))
     pos -= pos.mean(0)
     span = np.abs(pos).max() or 1
     pos = pos / span * (radius.sum() * 0.6)
@@ -57,23 +177,22 @@ def layout_stars(names, radius, weight, iters=900):
         unit = d / dist[..., None]
         want = r[:, None] + r[None, :] + 60 + 900 * (1 - np.clip(w * 3, 0, 1))
         force = np.zeros_like(pos)
-        # пружини між пов'язаними стилями
-        linked = w > 0
-        pull = np.where(linked, (dist - want) * np.clip(w * 3, 0.05, 1), 0)
+        # springs between linked styles
+        pull = np.where(w > 0, (dist - want) * np.clip(w * 3, 0.05, 1), 0)
         force -= (unit * pull[..., None]).sum(1)
-        # відштовхування, якщо системи налазять одна на одну
+        # push apart systems that overlap
         minsep = r[:, None] + r[None, :] + 50
-        push = np.where(dist < minsep, (minsep - dist) * 2.0, 0) - np.eye(n) * 0
+        push = np.where(dist < minsep, (minsep - dist) * 2.0, 0)
         np.fill_diagonal(push, 0)
         force += (unit * push[..., None]).sum(1)
-        # слабка гравітація до центру, щоб острови не розліталися
+        # weak pull to the centre so islands don't drift away
         force -= pos * 0.002
         # clamp each move so the simulation can't blow up with many stars
         disp = np.nan_to_num(force) * step
         lim = 20 + 180 * (1 - it / iters)
         norm = np.linalg.norm(disp, axis=1, keepdims=True)
         pos += np.where(norm > lim, disp / np.maximum(norm, 1e-9) * lim, disp)
-    # остаточно прибираємо перекриття
+    # finally remove any remaining overlaps
     for _ in range(300):
         moved = False
         for i in range(n):
@@ -95,7 +214,8 @@ def place_planets(planets, star_r, prefs, gap=12, seed=0):
     """Planets scattered through wide bands around the star (big labels nearer the core).
     Inside a band each planet gets a random distance and a random spot near the angle that faces
     its 'second' style, so there are no visible rings. A whole band turns at one speed, and bands
-    are separated by the planets' satellite swarms, so planets never collide."""
+    are separated by the planets' satellite swarms, so planets never collide.
+    Returns [(x, y, orbit radius, angle, band radius)], outer edge, band radii."""
     rng = random.Random(seed)
     out, bands = [], []
     edge = star_r + 34
@@ -129,25 +249,6 @@ def place_planets(planets, star_r, prefs, gap=12, seed=0):
     return out, edge, bands
 
 
-HULL_N = 48
-
-
-def hull_radii(pos, halo, star_r):
-    """Wobbly outline of a system: for each direction, how far its planets reach (smoothed)."""
-    pa = np.arctan2(pos[:, 1], pos[:, 0])
-    pr = np.linalg.norm(pos, axis=1)
-    out = []
-    for a in np.linspace(0, 2 * math.pi, HULL_N, endpoint=False):
-        diff = np.abs((pa - a + math.pi) % (2 * math.pi) - math.pi)
-        m = diff < 0.45
-        val = float(((pr[m] + halo[m]) * np.cos(diff[m])).max()) if m.any() else 0.0
-        out.append(max(star_r + 45, val + 22))
-    h = np.array(out)
-    for _ in range(2):
-        h = (np.roll(h, 1) + h * 2 + np.roll(h, -1)) / 4
-    return [round(float(x), 1) for x in h]
-
-
 def hull_at(hull, a):
     """Interpolated hull radius in direction a."""
     f = (a % (2 * math.pi)) / (2 * math.pi) * HULL_N
@@ -156,147 +257,65 @@ def hull_at(hull, a):
     return hull[i] * (1 - t) + hull[(i + 1) % HULL_N] * t
 
 
+def planet_prefs(s, ps, spos, weight):
+    """For each planet, the angle facing the styles it also releases (weighted by link strength)."""
+    rnd = random.Random(seed_of(s))
+    prefs = []
+    for p in ps:
+        v = np.zeros(2)
+        for other, c in p["side"].items():
+            d = spos[other] - spos[s]
+            v += d / (np.linalg.norm(d) or 1) * c * weight.get((s, other), 0.1)
+        prefs.append(math.atan2(v[1], v[0]) if np.linalg.norm(v) > 1e-9 else rnd.uniform(0, 2 * math.pi))
+    return prefs
+
+
+def place_belt(belt_releases, hull):
+    """Belt tracks scattered in a ring just outside the system's outline.
+    Returns [(release, video, x, y)] relative to the star, and the belt's width."""
+    bel = sorted(belt_releases, key=lambda r: r["year"] or 9999)
+    bt = even_sample([(r, v) for r in bel for v in r["videos"]], C.MAX_BELT_TRACKS)
+    perim = sum(hull) / len(hull) * 2 * math.pi
+    width = max(16, len(bt) * 9 / perim)
+    out = []
+    for r, v in bt:
+        h = int(v["yt"].encode().hex()[:8], 16)
+        a = (h % 100000) / 100000 * 2 * math.pi
+        rr = hull_at(hull, a) + 10 + ((h >> 5) % 1000) / 1000 * width
+        out.append((r, v, rr * math.cos(a), rr * math.sin(a)))
+    return out, width
+
+
+def layout_system(s, planets, belt_releases, core, spos, weight):
+    """Lays out one star system: planets in bands, the belt outside. Mutates the planets
+    (lx, ly, o, a, b) and returns (planets by halo, belt points, hull, radius, band radii)."""
+    ps = sorted(planets, key=lambda p: -p["halo"])
+    xy, outer, bands = place_planets(ps, core, planet_prefs(s, ps, spos, weight), seed=seed_of(s))
+    hull = [round(max(outer, core + 45) + 12, 1)] * HULL_N
+    for p, (x, y, o, a, band) in zip(ps, xy, strict=True):
+        p["lx"], p["ly"], p["o"], p["a"], p["b"] = x, y, o, a, band
+    belt_pts, width = place_belt(belt_releases, hull)
+    if belt_pts:
+        hull = [round(x + 10 + width, 1) for x in hull]
+    return ps, belt_pts, hull, max(hull), bands
+
+
 def hsl_hex(h, s, l):
     r, g, b = colorsys.hls_to_rgb(h % 1, l, s)
     return "#%02x%02x%02x" % (round(r * 255), round(g * 255), round(b * 255))
 
 
-def main(src, out_dir, min_style, min_label, sample):
-    rel = load(src)
-    print(f"Каталог: {len(rel):,} релізів")
-
-    style_n = Counter(s for r in rel for s in set(r["styles"]))
-    stars = [s for s, n in style_n.most_common() if n >= min_style]
-    star_set = set(stars)
-    print(f"Зорі (стилі ≥ {min_style} релізів): {len(stars)}")
-
-    # Сила зв'язку між стилями: косинус спільних релізів
-    pair = Counter()
-    for r in rel:
-        ss = sorted(star_set.intersection(r["styles"]))
-        for i in range(len(ss)):
-            for k in range(i + 1, len(ss)):
-                pair[(ss[i], ss[k])] += 1
-    weight = {}
-    for (a, b), c in pair.items():
-        w = c / math.sqrt(style_n[a] * style_n[b])
-        weight[(a, b)] = weight[(b, a)] = w
-
-    # Скільки релізів зі стилем виходило щороку (для «корони» зорі)
-    years_all = [r["year"] for r in rel if r["year"]]
-    Y1 = max(years_all) if years_all else 2025
-    Y0 = min(1980, Y1 - 1)
-    year_hist = {s: [0] * (Y1 - Y0 + 1) for s in stars}
-    for r in rel:
-        y = r["year"]
-        if Y0 <= y <= Y1:
-            for st in star_set.intersection(r["styles"]):
-                year_hist[st][y - Y0] += 1
-
-    # «Дім» релізу — найвужчий (найрідкісніший) з його стилів-зір
-    def home(r):
-        ss = [s for s in r["styles"] if s in star_set]
-        return min(ss, key=lambda s: style_n[s]) if ss else None
-
-    for r in rel:
-        r["home"] = home(r)
-    rel = [r for r in rel if r["home"]]
-
-    by_label = defaultdict(list)
-    for r in rel:
-        if r["label"]:
-            by_label[r["label"]].append(r)
-
-    planets = []
-    belt = defaultdict(list)
-    for name, rs in by_label.items():
-        if len(rs) < min_label:
-            for r in rs:
-                belt[r["home"]].append(r)
-            continue
-        hs = Counter(r["home"] for r in rs)
-        star = hs.most_common(1)[0][0]
-        side = Counter(s for r in rs for s in r["styles"] if s in star_set and s != star)
-        tracks = sorted(((r, v) for r in rs for v in r["videos"]), key=lambda rv: (rv[0]["year"] or 9999))
-        if len(tracks) > C.MAX_TRACKS_PER_PLANET:  # even sample across the label's whole history
-            step = len(tracks) / C.MAX_TRACKS_PER_PLANET
-            tracks = [tracks[int(k * step)] for k in range(C.MAX_TRACKS_PER_PLANET)]
-        n_tr = len(tracks)
-        r_pl = min(26, 3 + 1.25 * math.sqrt(len(rs)))
-        planets.append({
-            "name": name, "star": star, "n": len(rs), "side": side, "tracks": tracks,
-            "r": r_pl, "halo": r_pl + 4 + 1.5 * math.sqrt(n_tr),
-            "years": [min((r["year"] for r in rs if r["year"]), default=0), max(r["year"] for r in rs)],
-            "active_years": len({r["year"] for r in rs if r["year"]}),
-            "rs": rs,
-        })
-    for r in rel:
-        if not r["label"]:
-            belt[r["home"]].append(r)
-
-    # Попередня оцінка розміру систем (для розкладки зір)
-    sys_by_star = defaultdict(list)
-    for p in planets:
-        sys_by_star[p["star"]].append(p)
-    # Only the biggest labels become planets; the rest join the asteroid belt (keeps the map readable and fast)
-    for s in list(sys_by_star):
-        ps = sorted(sys_by_star[s], key=lambda p: -p["n"])
-        for p in ps[C.MAX_PLANETS_PER_STAR:]:
-            belt[s].extend(p["rs"])
-        sys_by_star[s] = ps[:C.MAX_PLANETS_PER_STAR]
-    star_core = {s: 10 + 3.2 * math.log1p(style_n[s]) for s in stars}
-    est = np.array([math.sqrt(sum((p["halo"] + 7) ** 2 * 3.6 for p in sys_by_star[s]) + star_core[s] ** 2 * 6) + 30 + math.sqrt(len(belt[s])) * 2 for s in stars])
-    pos = layout_stars(stars, est, weight)
-    spos = {s: pos[i] for i, s in enumerate(stars)}
-
-    # Розміщення планет з урахуванням напрямку до «другого» стилю
-    star_radius, star_hull, star_bub = {}, {}, {}
-    for s in stars:
-        ps = sorted(sys_by_star[s], key=lambda p: -p["halo"])
-        prefs = []
-        rnd = random.Random(hash(s) & 0xFFFF)
-        for p in ps:
-            v = np.zeros(2)
-            for other, c in p["side"].items():
-                d = spos[other] - spos[s]
-                v += d / (np.linalg.norm(d) or 1) * c * weight.get((s, other), 0.1)
-            prefs.append(math.atan2(v[1], v[0]) if np.linalg.norm(v) > 1e-9 else rnd.uniform(0, 2 * math.pi))
-        xy, outer, rings = place_planets(ps, star_core[s], prefs, seed=hash(s) & 0xFFFF)
-        star_bub[s] = rings
-        hull = [round(max(outer, star_core[s] + 45) + 12, 1)] * HULL_N
-        for p, (x, y, o, a, band) in zip(ps, xy):
-            p["lx"], p["ly"], p["o"], p["a"], p["b"] = x, y, o, a, band
-        # пояс астероїдів
-        bel = sorted(belt[s], key=lambda r: r["year"] or 9999)
-        bt = [(r, v) for r in bel for v in r["videos"]]
-        if len(bt) > C.MAX_BELT_TRACKS:  # even sample across the years instead of only the oldest
-            step = len(bt) / C.MAX_BELT_TRACKS
-            bt = [bt[int(k * step)] for k in range(C.MAX_BELT_TRACKS)]
-        # the asteroid belt follows the system's wobbly outline
-        perim = sum(hull) / len(hull) * 2 * math.pi
-        width = max(16, len(bt) * 9 / perim)
-        p_belt = []
-        for i, (r, v) in enumerate(bt):
-            h = int(v["yt"].encode().hex()[:8], 16)
-            a = (h % 100000) / 100000 * 2 * math.pi
-            rr = hull_at(hull, a) + 10 + ((h >> 5) % 1000) / 1000 * width
-            p_belt.append((r, v, rr * math.cos(a), rr * math.sin(a)))
-        if bt:
-            hull = [round(x + 10 + width, 1) for x in hull]
-        star_hull[s] = hull
-        star_radius[s] = max(hull)
-        sys_by_star[s] = ps
-        belt[s] = p_belt
-
-    # Остаточна розкладка з реальними радіусами
-    pos = layout_stars(stars, np.array([star_radius[s] for s in stars]), weight, iters=400)
+# ---------- output ----------
+def assemble(stars, pos, systems, style_n, star_core, year_hist, weight):
+    """Builds map.json content, per-star track chunks and the artist search index.
+    Tracks of a planet sit on a spiral around it (oldest nearest); then the belt."""
     cen = pos.mean(0)
-    stars_out, planets_out, chunks, search_artists = [], [], [], {}
     sidx = {s: i for i, s in enumerate(stars)}
+    stars_out, planets_out, chunks, search_artists = [], [], [], {}
     for si, s in enumerate(stars):
+        sys = systems[s]
         sx, sy = pos[si]
         hue = (math.atan2(sy - cen[1], sx - cen[0]) / (2 * math.pi)) + 0.08
-        color = hsl_hex(hue, 0.9, 0.66)
         ch = {"yt": [], "t": [], "a": [], "yr": [], "p": [], "x": [], "y": []}
         artists, a_idx = [], {}
 
@@ -308,39 +327,73 @@ def main(src, out_dir, min_style, min_label, sample):
             ch["yt"].append(v["yt"]); ch["t"].append(v["title"]); ch["a"].append(a_idx[r["artist"]])
             ch["yr"].append(r["year"]); ch["p"].append(pidx); ch["x"].append(round(x, 1)); ch["y"].append(round(y, 1))
 
-        n_tracks_star = 0
-        for p in sys_by_star[s]:
+        for p in sys["planets"]:
             px, py = sx + p["lx"], sy + p["ly"]
-            pidx = len(planets_out)
-            t0 = len(ch["yt"])
+            pidx, t0 = len(planets_out), len(ch["yt"])
             for i, (r, v) in enumerate(p["tracks"]):
-                rr = p["r"] + 4 + 1.5 * math.sqrt(i + 0.5)
-                a = i * GOLDEN
+                rr, a = p["r"] + 4 + 1.5 * math.sqrt(i + 0.5), i * GOLDEN
                 add(r, v, px + rr * math.cos(a), py + rr * math.sin(a), pidx)
             planets_out.append({"name": p["name"], "s": si, "x": round(px, 1), "y": round(py, 1), "r": round(p["r"], 1),
                                 "n": p["n"], "yr": p["years"], "ay": p["active_years"], "o": round(p["o"], 1), "a": round(p["a"], 4), "b": round(p["b"], 1),
                                 "xs": [[sidx[st], round(c / p["n"], 3)] for st, c in p["side"].most_common(3) if st in sidx], "t0": t0, "t1": len(ch["yt"])})
-        for r, v, x, y in belt[s]:
+        for r, v, x, y in sys["belt"]:
             add(r, v, sx + x, sy + y, -1)
-        n_tracks_star = len(ch["yt"])
         ch["an"] = artists
         chunks.append(ch)
         stars_out.append({"name": s, "x": round(float(sx), 1), "y": round(float(sy), 1), "core": round(star_core[s], 1),
-                          "R": round(star_radius[s], 1), "n": style_n[s], "tracks": n_tracks_star, "color": color,
-                          "yh": year_hist[s], "hull": star_hull[s], "orb": star_bub[s]})
+                          "R": round(sys["radius"], 1), "n": style_n[s], "tracks": len(ch["yt"]), "color": hsl_hex(hue, 0.9, 0.66),
+                          "yh": year_hist[s], "hull": sys["hull"], "orb": sys["bands"]})
+    links = [[sidx[a], sidx[b], round(w, 4)] for (a, b), w in weight.items() if a < b and w >= LINK_MIN]
+    return stars_out, planets_out, links, chunks, sorted(search_artists.values())
 
-    links = [[stars.index(a), stars.index(b), round(w, 4)] for (a, b), w in weight.items() if a < b and w >= 0.03]
+
+def write_outputs(out_dir, map_json, chunks, artists):
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "tracks").mkdir(exist_ok=True)
     for f in (out_dir / "tracks").glob("*.json"):
         f.unlink()
-    meta = {"sector": "House", "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [Y0, Y1]}
-    json.dump({"meta": meta, "stars": stars_out, "links": links, "planets": planets_out},
-              open(out_dir / "map.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    dump = lambda obj, path: json.dump(obj, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+    dump(map_json, out_dir / "map.json")
     for i, ch in enumerate(chunks):
-        json.dump(ch, open(out_dir / "tracks" / f"{i}.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    json.dump(sorted(search_artists.values()), open(out_dir / "artists.json", "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-    print(f"Мапа готова: {len(stars_out)} зір, {len(planets_out):,} планет, {meta['tracks']:,} треків → {out_dir}")
+        dump(ch, out_dir / "tracks" / f"{i}.json")
+    dump(artists, out_dir / "artists.json")
+
+
+# ---------- the whole build ----------
+def build(rel, min_style, min_label, sample=False, sector="House"):
+    """Catalogue releases → (map.json content, track chunks, artist index)."""
+    style_n, stars = style_counts(rel, min_style)
+    weight = style_links(rel, stars, style_n)
+    y0, y1, year_hist = year_histograms(rel, stars)
+    rel = assign_homes(rel, stars, style_n)
+    planets, belt = group_labels(rel, stars, min_label)
+    sys_by_star = cap_planets(planets, belt)
+
+    # first star layout from estimated system sizes, so planets know where their other styles are
+    star_core = {s: 10 + 3.2 * math.log1p(style_n[s]) for s in stars}
+    est = np.array([math.sqrt(sum((p["halo"] + 7) ** 2 * 3.6 for p in sys_by_star[s]) + star_core[s] ** 2 * 6) + 30 + math.sqrt(len(belt[s])) * 2 for s in stars])
+    pos = layout_stars(stars, est, weight)
+    spos = {s: pos[i] for i, s in enumerate(stars)}
+
+    systems = {}
+    for s in stars:
+        ps, belt_pts, hull, radius, bands = layout_system(s, sys_by_star[s], belt[s], star_core[s], spos, weight)
+        systems[s] = {"planets": ps, "belt": belt_pts, "hull": hull, "radius": radius, "bands": bands}
+
+    # final star layout with the real system sizes
+    pos = layout_stars(stars, np.array([systems[s]["radius"] for s in stars]), weight, iters=400)
+    stars_out, planets_out, links, chunks, artists = assemble(stars, pos, systems, style_n, star_core, year_hist, weight)
+    meta = {"sector": sector, "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
+    return {"meta": meta, "stars": stars_out, "links": links, "planets": planets_out}, chunks, artists
+
+
+def main(src, out_dir, min_style, min_label, sample):
+    rel = load(src)
+    print(f"Catalogue: {len(rel):,} releases")
+    map_json, chunks, artists = build(rel, min_style, min_label, sample)
+    print(f"Stars (styles with ≥ {min_style} releases): {len(map_json['stars'])}")
+    write_outputs(out_dir, map_json, chunks, artists)
+    print(f"Map ready: {len(map_json['stars'])} stars, {len(map_json['planets']):,} planets, {map_json['meta']['tracks']:,} tracks → {out_dir}")
 
 
 if __name__ == "__main__":
@@ -349,7 +402,6 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=str(C.WEB_DATA_DIR))
     ap.add_argument("--min-style", type=int, default=C.MIN_STYLE_RELEASES)
     ap.add_argument("--min-label", type=int, default=C.MIN_LABEL_RELEASES)
-    ap.add_argument("--sample", action="store_true", help="позначити дані як тестові")
+    ap.add_argument("--sample", action="store_true", help="mark the data as a test sample")
     a = ap.parse_args()
-    from pathlib import Path
     main(a.src, Path(a.out), a.min_style, a.min_label, a.sample)

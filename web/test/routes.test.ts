@@ -1,0 +1,81 @@
+import { describe, expect, it } from "vitest";
+import { makeChunk, makeGalaxy } from "./fixtures";
+import { MIN_ROUTE_TRACKS, pathOfLen, pickRouteTracks, planRoute, ROUTE_SYSTEMS, starPath, stopKind } from "../src/model/routes";
+
+const g = makeGalaxy(10, 8, 6);
+const chunks = g.stars.map((_, s) => makeChunk(g, s));
+const first = (s: number) => g.planetsByStar[s][0];
+const last = (s: number) => g.planetsByStar[s][g.planetsByStar[s].length - 1];
+
+describe("star paths", () => {
+  it("strongest-link path ends at both styles", () => {
+    const p = starPath(g, 0, 5);
+    expect(p[0]).toBe(0); expect(p[p.length - 1]).toBe(5);
+    for (let k = 1; k < p.length; k++) expect(g.link(p[k - 1], p[k])).toBeDefined();
+  });
+  it("path of exact length is simple and connected", () => {
+    const p = pathOfLen(g, 0, 1, 5)!;
+    expect(p).toHaveLength(5); expect(new Set(p).size).toBe(5);
+    for (let k = 1; k < p.length; k++) expect(g.link(p[k - 1], p[k])).toBeDefined();
+  });
+  it("a loop returns to its star through distinct systems", () => {
+    const p = pathOfLen(g, 2, 2, 5)!;
+    expect(p[0]).toBe(2); expect(p[4]).toBe(2); expect(new Set(p.slice(0, 4)).size).toBe(4);
+  });
+});
+
+describe("planRoute", () => {
+  const check = (a: number, b: number) => {
+    const r = planRoute(g, a, b);
+    expect(r.stops[0]).toBe(a);
+    expect(r.stops[r.stops.length - 1]).toBe(b);
+    expect(new Set(r.stops).size).toBe(r.stops.length); // never the same planet twice
+    // two planets per system, in the order of the hops
+    expect(r.stops.map((i) => g.planets[i].s)).toEqual(r.hops.flatMap((s) => [s, s]));
+    return r;
+  };
+  it("neighbouring systems: detours to 10 planets in 5 systems", () => {
+    const r = check(first(0), first(1));
+    expect(r.hops).toHaveLength(ROUTE_SYSTEMS); expect(r.stops).toHaveLength(10);
+  });
+  it("same system: a round trip through 3 neighbours", () => {
+    const r = check(first(3), last(3));
+    expect(r.hops[0]).toBe(3); expect(r.hops[4]).toBe(3); expect(r.stops).toHaveLength(10);
+  });
+  it("far systems keep two planets per system", () => {
+    const r = check(first(0), first(5));
+    expect(r.hops.length).toBeGreaterThanOrEqual(ROUTE_SYSTEMS);
+  });
+  it("is deterministic", () => {
+    expect(planRoute(g, first(0), first(6))).toEqual(planRoute(g, first(0), first(6)));
+  });
+  it("labels stops", () => {
+    const r = planRoute(g, first(0), first(1));
+    expect(stopKind(g, r, 0)).toBe("ORIGIN");
+    expect(stopKind(g, r, 1)).toBe("EXIT");
+    expect(stopKind(g, r, 2)).toBe("ENTRY");
+    expect(stopKind(g, r, r.stops.length - 1)).toBe("DESTINATION");
+  });
+});
+
+describe("sparse galaxy fallback", () => {
+  const sg = makeGalaxy(10, 8, 6, false);
+  it("without a 5-system detour, keeps the shorter path with two planets per system", () => {
+    const a = sg.planetsByStar[0][0], b = sg.planetsByStar[1][0];
+    expect(pathOfLen(sg, 0, 1, ROUTE_SYSTEMS)).toBeNull();
+    const r = planRoute(sg, a, b);
+    expect(r.stops[0]).toBe(a); expect(r.stops[r.stops.length - 1]).toBe(b);
+    expect(r.stops.map((i) => sg.planets[i].s)).toEqual(r.hops.flatMap((s) => [s, s]));
+  });
+});
+
+describe("pickRouteTracks", () => {
+  it("at least MIN_ROUTE_TRACKS distinct tracks from the stops' own planets", () => {
+    const plan = planRoute(g, first(0), first(4));
+    const t = pickRouteTracks(g, plan, (s) => chunks[s]);
+    const flat = t.flat();
+    expect(flat.length).toBeGreaterThanOrEqual(MIN_ROUTE_TRACKS);
+    expect(new Set(flat.map((r) => chunks[r.s].yt[r.i])).size).toBe(flat.length);
+    t.forEach((list, k) => { const p = g.planets[plan.stops[k]]; for (const r of list) { expect(r.s).toBe(p.s); expect(r.i).toBeGreaterThanOrEqual(p.t0); expect(r.i).toBeLessThan(p.t1); } });
+  });
+});

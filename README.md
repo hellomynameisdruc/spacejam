@@ -46,22 +46,33 @@ Current sector, House: 58 stars, 6,654 planets, 706,315 satellites from 384,690 
 The site is built with Vite + TypeScript (canvas rendering) and published to **GitHub Pages** by
 `.github/workflows/deploy.yml` on every push. The full map lives on the `data` branch; `main` keeps a small sample.
 
-## Repository
+## Architecture
+
+The site is plain TypeScript (no framework) drawing on two canvases: a **static layer** (grid, links,
+labels — repainted only when the camera settles, slid and scaled by CSS in between) and a **live layer**
+(everything that moves, redrawn every frame). Code is split by responsibility; modules only define things
+and `main.ts` starts them in order.
 
 ```
-pipeline/            data processing (Python)
-  config.py          sector settings: which styles count as house, thresholds for stars and planets
-  browser_parse.js   picks house releases out of the Discogs dump inside a browser
-  parse.py           the same step for machines that can reach the dump directly
-  build_map.py       lays out the cosmos → web/public/data/
-  make_sample.py     generates a small fake catalogue for testing
-web/                 the site
-  src/main.ts        map, camera, dossier, routes, search, wormhole
-  src/player.ts      YouTube player wrapper
-  src/cursors.ts     pixel cursors
-  public/data/       map.json, tracks/<star>.json, artists.json
-.github/workflows/   deploy and data jobs
+web/src/
+  core/      types, small helpers, DOM access
+  model/     pure logic, no DOM — galaxy (planet types, star classes, tempo), motion (orbits),
+             routes (planning, track picks). Unit-tested.
+  data/      fetching the map and each star's tracks
+  store/     the visitor's own data: beacons, flight log, prefs — behind a storage adapter
+             (browser today; a synced account store can replace it in one place)
+  app/       shared state and actions (select, play, next, plot a route, wormhole)
+  render/    camera, palette, layers, pulsars, planets, satellites, route line, picking
+  ui/        dossier, player dock, route panel, log & beacons, search, input, effects
+  main.ts    wiring and start-up
+web/test/    Vitest: galaxy, motion, routes, stores
+pipeline/
+  build_map.py   catalogue → map, as a chain of small steps (see build()); deterministic
+  tests/         pytest on fake releases
 ```
+
+Every push runs types, lint (ESLint, ruff) and tests for the site and the pipeline;
+the site is deployed only if they pass.
 
 ## Next
 
