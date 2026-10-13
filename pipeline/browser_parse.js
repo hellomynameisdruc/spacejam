@@ -24,7 +24,6 @@
   const YT = /(?:v=|youtu\.be\/|\/embed\/)([A-Za-z0-9_-]{11})/;
   const DISAMBIG = /\s\(\d+\)$/;
   const clean = (s) => (s || "").trim().replace(DISAMBIG, "");
-  const unesc = (s) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
   const S = { state: "idle", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, retries: 0, lastError: null, t0: 0, error: null, url: null, sectors: {} };
   let abort = null, out = null;
@@ -49,37 +48,47 @@
     };
   }
 
-  const parser = new DOMParser();
+  // Release fields are read with plain string matching (a DOM parse per release was the bottleneck).
+  // Same results as the DOM selectors it replaced: release-level fields are read with the nested
+  // parts (tracklist, extra artists, videos, companies, series) cut out.
+  const ENT = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+  const text = (s) => (s || "").replace(/&(#x[0-9a-fA-F]+|#\d+|amp|lt|gt|quot|apos);/g, (_, e) =>
+    e[0] !== "#" ? ENT[e] : String.fromCodePoint(e[1] === "x" ? parseInt(e.slice(2), 16) : +e.slice(1)));
+  const section = (xml, tag) => { const a = xml.indexOf(`<${tag}>`); if (a < 0) return ""; const b = xml.indexOf(`</${tag}>`, a); return b < 0 ? "" : xml.slice(a + tag.length + 2, b); };
+  const cut = (xml, tag) => xml.replace(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>|<${tag}\\s*/>`, "g"), "");
+  const tagText = (xml, tag) => { const m = new RegExp(`<${tag}(?:\\s[^>]*)?>([^<]*)</${tag}>`).exec(xml); return m ? text(m[1]) : ""; };
+  const attr = (attrs, name) => { const m = new RegExp(`\\b${name}="([^"]*)"`).exec(attrs); return m ? text(m[1]) : ""; };
+  const all = (xml, tag) => [...xml.matchAll(new RegExp(`<${tag}>([^<]*)</${tag}>`, "g"))].map((m) => text(m[1]));
+
   function handle(xml) {
     S.releases++;
-    // quick rejections before the full parse
+    // quick rejections before reading the rest
     if (!xml.includes("youtu")) return;
     if (!GENRES.some((g) => xml.includes(`<genre>${g.replace("&", "&amp;")}</genre>`))) return;
-    const genres = [...xml.matchAll(/<genre>([^<]*)<\/genre>/g)].map((m) => unesc(m[1]));
-    const stylesQ = [...xml.matchAll(/<style>([^<]*)<\/style>/g)].map((m) => unesc(m[1]));
-    const hit = SECT.filter((s) => genres.some((g) => s.genres.has(g)) && stylesQ.some((x) => s.styles.has(x)));
+    const genres = all(xml, "genre"), styles = all(xml, "style");
+    const hit = SECT.filter((s) => genres.some((g) => s.genres.has(g)) && styles.some((x) => s.styles.has(x)));
     if (!hit.length) return;
-    const el = parser.parseFromString(xml, "text/xml").documentElement;
-    if (!el || el.nodeName !== "release") return;
-    const q = (sel) => [...el.querySelectorAll(sel)];
     const videos = [];
-    for (const v of q("videos > video")) {
-      const m = YT.exec(v.getAttribute("src") || "");
-      if (m) videos.push([m[1], v.querySelector("title")?.textContent || "", +(v.getAttribute("duration") || 0)]);
+    for (const m of section(xml, "videos").matchAll(/<video\b([^>]*?)(\/>|>([\s\S]*?)<\/video>)/g)) {
+      const y = YT.exec(attr(m[1], "src"));
+      if (y) videos.push([y[1], m[3] ? tagText(m[3], "title") : "", +(attr(m[1], "duration") || 0)]);
     }
     if (!videos.length) return;
-    const artist = q("release > artists > artist > name").map((n) => clean(n.textContent)).filter(Boolean).join(" & ") || "Unknown Artist";
-    let label = clean(el.querySelector("labels > label")?.getAttribute("name"));
+    let head = xml;
+    for (const t of ["tracklist", "extraartists", "videos", "companies", "series"]) head = cut(head, t);
+    const artist = section(head, "artists").split("</artist>").map((a) => clean(tagText(a, "name"))).filter(Boolean).join(" & ") || "Unknown Artist";
+    const lm = /<label\b([^>]*)>/.exec(section(head, "labels"));
+    let label = clean(lm ? attr(lm[1], "name") : "");
     if (label.toLowerCase().startsWith("not on label")) label = "";
-    const released = el.querySelector("release > released")?.textContent || "";
+    const released = tagText(head, "released");
     const year = /^\d{4}/.test(released) ? +released.slice(0, 4) : 0;
-    const tracklist = q("tracklist > track > title").map((t) => t.textContent || "");
+    const tracklist = cut(section(xml, "tracklist"), "sub_tracks").split("</track>").filter((t) => t.includes("<track")).map((t) => tagText(cut(cut(t, "artists"), "extraartists"), "title"));
+    const id = /^<release\b[^>]*\bid="(\d+)"/.exec(xml);
     out.line(JSON.stringify({
-      id: +el.getAttribute("id"), master: +(el.querySelector("release > master_id")?.textContent || 0),
-      title: (el.querySelector("release > title")?.textContent || "").trim(), artist, label, year,
-      country: el.querySelector("release > country")?.textContent || "",
-      genres: q("genres > genre").map((g) => g.textContent),
-      styles: q("styles > style").map((s) => s.textContent),
+      id: id ? +id[1] : 0, master: +(tagText(head, "master_id") || 0),
+      title: tagText(head, "title").trim(), artist, label, year,
+      country: tagText(head, "country"),
+      genres, styles,
       videos: videos.map(([yt, t, d]) => ({ yt, title: trackTitle(t, artist, tracklist), dur: d })),
     }));
     S.kept++; S.videos += videos.length;
