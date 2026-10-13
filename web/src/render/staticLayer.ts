@@ -1,15 +1,14 @@
-// The static layer: grid, nebulae, dust, system outlines, style links, belt tracks, star labels and
-// star markers. Repainted only when the camera settles somewhere new; in between it slides/scales.
+// The static layer: grid, nebulae, dust, system outlines and belt tracks. Repainted only when the
+// camera settles somewhere new; in between it slides/scales. Names are drawn live (drawNames).
 import { $ } from "../core/dom";
 import { clipSeg, lcg } from "../core/util";
-import { chunk, galaxy, sameSel, state, tracks } from "../app/state";
+import { chunk, galaxy, tracks } from "../app/state";
 import { BG, glowS, nc, nebulaS, ph, sc } from "./palette";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS } from "./camera";
 import { inView, MARGIN, updateStaticView, view } from "./view";
 import { eachTrack } from "./beltGrid";
 import { labels } from "./labels";
 import { starSize } from "./pulsar";
-import { drawMarker, isMoving } from "./markers";
 
 const rnd = lcg(11);
 const dust = Array.from({ length: 420 }, () => ({ x: rnd(), y: rnd(), d: 0.15 + rnd() * 0.7, b: rnd() }));
@@ -40,6 +39,30 @@ function drawSystemShape(lc: CanvasRenderingContext2D, si: number) {
 }
 
 const SHOW_LINKS = false;
+
+/** belt track titles found at the last background repaint (world coordinates) */
+const beltTitles: { x: number; y: number; t: string; si: number }[] = [];
+
+/** Names drawn on the live layer every frame, so they keep their size and place while zooming
+ *  (on the background they were stretched with it and jumped back at each repaint). */
+export function drawNames() {
+  const { W } = cam, { stars } = galaxy, far = farView();
+  // galaxy names, spaced out, just above each galaxy's own stars (until you are among its systems)
+  if (cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
+    if (!inView(n.x, n.y, n.r * 1.3)) return;
+    const at = galaxy.nebulaLabelAt(k), p = cam.toScreen(at.x, at.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
+    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - 26, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
+  });
+
+  // star labels (the pulsars themselves are drawn live, every frame)
+  if (!far) stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
+    if (!inView(s.x, s.y, 300 / cam.s)) return;
+    const p = cam.toScreen(s.x, s.y);
+    labels.label(s.name.toUpperCase(), p.x, p.y - starSize(si) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", galaxy.starRank[si] < 12);
+  });
+  for (const t of beltTitles) { const p = cam.toScreen(t.x, t.y); labels.label(t.t, p.x + 6, p.y + 4, 11, sc(t.si, 0.75), "left"); }
+
+}
 
 /** looking at whole galaxies: their names speak, not the stars' */
 export const farView = () => galaxy.nebulae.length > 0 && cam.s < cam.homeScale() * 1.8;
@@ -113,7 +136,7 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
   lc.setLineDash([]); lc.lineDashOffset = 0;
 
   // asteroid-belt tracks (planet satellites move, so the live layer draws those)
-  const titles: { x: number; y: number; t: string; si: number }[] = [];
+  beltTitles.length = 0;
   if (cam.s >= LOD_TRACKS) {
     const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9)));
     stars.forEach((s, si) => {
@@ -126,29 +149,10 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
         if (x < V0.x || x > V1.x || y < V0.y || y > V1.y) return;
         const p = cam.toScreen(x, y);
         lc.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz / 2), sz, sz);
-        if (cam.s >= LOD_TITLES && titles.length < 240) titles.push({ x: p.x, y: p.y, t: ch.t[i], si });
+        if (cam.s >= LOD_TITLES && beltTitles.length < 240) beltTitles.push({ x, y, t: ch.t[i], si });
       });
     });
   }
-
-  // galaxy names, spaced out, just above each galaxy's own stars (until you are among its systems)
-  if (cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
-    if (!inView(n.x, n.y, n.r * 1.3)) return;
-    const at = galaxy.nebulaLabelAt(k), p = cam.toScreen(at.x, at.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
-    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - 26, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
-  });
-
-  // star labels (the pulsars themselves are drawn live, every frame)
-  if (!far) stars.map((s, si) => ({ s, si })).sort((a, b) => b.s.n - a.s.n).forEach(({ s, si }) => {
-    if (!inView(s.x, s.y, 300 / cam.s)) return;
-    const p = cam.toScreen(s.x, s.y);
-    labels.label(s.name.toUpperCase(), p.x, p.y - starSize(si) * 3.4 - 6, W < 600 ? 12 : 14, sc(si, 1), "center", galaxy.starRank[si] < 12);
-  });
-  for (const t of titles) labels.label(t.t, t.x + 6, t.y + 4, 11, sc(t.si, 0.75), "left");
-
-  // star selection / hover (moving objects are marked on the live layer)
-  if (state.hover && !sameSel(state.hover, state.sel) && !isMoving(state.hover)) drawMarker(state.hover, false);
-  if (!isMoving(state.sel)) drawMarker(state.sel, true);
 
   gridStep = st; readout();
   $("scaleName").textContent = cam.s < LOD_PLANETS ? (galaxy.nebulae.length ? "UNIVERSE" : "GALAXY") : cam.s < LOD_TRACKS ? "SYSTEMS" : cam.s < LOD_TITLES ? "ORBITS" : "SIGNALS";

@@ -10,8 +10,8 @@ import { drawPulsar, pulseOf, starSize } from "./pulsar";
 import { drawPlanets, tickSprites } from "./planets";
 import { drawSatellites } from "./satellites";
 import { drawRoute } from "./routeLine";
-import { drawMarker, isMoving } from "./markers";
-import { drawStatic, farView, painted, readout } from "./staticLayer";
+import { drawMarker } from "./markers";
+import { drawNames, drawStatic, farView, painted, readout } from "./staticLayer";
 
 let vp: HTMLElement, cv: HTMLCanvasElement, ctx: CanvasRenderingContext2D;
 let layer: HTMLCanvasElement, lc: CanvasRenderingContext2D;
@@ -65,7 +65,8 @@ function drawLive(t: number) {
 
   ctx.clearRect(0, 0, W, H);
   updateLiveView();
-  const nPlaced = labels.mark(); labels.g = ctx;
+  labels.reset(); labels.g = ctx;
+  drawNames();
   drawRoute(ctx, t);
   tickSprites(); if (++frameNo % 6 === 0) readout();
   drawPlanets(ctx, t);
@@ -81,9 +82,9 @@ function drawLive(t: number) {
     ctx.strokeStyle = sc(np.s, 0.9 * (1 - bar)); ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(p.x, p.y, 6 + bar * 26, 0, 7); ctx.stroke();
   }
-  if (isMoving(state.hover) && !sameSel(state.hover, state.sel)) drawMarker(state.hover, false);
-  if (isMoving(state.sel)) drawMarker(state.sel, true);
-  labels.rollback(nPlaced); labels.g = lc;
+  if (state.hover && !sameSel(state.hover, state.sel)) drawMarker(state.hover, false);
+  drawMarker(state.sel, true);
+  labels.g = lc;
 }
 
 function frame(now: number) {

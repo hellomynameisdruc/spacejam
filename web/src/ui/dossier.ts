@@ -75,26 +75,10 @@ function star(si: number) {
 }
 
 const ordinal = (k: number) => { const t = k % 100, e = k % 10; return k + (t >= 11 && t <= 13 ? "th" : e === 1 ? "st" : e === 2 ? "nd" : e === 3 ? "rd" : "th"); };
-const pct = (f: number) => (f < 0.01 ? "under 1%" : `${Math.round(f * 100)}%`);
-
-/** a few sentences about this one label: its place in the system, its life, where else it reaches */
+/** what kind of world it is, in one line */
 function planetStory(pi: number) {
-  const g = galaxy, p = g.planets[pi], s = g.stars[p.s], sys = g.planetsByStar[p.s], rank = sys.indexOf(pi) + 1, N = sys.length;
-  const name = `<b>${esc(p.name)}</b>`, star = esc(s.name), out: string[] = [];
-  const place = N === 1 ? `the only label in the ${star} system`
-    : rank === 1 ? `the largest of ${fmt(N)} labels in the ${star} system`
-    : rank <= 10 ? `the ${ordinal(rank)} largest of ${fmt(N)} labels in the ${star} system`
-    : `number ${fmt(rank)} of ${fmt(N)} labels in the ${star} system by releases`;
-  const share = p.n / Math.max(1, s.n);
-  out.push(`${name} is ${place}: ${fmt(p.n)} release${p.n === 1 ? "" : "s"}${share >= 0.01 && share <= 1 ? `, ${pct(share)} of the system` : ""}. It is the ${ordinal(g.orbitNo[pi])} planet from the star.`);
-  const [y0, y1] = p.yr, last = g.meta.years?.[1] ?? new Date().getFullYear();
-  if (y0 && y1) out.push(y0 === y1 ? `All its releases here came out in ${y0}.`
-    : `Releasing ${y0}–${y1}${p.ay ? `, active in ${p.ay} of those ${y1 - y0 + 1} years` : ""}${y1 >= last - 1 ? ", and still going" : `, quiet since ${y1}`}.`);
-  const also = (p.xs ?? []).filter(([st, f]) => st !== p.s && f >= 0.05 && g.stars[st]);
-  if (also.length) out.push(`Its records also carry ${also.map(([st, f]) => `${esc(g.stars[st].name)} (${pct(f)})`).join(also.length === 2 ? " and " : ", ")}.`);
-  const ty = g.ptype[pi], [tn, td] = PTYPE_INFO[ty];
-  out.push(`${tn[0]}${tn.slice(1).toLowerCase()}: ${td}${ty === "giant" && g.ringed[pi] ? `, with rings: ${PTYPE_INFO.ringed[1]}` : ""}.`);
-  return out.join(" ");
+  const g = galaxy, ty = g.ptype[pi], [tn, td] = PTYPE_INFO[ty];
+  return `${tn[0]}${tn.slice(1).toLowerCase()}: ${td}${ty === "giant" && g.ringed[pi] ? `, with rings: ${PTYPE_INFO.ringed[1]}` : ""}.`;
 }
 
 function planet(pi: number, o: Sel) {
