@@ -6,7 +6,8 @@
   belt      = releases without a label or from small labels, at the edge of a system
 
 Distances between stars depend on how often two styles appear on the same release.
-Writes the site's files into web/public/data/ (map.json, tracks/<star>.json, artists.json).
+Writes each sector into web/public/data/<sector>/ (map.json, tracks/<star>.json, artists.json)
+and the list of sectors into web/public/data/sectors.json.
 
 The build is a chain of small steps (see build()); each one is a plain function over plain data,
 so they can be tested on a handful of fake releases (tests/test_build_map.py).
@@ -24,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 import config as C
+from catalog import load_sectors, sector_catalogue
 
 GOLDEN = math.pi * (3 - math.sqrt(5))
 HULL_N = 48
@@ -360,7 +362,7 @@ def write_outputs(out_dir, map_json, chunks, artists):
 
 
 # ---------- the whole build ----------
-def build(rel, min_style, min_label, sample=False, sector="House"):
+def build(rel, min_style, min_label, sample=False, sector="House", sector_id="house"):
     """Catalogue releases → (map.json content, track chunks, artist index)."""
     style_n, stars = style_counts(rel, min_style)
     weight = style_links(rel, stars, style_n)
@@ -383,25 +385,50 @@ def build(rel, min_style, min_label, sample=False, sector="House"):
     # final star layout with the real system sizes
     pos = layout_stars(stars, np.array([systems[s]["radius"] for s in stars]), weight, iters=400)
     stars_out, planets_out, links, chunks, artists = assemble(stars, pos, systems, style_n, star_core, year_hist, weight)
-    meta = {"sector": sector, "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
+    meta = {"sector": sector, "id": sector_id, "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
     return {"meta": meta, "stars": stars_out, "links": links, "planets": planets_out}, chunks, artists
 
 
-def main(src, out_dir, min_style, min_label, sample):
-    rel = load(src)
-    print(f"Catalogue: {len(rel):,} releases")
-    map_json, chunks, artists = build(rel, min_style, min_label, sample)
-    print(f"Stars (styles with ≥ {min_style} releases): {len(map_json['stars'])}")
-    write_outputs(out_dir, map_json, chunks, artists)
-    print(f"Map ready: {len(map_json['stars'])} stars, {len(map_json['planets']):,} planets, {map_json['meta']['tracks']:,} tracks → {out_dir}")
+def min_style_for(sector, n_releases):
+    return sector.get("min_style") or max(C.MIN_STYLE_FLOOR, round(C.MIN_STYLE_SHARE * n_releases))
+
+
+def build_sector(rel, sector, out_root, min_label, sample=False):
+    """One sector's catalogue → its files in out_root/<id>/; returns its entry for sectors.json."""
+    min_style = min_style_for(sector, len(rel))
+    map_json, chunks, artists = build(rel, min_style, min_label, sample, sector["name"], sector["id"])
+    write_outputs(out_root / sector["id"], map_json, chunks, artists)
+    m = map_json["meta"]
+    print(f"{sector['name']}: {len(rel):,} releases → {len(map_json['stars'])} stars (≥ {min_style} releases), "
+          f"{len(map_json['planets']):,} planets, {m['tracks']:,} tracks")
+    return {"id": sector["id"], "name": sector["name"], "releases": m["releases"], "tracks": m["tracks"],
+            "stars": len(map_json["stars"]), "planets": len(map_json["planets"])}
+
+
+def write_index(out_root, entries, sectors, sample=False):
+    """sectors.json: the sectors the site offers, in sectors.json order; keeps ones built earlier."""
+    path = out_root / "sectors.json"
+    old = {e["id"]: e for e in json.loads(path.read_text(encoding="utf-8"))["sectors"]} if path.exists() else {}
+    old.update({e["id"]: e for e in entries})
+    order = [s["id"] for s in sectors]
+    keep = [old[i] for i in order if i in old and (out_root / i / "map.json").exists()]
+    path.write_text(json.dumps({"sample": sample, "sectors": keep}, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def main(src, out_root, only, min_label, sample):
+    sectors = load_sectors()
+    todo = [s for s in sectors if not only or s["id"] in only]
+    entries = [build_sector(sector_catalogue(src, s), s, out_root, min_label, sample) for s in todo]
+    write_index(out_root, entries, sectors, sample)
+    print(f"Sectors ready → {out_root}")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--src", default=str(C.DATA_DIR / "catalog.jsonl.gz"))
+    ap.add_argument("--src", default=str(C.DATA_DIR / "sectors.jsonl.gz"), help="raw releases from parse.py / browser_parse.js")
     ap.add_argument("--out", default=str(C.WEB_DATA_DIR))
-    ap.add_argument("--min-style", type=int, default=C.MIN_STYLE_RELEASES)
+    ap.add_argument("--sectors", default="", help="comma-separated sector ids (default: all in sectors.json)")
     ap.add_argument("--min-label", type=int, default=C.MIN_LABEL_RELEASES)
     ap.add_argument("--sample", action="store_true", help="mark the data as a test sample")
     a = ap.parse_args()
-    main(a.src, Path(a.out), a.min_style, a.min_label, a.sample)
+    main(a.src, Path(a.out), {x for x in a.sectors.split(",") if x}, a.min_label, a.sample)

@@ -127,3 +127,38 @@ def test_write_outputs(tmp_path):
     B.write_outputs(tmp_path, m, chunks, artists)
     assert json.loads((tmp_path / "map.json").read_text())["meta"] == m["meta"]
     assert sorted(p.name for p in (tmp_path / "tracks").iterdir()) == sorted(f"{i}.json" for i in range(len(chunks)))
+
+
+# ---------- sectors ----------
+import catalog as K  # noqa: E402
+
+
+def raw(id_, master, styles, genres=("Electronic",), year=2000, label="L", vids=("a",)):
+    return {"id": id_, "master": master, "title": "t", "artist": "A", "label": label, "year": year, "country": "",
+            "genres": list(genres), "styles": list(styles), "videos": [{"yt": v, "title": v, "dur": 0} for v in vids]}
+
+
+def test_sector_membership_needs_genre_and_style():
+    disco = next(s for s in K.load_sectors() if s["id"] == "disco")
+    assert K.in_sector(raw(1, 0, ["Disco"], genres=["Funk / Soul"]), disco)
+    assert not K.in_sector(raw(1, 0, ["Disco"], genres=["Rock"]), disco)
+    assert not K.in_sector(raw(1, 0, ["House"]), disco)
+
+
+def test_merge_editions_and_videos_once():
+    out = K.merge([raw(1, 7, ["House"], year=1995, label="", vids=["a", "b"]),
+                   raw(2, 7, ["Deep House"], year=1993, label="X", vids=["b", "c"]),
+                   raw(3, 0, ["House"], vids=["a"])])  # only a repeat of a known video → dropped
+    assert len(out) == 1
+    r = out[0]
+    assert r["year"] == 1993 and r["label"] == "X" and r["styles"] == ["Deep House", "House"]
+    assert [v["yt"] for v in r["videos"]] == ["a", "b", "c"] and "genres" not in r
+
+
+def test_browser_script_has_the_same_sectors():
+    js = (Path(__file__).resolve().parents[1] / "browser_parse.js").read_text(encoding="utf-8")
+    body = js[js.index("/*SECTORS*/"):js.index("/*END*/")]
+    for s in K.load_sectors():
+        assert f'id: "{s["id"]}"' in body
+        assert "genres: " + json.dumps(s["genres"]).replace('","', '", "') in body
+        assert "styles: " + json.dumps(s["styles"]).replace('","', '", "') in body

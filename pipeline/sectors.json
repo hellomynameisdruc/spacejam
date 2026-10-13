@@ -1,0 +1,17 @@
+{
+  "_comment": "Sectors of the map. A release joins a sector if one of its genres is in `genres` and one of its styles is in `styles`. Neighbouring styles show up as stars on their own when they often appear together with the sector's styles. min_style: releases a style needs to become a star (default: 0.4% of the sector, at least 300). Keep in sync with pipeline/browser_parse.js (a test checks).",
+  "sectors": [
+    { "id": "house", "name": "House", "min_style": 1500, "genres": ["Electronic"],
+      "styles": ["House", "Deep House", "Tech House", "Acid House", "Garage House", "Progressive House", "Hard House", "Ghetto House", "Hip-House", "Italo House", "Electro House", "Speed Garage", "UK Garage", "Euro House", "Latin House", "Afro House", "Jackin House", "Funky House", "Ghettotech"] },
+    { "id": "techno", "name": "Techno", "genres": ["Electronic"],
+      "styles": ["Techno", "Minimal", "Minimal Techno", "Dub Techno", "Deep Techno", "Hard Techno", "Schranz", "Acid", "Bleep"] },
+    { "id": "disco", "name": "Disco", "genres": ["Electronic", "Funk / Soul"],
+      "styles": ["Disco", "Nu-Disco", "Italo-Disco", "Euro-Disco", "Hi NRG", "Boogie"] },
+    { "id": "trance", "name": "Trance", "genres": ["Electronic"],
+      "styles": ["Trance", "Progressive Trance", "Psy-Trance", "Goa Trance", "Hard Trance", "Tech Trance"] },
+    { "id": "dnb", "name": "Drum n Bass", "genres": ["Electronic"],
+      "styles": ["Drum n Bass", "Jungle", "Breakbeat", "Breaks", "Progressive Breaks", "Big Beat", "Breakcore", "Halftime"] },
+    { "id": "ambient", "name": "Ambient", "genres": ["Electronic"],
+      "styles": ["Ambient", "Downtempo", "IDM", "Trip Hop", "Dark Ambient", "Berlin-School", "Illbient", "Glitch"] }
+  ]
+}
