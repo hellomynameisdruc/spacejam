@@ -5,6 +5,7 @@ import { sc } from "./palette";
 import { cam } from "./camera";
 import { labels } from "./labels";
 import { starSize } from "./pulsar";
+import { tempoLabel } from "../model/tempo";
 
 /** stars sit still (drawn on the static layer); planets and tracks move (live layer) */
 export const isMoving = (o: Sel) => !!o && (o.kind === "planet" || o.kind === "track");
@@ -13,7 +14,7 @@ export function drawMarker(o: Sel, strong: boolean) {
   if (!o) return;
   const G = labels.g;
   let x = 0, y = 0, r = 8, name = "", si = 0;
-  if (o.kind === "star") { const s = galaxy.stars[o.s], p = cam.toScreen(s.x, s.y); x = p.x; y = p.y; r = starSize(o.s) * 2.6 + 6; name = `${galaxy.bpm[o.s]} BPM · PEAK ${galaxy.peakYear[o.s]}`; si = o.s; }
+  if (o.kind === "star") { const s = galaxy.stars[o.s], p = cam.toScreen(s.x, s.y); x = p.x; y = p.y; r = starSize(o.s) * 2.6 + 6; name = `${tempoLabel(galaxy.tempo[o.s])} · PEAK ${galaxy.peakYear[o.s]}`; si = o.s; }
   else if (o.kind === "planet") { const pl = galaxy.planets[o.p], q = motion.planetPos(o.p), p = cam.toScreen(q.x, q.y); x = p.x; y = p.y; r = Math.max(9, pl.r * cam.s + 6); name = pl.name; si = pl.s; }
   else { const ch = chunk(o.s); if (!ch) return; const q = motion.trackPos(o.s, o.i), p = cam.toScreen(q.x, q.y); x = p.x; y = p.y; r = 7; name = ch.t[o.i]; si = o.s; }
   labels.brackets(x, y, r, sc(si, strong ? 1 : 0.65), strong ? 7 : 4);

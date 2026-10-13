@@ -2,6 +2,7 @@
 // derived from them — planet types, star classes, tempo, glow. Pure: no DOM, no rendering.
 import type { MapData, MapMeta, Nebula, Planet, PType, Star } from "../core/types";
 import { hash } from "../core/util";
+import { pulseBpm, type Tempo, tempoOf } from "./tempo";
 
 export const PTYPE_INFO: Record<PType, [string, string]> = {
   giant: ["GAS GIANT", "one of the largest labels in the sector"],
@@ -11,12 +12,6 @@ export const PTYPE_INFO: Record<PType, [string, string]> = {
   rocky: ["TERRESTRIAL", "a regular label"],
 };
 const CLASSES = ["O", "B", "A", "F", "G", "K", "M"];
-// Reference tempo of a style (BPM) — typical for the genre, not measured from the tracks
-const TEMPO: [RegExp, number][] = [[/jungle|drum ?n ?bass|d&b/i, 170], [/juke|footwork/i, 160], [/hard house/i, 145], [/ghettotech/i, 145],
-  [/eurodance/i, 140], [/trance/i, 138], [/speed garage/i, 135], [/uk garage|2-step|bassline/i, 132], [/techno/i, 132], [/breakbeat|breaks/i, 130],
-  [/ghetto house/i, 130], [/progressive|electro house/i, 128], [/euro house|italo house|jackin|funky/i, 126], [/tech house|acid/i, 125],
-  [/minimal/i, 124], [/disco/i, 118], [/hip-house/i, 120], [/deep|soulful|afro|latin|garage house/i, 121], [/house/i, 124]];
-
 export const spanOf = (p: Planet) => (p.yr[0] && p.yr[1] ? p.yr[1] - p.yr[0] : 0);
 /** long-runner: 15+ years between first and last release AND releases in at least 10 different years */
 export const longRun = (p: Planet) => spanOf(p) >= 15 && (p.ay ?? 99) >= 10;
@@ -50,6 +45,8 @@ export class Galaxy {
   readonly sclass: string[];
   readonly Y0: number;
   readonly peakYear: number[];
+  /** typical tempo range of each style (null = no steady beat), and the beat its pulsar keeps */
+  readonly tempo: Tempo[];
   readonly bpm: number[];
   /** per-star phase offset 0…1, so pulsars don't beat in unison */
   readonly phase0: number[];
@@ -95,7 +92,8 @@ export class Galaxy {
     byN.forEach((si, k) => { this.starRank[si] = k; this.sclass[si] = CLASSES[Math.min(6, Math.floor(k / stars.length * 7))]; });
     this.Y0 = map.meta.years?.[0] ?? 1980;
     this.peakYear = stars.map((s) => { const yh = s.yh || []; let b = 0; yh.forEach((v, i) => { if (v > yh[b]) b = i; }); return this.Y0 + b; });
-    this.bpm = stars.map((s) => TEMPO.find(([re]) => re.test(s.name))?.[1] ?? 124);
+    this.tempo = stars.map((s) => tempoOf(s.name));
+    this.bpm = this.tempo.map(pulseBpm);
     this.phase0 = stars.map((s) => (hash(s.name) % 1000) / 1000);
 
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;

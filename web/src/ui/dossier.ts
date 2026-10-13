@@ -4,6 +4,7 @@ import { esc, fmt, hash, pad } from "../core/util";
 import { $, reduce } from "../core/dom";
 import { beacons, chunk, galaxy, isNowPlaying, state, tracks } from "../app/state";
 import { PTYPE_INFO, spanOf } from "../model/galaxy";
+import { tempoLabel } from "../model/tempo";
 import { flyToNebula, nearestTracks, playOrbit, select, startPick, toggleBeacon, trackCode } from "../app/actions";
 import { sc } from "../render/palette";
 import { onFrame } from "../render/scene";
@@ -34,14 +35,25 @@ function sector() {
   const top = stars.map((s, i) => ({ s, i })).sort((a, b) => b.s.tracks - a.s.tracks);
   const mx = top[0]?.s.tracks || 1;
   dosAnim = (t) => { const c = heroCanvas(); if (c) { const f = fitted(c); drawRadar(f.g, f.w, f.h, t); } };
+  const neb = galaxy.nebulae, many = neb.length > 1;
+  const names = neb.map((n) => n.name), list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : "";
+  const gm = Math.max(1, ...neb.map((n) => n.tracks));
   return {
-    code: `SECTOR // ${meta.sector.toUpperCase()}`, title: `SECTOR ${meta.sector.toUpperCase()}`,
+    code: many ? `UNIVERSE // ${meta.sector.toUpperCase()}` : `SECTOR // ${meta.sector.toUpperCase()}`,
+    title: many ? `${meta.sector.toUpperCase()} UNIVERSE` : `SECTOR ${meta.sector.toUpperCase()}`,
     html: `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
-        <div class="ident"><span class="code">OBSERVATORY // 01</span><h2 id="dosTitle"></h2><span class="stamp">${meta.sample ? "TEST SIGNAL" : "LIVE CATALOGUE"}</span></div></div>
-      <div class="rows">${galaxy.nebulae.length ? row("GALAXIES / SECTORS", fmt(galaxy.nebulae.length)) : ""}${row("STARS / STYLES", fmt(stars.length))}${row("PLANETS / LABELS", fmt(planets.length))}${row("SATELLITES / TRACKS", fmt(meta.tracks))}${row("RELEASES", fmt(meta.releases))}${row("SOURCE", "DISCOGS · CC0")}</div>
-      <p class="lede">Every <b>star</b> is a style. Its orbits hold <b>label planets</b>, circled by <b>track satellites</b>: older ones sit closer in. The dotted lines show how often two styles share a release.</p>
+        <div class="ident"><span class="code">OBSERVATORY // DISCOGS ${meta.years ? `${meta.years[0]}–${meta.years[1]}` : ""}</span><h2 id="dosTitle"></h2><span class="stamp">${meta.sample ? "TEST SIGNAL" : "LIVE CATALOGUE"}</span></div></div>
+      <div class="rows">${many ? row("GALAXIES / GENRES", fmt(neb.length)) : ""}${row("STARS / STYLES", fmt(stars.length))}${row("PLANETS / LABELS", fmt(planets.length))}${row("SATELLITES / TRACKS", fmt(meta.tracks))}${row("RELEASES", fmt(meta.releases))}${row("SOURCE", "DISCOGS · CC0")}</div>
+      <p class="lede">${many ? `A map of electronic music from the Discogs catalogue. <b>Galaxies</b> are genre families: ${esc(list)}. ` : ""}Every <b>star</b> is a style, its orbits hold <b>label planets</b>, and the <b>satellites</b> around them are tracks, older ones closer in. ${many ? "Galaxies that share many releases sit side by side; dotted lines" : "Dotted lines"} show how often two styles meet on one release.</p>
+      ${many ? `<div class="bars"><div class="ph-sub">GALAXIES // TRACKS · CLICK TO FLY THERE</div>${neb.map((n, k) => meter(`${n.name.toUpperCase()} · ${n.stars}★`, n.tracks / gm, fmt(n.tracks), undefined, n.color).replace('class="bar-r"', `class="bar-r click" data-neb="${k}"`)).join("")}</div>` : ""}
+      <div><div class="ph-sub">HOW TO EXPLORE</div><ul class="howto">
+        <li><b>Zoom</b> in: ${many ? "galaxies → " : ""}styles → labels → tracks → titles.</li>
+        <li><b>Click</b> a star, planet or track to open its dossier.</li>
+        <li><b>Play the orbit</b> on a planet: a random track from that label.</li>
+        <li><b>Plot an odyssey</b> from a planet: 20+ tracks across five star systems.</li>
+        <li><b>Wormhole</b> jumps to a random track anywhere on the map.</li>
+        <li><b>Beacon</b> marks tracks you love; the BEACONS tab opens them as a YouTube playlist.</li></ul></div>
       <div class="bars"><div class="ph-sub">PLANET TYPES</div>${(Object.keys(PTYPE_INFO) as PType[]).map((k) => { const c = ptype.filter((x) => x === k).length; return meter(PTYPE_INFO[k][0], c / Math.max(1, planets.length), fmt(c)); }).join("")}<p class="note">Giants are the biggest labels, ringed worlds are long-runners (15+ years), cratered ones went quiet before 2001, ice worlds started after 2010.</p></div>
-      ${galaxy.nebulae.length ? `<div class="bars"><div class="ph-sub">GALAXIES // CLICK TO FLY THERE</div>${(() => { const gm = Math.max(1, ...galaxy.nebulae.map((n) => n.tracks)); return galaxy.nebulae.map((n, k) => meter(n.name.toUpperCase(), n.tracks / gm, `${fmt(n.stars)} ★ · ${fmt(n.tracks)}`, undefined, n.color).replace('class="bar-r"', `class="bar-r click" data-neb="${k}"`)).join(""); })()}</div>` : ""}
       <div class="bars"><div class="ph-sub">STAR SYSTEMS // BY TRACK COUNT</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }), s.color)).join("")}</div>`,
   };
 }
@@ -53,8 +65,8 @@ function star(si: number) {
     code: `STAR // ST-${pad(si, 2)}`, title: s.name.toUpperCase(),
     html: `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">ST-${pad(si, 2)} // STYLE</span><h2 id="dosTitle"></h2><span class="stamp">${neb ? `${(s.tracks * 100 / Math.max(1, neb.tracks)).toFixed(1)}% OF ${esc(neb.name.toUpperCase())}` : `${(s.tracks * 100 / g.totalTracks).toFixed(1)}% OF SECTOR`}</span></div></div>
-      <div class="rows">${neb ? `<div class="row"><span>GALAXY</span><button class="link" data-neb="${g.nebulae.indexOf(neb)}">${esc(neb.name.toUpperCase())}</button></div>` : ""}${row("RELEASES", fmt(s.n))}${row("PLANETS / LABELS", fmt(pl.length))}${row("TRACKS", fmt(s.tracks))}${row("CLASS", `${g.sclass[si]} · ${g.starClassName(si)}`)}${row("LUMINOSITY", `${Math.round(g.recentShare[si] * 100)}% RELEASES IN LAST 10 YRS`)}${row("PULSE", `≈ ${g.bpm[si]} BPM`)}${row("PEAK YEAR", String(g.peakYear[si]))}</div>
-      <p class="note">Size shows how many releases the style has; glow shows how alive it is today. The star pulses at the tempo typical for its style and sheds a shell once every bar.</p>
+      <div class="rows">${neb ? `<div class="row"><span>GALAXY</span><button class="link" data-neb="${g.nebulae.indexOf(neb)}">${esc(neb.name.toUpperCase())}</button></div>` : ""}${row("RELEASES", fmt(s.n))}${row("PLANETS / LABELS", fmt(pl.length))}${row("TRACKS", fmt(s.tracks))}${row("CLASS", `${g.sclass[si]} · ${g.starClassName(si)}`)}${row("LUMINOSITY", `${Math.round(g.recentShare[si] * 100)}% RELEASES IN LAST 10 YRS`)}${row("TYPICAL TEMPO", tempoLabel(g.tempo[si]))}${row("PEAK YEAR", String(g.peakYear[si]))}</div>
+      <p class="note">Size shows how many releases the style has; glow shows how alive it is today. The star pulses at the tempo typical for its style (styles without a steady beat just breathe slowly) and sheds a shell once every bar. Tempo is the usual range for the style, not measured from the tracks.</p>
       ${s.yh?.length ? hist(s.yh, g.Y0, "ACTIVITY // RELEASES PER YEAR") : ""}
       ${nb.length ? `<div class="bars"><div class="ph-sub">GRAVITATIONAL LINKS</div>${nb.map((n) => meter(g.stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), g.stars[n.s].color)).join("")}</div>` : ""}
       <div><div class="ph-sub">PLANETS IN ORBIT</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(g.planets[p].name)}</span><span class="y">${fmt(g.planets[p].n)} REL</span></button>`).join("")}</div>

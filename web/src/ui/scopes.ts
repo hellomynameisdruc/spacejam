@@ -3,6 +3,7 @@ import type { PType } from "../core/types";
 import { galaxy } from "../app/state";
 import { BG, FONT_LBL, ph, sc } from "../render/palette";
 import { drawPulsar } from "../render/pulsar";
+import { tempoLabel } from "../model/tempo";
 
 export function fitCanvas(c: HTMLCanvasElement) {
   const r = c.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
@@ -97,5 +98,5 @@ export function drawPulsarHero(g: CanvasRenderingContext2D, w: number, h: number
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
   drawPulsar(g, si, w / 2, h / 2 - 6, w * 0.1, t);
   g.font = `10px ${FONT_LBL}`; g.textAlign = "center"; g.fillStyle = sc(si, 1);
-  g.fillText(`${galaxy.bpm[si]} BPM`, w / 2, h - 7);
+  g.fillText(tempoLabel(galaxy.tempo[si]), w / 2, h - 7);
 }

@@ -27,7 +27,7 @@ describe("Galaxy", () => {
     const map = makeMap(3, 1, 1);
     map.stars[0].name = "Deep House"; map.stars[1].name = "Techno"; map.stars[2].name = "Drum n Bass";
     const gg = new Galaxy(map);
-    expect(gg.bpm).toEqual([121, 132, 170]);
+    expect(gg.bpm).toEqual([121, 133, 171]);
     expect(gg.sclass[0]).toBe("O");
     expect(gg.peakYear[0]).toBe(1980 + 11);
   });

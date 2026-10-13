@@ -138,7 +138,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .link:hover { text-decoration-color: var(--ink) }
 
 .bars { display: flex; flex-direction: column; gap: 4px }
-.bar-r { display: grid; grid-template-columns: 112px minmax(0, 1fr) 40px; gap: 8px; align-items: center; font-size: 11px }
+.bar-r { display: grid; grid-template-columns: 112px minmax(0, 1fr) 58px; gap: 8px; align-items: center; font-size: 11px }
 .bar-r > span:first-child { font-family: var(--f-dot); letter-spacing: .08em; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .bar-r > span:last-child { text-align: right; font-variant-numeric: tabular-nums }
 .meter { height: 9px; border: 1px solid var(--line); padding: 1px; display: flex }
@@ -368,3 +368,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .crt > span, .crt::before, .crt::after, .dock-ody { animation: none }
   .crt::after { display: none }
 }
+.howto { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; line-height: 1.5; color: var(--dim) }
+.howto li { padding-left: 14px; position: relative }
+.howto li::before { content: "▸"; position: absolute; left: 0; color: var(--acc, var(--ink)) }
+.howto b { color: var(--ink); font-weight: 400 }
