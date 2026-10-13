@@ -1149,6 +1149,17 @@ function nearestTracks(ref: TrackRef, k: number, skip?: Set<string>): TrackRef[]
 // ---------- Плеєр ----------
 const played = new Set<string>();
 const hist_: TrackRef[] = [];
+// Player keys use one family of pixel icons (14×14 grid), so they match in size and weight
+const svgI = (body: string) => `<svg class="ico" viewBox="0 0 14 14" aria-hidden="true" shape-rendering="crispEdges">${body}</svg>`;
+const ICON = {
+  prev: svgI(`<path fill="currentColor" d="M7 2h1v10H7zM6 3h1v8H6zM5 4h1v6H5zM4 5h1v4H4zM3 6h1v2H3zM13 2h-1v10h1zM12 3h-1v8h1zM11 4h-1v6h1zM10 5H9v4h1zM9 6H8v2h1z" transform="translate(-1 0)"/>`),
+  next: svgI(`<path fill="currentColor" d="M1 2h1v10H1zM2 3h1v8H2zM3 4h1v6H3zM4 5h1v4H4zM5 6h1v2H5zM7 2h1v10H7zM8 3h1v8H8zM9 4h1v6H9zM10 5h1v4h-1zM11 6h1v2h-1z" transform="translate(1 0)"/>`),
+  pause: svgI(`<path fill="currentColor" d="M3 2h3v10H3zM8 2h3v10H8z"/>`),
+  play: svgI(`<path fill="currentColor" d="M3 2h1v10H3zM4 3h2v8H4zM6 4h2v6H6zM8 5h2v4H8zM10 6h2v2h-2z"/>`),
+  beacon: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h1v1H5zM8 2h1v1H8zM4 3h1v1H4zM9 3h1v1H9zM3 4h1v1H3zM10 4h1v1h-1zM2 5h1v1H2zM11 5h1v1h-1zM1 6h1v2H1zM12 6h1v2h-1zM2 8h1v1H2zM11 8h1v1h-1zM3 9h1v1H3zM10 9h1v1h-1zM4 10h1v1H4zM9 10h1v1H9zM5 11h1v1H5zM8 11h1v1H8zM6 12h2v1H6zM6 6h2v2H6z"/>`),
+  beaconOn: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h4v1H5zM4 3h6v1H4zM3 4h8v1H3zM2 5h10v1H2zM1 6h12v2H1zM2 8h10v1H2zM3 9h8v1H3zM4 10h6v1H4zM5 11h4v1H5zM6 12h2v1H6z"/><path fill="var(--bg, #000)" d="M6 6h2v2H6z"/>`),
+};
+$("pPrev").innerHTML = ICON.prev; $("pNext").innerHTML = ICON.next; $("pToggle").innerHTML = ICON.pause; $("pLike").innerHTML = ICON.beacon;
 const player = new Player("yt", {
   onEnded: () => { if ($<HTMLInputElement>("autopilot").checked) next(); },
   onError: (code) => {
@@ -1156,7 +1167,7 @@ const player = new Player("yt", {
     m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. JUMPING TO A NEARBY SIGNAL…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
     setTimeout(next, 1500);
   },
-  onPlayingChange: (p) => { $("live").classList.toggle("on", p); $("pToggle").textContent = p ? "❚❚" : "▶"; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
+  onPlayingChange: (p) => { $("live").classList.toggle("on", p); $("pToggle").innerHTML = p ? ICON.pause : ICON.play; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
 });
 function playTrack(ref: TrackRef) {
   if (map.meta.sample) return;
@@ -1259,7 +1270,7 @@ function likeRef(l: Like): TrackRef | null {
 function paintLikes() {
   $("likedN").textContent = String(likes.length);
   const cur = nowPlaying, on = isLiked(cur), b = $("pLike");
-  b.textContent = on ? "◈" : "◇"; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
+  b.innerHTML = on ? ICON.beaconOn : ICON.beacon; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
   b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon");
   const d = document.querySelector<HTMLElement>("#detail [data-like]");
   if (d && sel?.kind === "track") { const v = isLiked(sel); d.textContent = v ? "◈ BEACON ON" : "◇ SET BEACON"; d.classList.toggle("on", v); }

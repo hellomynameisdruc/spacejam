@@ -333,3 +333,8 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 .lk button:disabled { opacity: .5; cursor: default }
 .unlike { flex: none; background: none; border: 0; color: var(--dim); cursor: var(--cur-hand, pointer); font-size: 12px; padding: 0 2px }
 .unlike:hover { color: var(--acc) }
+
+.ico { width: 14px; height: 14px; display: block }
+.pbar .key.sq { color: var(--ink) }
+.pbar .key.sq.hot { color: var(--inv-ink, var(--bg)) }
+.pbar .key.sq.like-k.on { color: var(--acc); border-color: var(--acc) }
