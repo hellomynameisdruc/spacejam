@@ -74,10 +74,33 @@ function star(si: number) {
   };
 }
 
+const ordinal = (k: number) => { const t = k % 100, e = k % 10; return k + (t >= 11 && t <= 13 ? "th" : e === 1 ? "st" : e === 2 ? "nd" : e === 3 ? "rd" : "th"); };
+const pct = (f: number) => (f < 0.01 ? "under 1%" : `${Math.round(f * 100)}%`);
+
+/** a few sentences about this one label: its place in the system, its life, where else it reaches */
+function planetStory(pi: number) {
+  const g = galaxy, p = g.planets[pi], s = g.stars[p.s], sys = g.planetsByStar[p.s], rank = sys.indexOf(pi) + 1, N = sys.length;
+  const name = `<b>${esc(p.name)}</b>`, star = esc(s.name), out: string[] = [];
+  const place = N === 1 ? `the only label in the ${star} system`
+    : rank === 1 ? `the largest of ${fmt(N)} labels in the ${star} system`
+    : rank <= 10 ? `the ${ordinal(rank)} largest of ${fmt(N)} labels in the ${star} system`
+    : `number ${fmt(rank)} of ${fmt(N)} labels in the ${star} system by releases`;
+  const share = p.n / Math.max(1, s.n);
+  out.push(`${name} is ${place}: ${fmt(p.n)} release${p.n === 1 ? "" : "s"}${share >= 0.01 && share <= 1 ? `, ${pct(share)} of the system` : ""}. It is the ${ordinal(g.orbitNo[pi])} planet from the star.`);
+  const [y0, y1] = p.yr, last = g.meta.years?.[1] ?? new Date().getFullYear();
+  if (y0 && y1) out.push(y0 === y1 ? `All its releases here came out in ${y0}.`
+    : `Releasing ${y0}–${y1}${p.ay ? `, active in ${p.ay} of those ${y1 - y0 + 1} years` : ""}${y1 >= last - 1 ? ", and still going" : `, quiet since ${y1}`}.`);
+  const also = (p.xs ?? []).filter(([st, f]) => st !== p.s && f >= 0.05 && g.stars[st]);
+  if (also.length) out.push(`Its records also carry ${also.map(([st, f]) => `${esc(g.stars[st].name)} (${pct(f)})`).join(also.length === 2 ? " and " : ", ")}.`);
+  const ty = g.ptype[pi], [tn, td] = PTYPE_INFO[ty];
+  out.push(`${tn[0]}${tn.slice(1).toLowerCase()}: ${td}${ty === "giant" && g.ringed[pi] ? `, with rings: ${PTYPE_INFO.ringed[1]}` : ""}.`);
+  return out.join(" ");
+}
+
 function planet(pi: number, o: Sel) {
   const g = galaxy, p = g.planets[pi], s = g.stars[p.s], ch = chunk(p.s), ty = g.ptype[pi];
   if (!ch) tracks.load(p.s).then(() => { if (state.sel === o) renderDossier(); });
-  const n = p.t1 - p.t0, shown = Math.min(n, 150);
+  const n = p.t1 - p.t0, shown = Math.min(n, 150), sys = g.planetsByStar[p.s], rank = sys.indexOf(pi) + 1;
   let activity = "";
   if (ch && n) {
     const ys = ch.yr.slice(p.t0, p.t1).filter(Boolean);
@@ -95,8 +118,8 @@ function planet(pi: number, o: Sel) {
     code: `PLANET // PL-${pad(pi, 4)}`, title: p.name.toUpperCase(),
     html: `<div class="hero"><div class="frame" id="hero"><canvas></canvas></div>
         <div class="ident"><span class="code">PL-${pad(pi, 4)} // LABEL</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
-      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : ""))}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
-      <p class="note">${PTYPE_INFO[ty][0][0]}${PTYPE_INFO[ty][0].slice(1).toLowerCase()}: ${PTYPE_INFO[ty][1]}.</p>
+      <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : ""))}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
+      <p class="note">${planetStory(pi)}</p>
       ${activity}
       ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ PLAY THE ORBIT</button>` : ""}
       <button class="plot crt" data-route="${pi}"><span>⟶ PLOT AN ODYSSEY FROM HERE</span></button>

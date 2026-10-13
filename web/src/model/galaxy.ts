@@ -30,6 +30,8 @@ export class Galaxy {
   readonly links: [number, number, number][];
   /** planet indices of each star, biggest label first */
   readonly planetsByStar: number[][];
+  /** 1 = the planet closest to its star */
+  readonly orbitNo: number[];
   readonly totalTracks: number;
   /** style graph: neighbours with link weight */
   readonly adj: { s: number; w: number }[][];
@@ -60,6 +62,8 @@ export class Galaxy {
     this.planetsByStar = stars.map(() => []);
     planets.forEach((p, i) => this.planetsByStar[p.s].push(i));
     this.planetsByStar.forEach((l) => l.sort((a, b) => planets[b].n - planets[a].n));
+    this.orbitNo = new Array(planets.length).fill(0);
+    for (const l of this.planetsByStar) [...l].sort((a, b) => (planets[a].o ?? 0) - (planets[b].o ?? 0)).forEach((pi, k) => { this.orbitNo[pi] = k + 1; });
     this.totalTracks = stars.reduce((a, s) => a + s.tracks, 0);
 
     this.adj = stars.map(() => []);
