@@ -12,7 +12,7 @@ export type Planet = {
   name: string; s: number; x: number; y: number; r: number; n: number; yr: [number, number];
   ay?: number; o?: number; a?: number; b?: number; xs?: [number, number][]; t0: number; t1: number;
 };
-export type MapMeta = { sector: string; sample: boolean; releases: number; tracks: number; years?: [number, number] };
+export type MapMeta = { sector: string; sample: boolean; build?: string; releases: number; tracks: number; years?: [number, number] };
 export type MapData = { meta: MapMeta; galaxies?: Nebula[]; stars: Star[]; links: [number, number, number][]; planets: Planet[] };
 /** Tracks of one star system (tracks/<star>.json) */
 export type Chunk = { yt: string[]; t: string[]; a: number[]; yr: number[]; p: number[]; x: number[]; y: number[]; an: string[] };

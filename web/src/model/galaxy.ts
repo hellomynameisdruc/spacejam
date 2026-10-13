@@ -108,6 +108,10 @@ export class Galaxy {
   /** link weight between two styles, or undefined when they never share a release */
   link(a: number, b: number) { return this.linkW.get(a * 1000 + b); }
   /** the six strongest neighbours of a style */
+  /** star index by style name, or -1 */
+  starIndex(name: string | undefined) { if (!name) return -1; if (!this.byName) this.byName = new Map(this.stars.map((s, i) => [s.name, i])); return this.byName.get(name) ?? -1; }
+  private byName: Map<string, number> | null = null;
+
   /** the galaxy a star belongs to (null on a single-sector map) */
   nebulaOf(si: number): Nebula | null { const g = this.stars[si]?.g; return g != null && this.nebulae[g] ? this.nebulae[g] : null; }
 

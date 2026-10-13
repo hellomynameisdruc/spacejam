@@ -497,7 +497,9 @@ def build(rel, min_style, min_label, sample=False, sectors=None):
                          "color": hsl_hex(ghue[g] if ghue else 0.75, 0.85, 0.62),
                          "stars": len(mine), "tracks": sum(stars_out[k]["tracks"] for k in mine)})
     name = "Electronic" if len(gids) > 1 else names.get(gids[0], "House")
-    meta = {"sector": name, "sample": sample, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
+    # build id: changes whenever star/track numbering may have changed (saved log entries check it)
+    build_id = "%08x" % zlib.crc32(json.dumps([[s["name"], s["tracks"]] for s in stars_out]).encode("utf-8"))
+    meta = {"sector": name, "sample": sample, "build": build_id, "releases": len(rel), "tracks": sum(len(c["yt"]) for c in chunks), "years": [y0, y1]}
     return {"meta": meta, "galaxies": galaxies, "stars": stars_out, "links": links, "planets": planets_out}, chunks, artists
 
 

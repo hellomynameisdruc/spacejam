@@ -51,7 +51,7 @@ export function playTrack(ref: TrackRef) {
   const h = state.history, last = h[h.length - 1];
   if (!last || last.i !== ref.i || last.s !== ref.s) h.push(ref);
   loadInDock(ref);
-  flightLog.add(ref); ticker(); state.dirty = true;
+  flightLog.add(ref, Date.now(), { b: galaxy.meta.build, y: ch.yt[ref.i], st: galaxy.stars[ref.s].name }); ticker(); state.dirty = true;
 }
 
 /** the k nearest tracks of the same system, optionally skipping YouTube ids */
@@ -91,7 +91,7 @@ export function playOrbit(pi: number) {
   const pool = fresh.length ? fresh : all, i = pool[Math.floor(Math.random() * pool.length)];
   select({ kind: "track", s: p.s, i }, true, true);
 }
-export function toggleBeacon(r: TrackRef | null) { beacons.toggle(r); }
+export function toggleBeacon(r: TrackRef | null) { beacons.toggle(r, r ? galaxy.stars[r.s]?.name : undefined); }
 
 // ---------- routes ----------
 export async function buildRoute(a: number, b: number) {

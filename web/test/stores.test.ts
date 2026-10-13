@@ -66,3 +66,21 @@ describe("damaged saved data", () => {
     expect(n).toBe(1);
   });
 });
+
+describe("surviving a map rebuild", () => {
+  it("log entries keep the YouTube id, star name and build, and repeat plays move to the top", () => {
+    const log = new FlightLog(memoryKV());
+    log.add({ s: 1, i: 2 }, 1, { b: "abc", y: "yt1", st: "Techno" });
+    log.add({ s: 3, i: 4 }, 2, { b: "abc", y: "yt2", st: "House" });
+    log.add({ s: 9, i: 9 }, 3, { b: "new", y: "yt1", st: "Techno" }); // same video, renumbered map
+    expect(log.refs().map((r) => [r.y, r.s, r.b])).toEqual([["yt1", 9, "new"], ["yt2", 3, "abc"]]);
+  });
+  it("a beacon is found by its video in the star it names", () => {
+    const kv = memoryKV(); const b = new Beacons(kv, () => chunk);
+    b.toggle({ s: 0, i: 2 }, "Deep House");
+    expect(b.all[0].st).toBe("Deep House");
+    const moved = { ...chunk, yt: ["ccc", "aaa", "bbb"] };
+    const b2 = new Beacons(kv, (s) => (s === 5 ? moved : null));
+    expect(b2.ref(b2.all[0], 5)).toEqual({ s: 5, i: 0 });
+  });
+});

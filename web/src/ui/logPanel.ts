@@ -4,11 +4,27 @@ import { $ } from "../core/dom";
 import { beacons, chunk, flightLog, galaxy, tracks } from "../app/state";
 import { select } from "../app/actions";
 
+/** a saved entry's place on the current map: by YouTube id within its star (found by name), or by its
+ * saved numbers if the map hasn't been rebuilt since; null if it can't be found */
+async function locate(e: { s: number; i: number; b?: string; y?: string; st?: string }): Promise<{ s: number; i: number } | null> {
+  const { stars, meta } = galaxy;
+  if (e.y) {
+    const byName = galaxy.starIndex(e.st), s = byName >= 0 ? byName : e.s;
+    if (s >= stars.length) return null;
+    const ch = await tracks.load(s).catch(() => null); if (!ch) return null;
+    const i = ch.yt[e.i] === e.y ? e.i : ch.yt.indexOf(e.y);
+    return i >= 0 ? { s, i } : null;
+  }
+  if (e.b !== meta.build || e.s >= stars.length) return null; // numbers from another build of the map
+  const ch = await tracks.load(e.s).catch(() => null);
+  return ch && e.i < ch.yt.length ? { s: e.s, i: e.i } : null;
+}
+
 export async function renderLog() {
   const el = $("log"), stars = galaxy.stars;
-  const items = flightLog.refs().filter((r) => r.s < stars.length);
-  await Promise.allSettled([...new Set(items.map((r) => r.s))].map((s) => tracks.load(s)));
-  const ok = items.filter((r) => chunk(r.s) && r.i < chunk(r.s)!.yt.length);
+  const items = flightLog.refs();
+  const found = await Promise.all(items.map(locate));
+  const ok = items.flatMap((r, k) => (found[k] ? [{ ...found[k]!, t: r.t }] : []));
   el.innerHTML = ok.length
     ? ok.map((r) => { const d = new Date(r.t); return `<button data-s="${r.s}" data-i="${r.i}"><time>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</time><span>▸ ${esc(chunk(r.s)!.t[r.i])} · ${esc(stars[r.s].name.toUpperCase())}</span></button>`; }).join("")
     : `<p class="note">NO ENTRIES YET. SIGNALS YOU PLAY WILL SHOW UP HERE.</p>`;
@@ -19,13 +35,15 @@ export async function renderBeacons() {
   $("likedN").textContent = String(beacons.size);
   if (el.hidden) return;
   if (!beacons.size) { el.innerHTML = `<p class="note">NO BEACONS YET. SET ONE ON A SIGNAL YOU LOVE: ◇ OR <kbd>L</kbd>.</p>`; return; }
-  await Promise.allSettled([...new Set(beacons.all.map((b) => b.s))].filter((s) => s < stars.length).map((s) => tracks.load(s)));
+  // each beacon's star: by name if it has one (survives rebuilds), else the saved number
+  const starOf = beacons.all.map((b) => { const n = galaxy.starIndex(b.st); return n >= 0 ? n : b.s; });
+  await Promise.allSettled([...new Set(starOf)].filter((s) => s < stars.length).map((s) => tracks.load(s)));
   const parts = beacons.playlistLinks();
   const links = parts.map((href, k) => `<a class="ytlist" href="${href}" target="_blank" rel="noopener">▶ OPEN AS YOUTUBE PLAYLIST${parts.length > 1 ? ` · PART ${k + 1}/${parts.length}` : ""} ↗</a>`).join("");
   el.innerHTML = links + `<p class="note ythint">Opens on YouTube; use “Save” there to keep it in your library.</p>` +
     beacons.all.map((b, k) => {
-      const r = beacons.ref(b);
-      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span>▸ ${esc(b.a ?? "")} — ${esc(b.t ?? "")}${b.s < stars.length ? ` · ${esc(stars[b.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(b.y)}" aria-label="Remove beacon">×</button></div>`;
+      const r = starOf[k] < stars.length ? beacons.ref(b, starOf[k]) : null;
+      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span>▸ ${esc(b.a ?? "")} — ${esc(b.t ?? "")}${r ? ` · ${esc(stars[r.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(b.y)}" aria-label="Remove beacon">×</button></div>`;
     }).join("");
 }
 
