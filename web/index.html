@@ -89,18 +89,22 @@
         </div>
       </section>
 
-      <aside class="panel dossier" aria-label="Dossier">
-        <div class="ph-head"><span id="dosId">DOSSIER // SECTOR</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
-        <div class="dbody" id="detail"></div>
-        <div class="log">
-          <div class="ph-sub logtabs" role="tablist">
+      <div class="side">
+        <aside class="panel dossier" aria-label="Dossier">
+          <div class="ph-head"><span id="dosId">DOSSIER // SECTOR</span><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+          <div class="dbody" id="detail"></div>
+        </aside>
+        <section class="panel logp" aria-label="Flight log and beacons">
+          <div class="ph-head logtabs" role="tablist">
             <button type="button" role="tab" id="tabLog" aria-selected="true">FLIGHT LOG</button>
             <button type="button" role="tab" id="tabLiked" aria-selected="false">BEACONS <b id="likedN">0</b></button>
           </div>
-          <div class="loglines" id="log"></div>
-          <div class="loglines" id="liked" hidden></div>
-        </div>
-      </aside>
+          <div class="log">
+            <div class="loglines" id="log"></div>
+            <div class="loglines" id="liked" hidden></div>
+          </div>
+        </section>
+      </div>
     </main>
 
     <footer class="cmd">

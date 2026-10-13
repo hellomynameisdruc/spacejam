@@ -43,7 +43,7 @@ function glitchNodes(nodes: Text[], ms: number, shape: (k: number) => number) {
   requestAnimationFrame(tick);
 }
 
-const UI_ROOTS = [".bar", ".scope .ph-head", ".ph-foot", ".dossier > .ph-head", ".pbar", ".log", ".hints"];
+const UI_ROOTS = [".bar", ".scope .ph-head", ".ph-foot", ".dossier > .ph-head", ".pbar", ".logp > .ph-head", ".log", ".hints"];
 export function glitchUI(ms: number) {
   if (reduce) return;
   const term = document.querySelector(".term")!;
