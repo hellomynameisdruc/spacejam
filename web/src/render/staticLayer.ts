@@ -3,7 +3,7 @@
 import { $ } from "../core/dom";
 import { lcg } from "../core/util";
 import { chunk, galaxy, sameSel, state, tracks } from "../app/state";
-import { BG, FONT_LBL, glowS, nc, nebulaS, ph, sc } from "./palette";
+import { BG, glowS, nc, nebulaS, ph, sc } from "./palette";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS } from "./camera";
 import { inView, MARGIN, updateStaticView, view } from "./view";
 import { eachTrack } from "./beltGrid";
@@ -41,21 +41,6 @@ function drawSystemShape(lc: CanvasRenderingContext2D, si: number) {
 
 /** looking at whole galaxies: their names speak, not the stars' */
 export const farView = () => galaxy.nebulae.length > 0 && cam.s < cam.homeScale() * 1.8;
-
-/** from afar: each galaxy's name across its cloud, over the stars, with a dark rim (live layer) */
-export function drawGalaxyNames(g: CanvasRenderingContext2D) {
-  if (!farView()) return;
-  const size = cam.W < 600 ? 14 : 19;
-  g.font = `${size}px ${FONT_LBL}`; g.textAlign = "center"; g.lineJoin = "round"; g.lineWidth = 5; g.strokeStyle = BG;
-  galaxy.nebulae.forEach((n, k) => {
-    if (!inView(n.x, n.y, n.r)) return;
-    const p = cam.toScreen(n.x, n.y), txt = n.name.toUpperCase().split("").join(" ");
-    const w = g.measureText(txt).width + 24, h = size + 14;
-    g.globalAlpha = 0.55; g.fillStyle = BG; g.beginPath(); g.roundRect(p.x - w / 2, p.y - h / 2, w, h, h / 2); g.fill();
-    g.globalAlpha = 0.8; g.strokeText(txt, p.x, p.y + size / 3);
-    g.globalAlpha = 1; g.fillStyle = nc(k, 0.95); g.fillText(txt, p.x, p.y + size / 3);
-  });
-}
 
 export function drawStatic(lc: CanvasRenderingContext2D) {
   const { W, H } = cam, { stars, links } = galaxy;
@@ -138,11 +123,11 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
     });
   }
 
-  // galaxy names closer in: above each cloud (from afar the live layer writes them across the clouds)
-  if (!far && cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
+  // galaxy names, spaced out, just above each galaxy's own stars (until you are among its systems)
+  if (cam.s < LOD_PLANETS * 1.6) galaxy.nebulae.forEach((n, k) => {
     if (!inView(n.x, n.y, n.r * 1.3)) return;
-    const p = cam.toScreen(n.x, n.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
-    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - n.r * 1.12 * cam.s - 12, W < 600 ? 13 : 16, nc(k, 0.9 * a), "center", true);
+    const at = galaxy.nebulaLabelAt(k), p = cam.toScreen(at.x, at.y), a = Math.min(1, (LOD_PLANETS * 1.6 - cam.s) / (LOD_PLANETS * 0.8));
+    labels.label(n.name.toUpperCase().split("").join(" "), p.x, p.y - 26, W < 600 ? 13 : 17, nc(k, 0.9 * a), "center", true);
   });
 
   // star labels (the pulsars themselves are drawn live, every frame)

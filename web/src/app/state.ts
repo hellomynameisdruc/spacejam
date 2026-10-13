@@ -5,13 +5,15 @@ import { reduce } from "../core/dom";
 import { Galaxy } from "../model/galaxy";
 import { Motion } from "../model/orbits";
 import type { Route } from "../model/routes";
-import { loadMap, TrackStore } from "../data/loader";
+import { loadMap, setDataVersion, TrackStore } from "../data/loader";
 import { browserKV } from "../store/storage";
 import { Beacons } from "../store/beacons";
 import { FlightLog } from "../store/flightLog";
 import { Prefs } from "../store/prefs";
 
-export const galaxy = new Galaxy(await loadMap());
+const map = await loadMap();
+setDataVersion(map.meta.rev ?? map.meta.build);
+export const galaxy = new Galaxy(map);
 export const tracks = new TrackStore(galaxy.stars.length, () => { state.dirty = true; });
 export const chunk = (s: number) => tracks.get(s);
 export const motion = new Motion(galaxy, chunk, reduce);

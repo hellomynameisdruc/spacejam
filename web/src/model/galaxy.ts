@@ -110,6 +110,14 @@ export class Galaxy {
   starIndex(name: string | undefined) { if (!name) return -1; if (!this.byName) this.byName = new Map(this.stars.map((s, i) => [s.name, i])); return this.byName.get(name) ?? -1; }
   private byName: Map<string, number> | null = null;
 
+  /** where a galaxy's name goes: centred over its own stars, at the height of the topmost one (the caller lifts it clear) */
+  nebulaLabelAt(k: number): { x: number; y: number } {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    this.stars.forEach((s) => { if (s.g === k) { x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x); y0 = Math.min(y0, s.y); } });
+    const n = this.nebulae[k];
+    return Number.isFinite(y0) ? { x: (x0 + x1) / 2, y: y0 } : { x: n.x, y: n.y - n.r };
+  }
+
   /** the galaxy a star belongs to (null on a single-sector map) */
   nebulaOf(si: number): Nebula | null { const g = this.stars[si]?.g; return g != null && this.nebulae[g] ? this.nebulae[g] : null; }
 
