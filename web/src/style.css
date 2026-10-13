@@ -270,7 +270,7 @@ input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: va
   .ctrl { flex-wrap: nowrap; width: 100% }
   .ctrl .key:not(.sq) { flex: 1; justify-content: center }
   .readout { display: none }
-  .log { display: none }
+  .log { max-height: 34%; padding: 6px 8px }
   .ph-foot { padding: 5px 8px }
   .key { padding: 5px 7px; font-size: 11px }
   .hero { grid-template-columns: 96px minmax(0, 1fr) }

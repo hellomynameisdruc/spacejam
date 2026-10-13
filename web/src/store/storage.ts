@@ -27,5 +27,5 @@ export function readJSON<T>(kv: KV, key: string, fallback: T): T {
 export class Signal {
   private fns: (() => void)[] = [];
   on(fn: () => void) { this.fns.push(fn); }
-  emit() { for (const f of this.fns) f(); }
+  emit() { for (const f of this.fns) { try { f(); } catch (e) { console.error(e); } } }
 }

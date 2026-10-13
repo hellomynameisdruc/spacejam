@@ -9,7 +9,10 @@ export type LogEntry = { k: string; t: number };
 export class FlightLog {
   private list: LogEntry[];
   readonly changed = new Signal();
-  constructor(private kv: KV) { this.list = readJSON<LogEntry[]>(kv, KEY, []); }
+  constructor(private kv: KV) {
+    const raw = readJSON<unknown>(kv, KEY, []);
+    this.list = (Array.isArray(raw) ? raw : []).filter((x): x is LogEntry => !!x && typeof x.k === "string" && /^\d+-\d+$/.test(x.k) && typeof x.t === "number");
+  }
   get all(): readonly LogEntry[] { return this.list; }
   get size() { return this.list.length; }
   add(r: TrackRef, now = Date.now()) {

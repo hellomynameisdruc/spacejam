@@ -51,3 +51,18 @@ describe("Prefs", () => {
     p.phosphor = "amber"; expect(new Prefs(kv).phosphor).toBe("amber");
   });
 });
+
+describe("damaged saved data", () => {
+  it("drops malformed entries instead of breaking the panel", () => {
+    const kv = memoryKV({ "kosmos-log2": JSON.stringify([{ k: "1-2", t: 5 }, null, { k: 3 }, "x"]), "kosmos-likes": JSON.stringify({ not: "a list" }) });
+    expect(new FlightLog(kv).refs()).toEqual([{ s: 1, i: 2, t: 5 }]);
+    expect(new Beacons(kv, () => chunk).size).toBe(0);
+  });
+  it("one failing listener doesn't silence the others", () => {
+    const log = new FlightLog(memoryKV()); let n = 0;
+    log.changed.on(() => { throw new Error("boom"); }); log.changed.on(() => n++);
+    const err = console.error; console.error = () => {};
+    log.add({ s: 0, i: 0 }); console.error = err;
+    expect(n).toBe(1);
+  });
+});

@@ -14,7 +14,8 @@ export class Beacons {
   readonly changed = new Signal();
 
   constructor(private kv: KV, private chunk: (s: number) => Chunk | null) {
-    this.list = readJSON<Beacon[]>(kv, KEY, []);
+    const raw = readJSON<unknown>(kv, KEY, []);
+    this.list = (Array.isArray(raw) ? raw : []).filter((b): b is Beacon => !!b && typeof b.y === "string" && Number.isInteger(b.s) && Number.isInteger(b.i));
     this.ids = new Set(this.list.map((b) => b.y));
   }
   get all(): readonly Beacon[] { return this.list; }
