@@ -1,6 +1,7 @@
 // Picks the releases of every map sector out of the Discogs dump, right in a browser tab on
 // data.discogs.com (Discogs only lets real browsers download the dump). The dump streams through:
-// download → unzip → parse; nothing is written to disk until you save the result.
+// download → unzip → parse; nothing is written to disk until you save the result. If the connection
+// drops, it reconnects and carries on from the same byte (status().retries counts those).
 // Releases are kept as they are (gzip-compressed in memory); the pipeline merges editions later
 // (pipeline/catalog.py), so the tab only needs a few hundred MB of memory.
 //
@@ -25,7 +26,7 @@
   const clean = (s) => (s || "").trim().replace(DISAMBIG, "");
   const unesc = (s) => s.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 
-  const S = { state: "idle", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, t0: 0, error: null, url: null, sectors: {} };
+  const S = { state: "idle", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, retries: 0, lastError: null, t0: 0, error: null, url: null, sectors: {} };
   let abort = null, out = null;
 
   function trackTitle(vt, artist, tracklist) {
@@ -85,23 +86,49 @@
     for (const s of hit) S.sectors[s.id] = (S.sectors[s.id] || 0) + 1;
   }
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /** the dump's bytes; when the connection drops, reconnects and continues from the same byte */
+  async function* bytesFrom(path, opts) {
+    let offset = 0, tries = 0;
+    for (;;) {
+      try {
+        const res = await fetch("/?download=" + encodeURIComponent(path), { signal: abort.signal, headers: offset ? { Range: `bytes=${offset}-` } : {} });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (!S.total) S.total = +(res.headers.get("content-length") || 0);
+        let skip = offset && res.status !== 206 ? offset : 0; // server ignored the range: skip what we have
+        const reader = res.body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) {
+            if (S.total && offset < S.total) throw new Error(`cut short at ${offset}`);
+            return;
+          }
+          let v = value;
+          if (skip) { if (v.byteLength <= skip) { skip -= v.byteLength; continue; } v = v.subarray(skip); skip = 0; }
+          offset += v.byteLength; S.bytesIn = offset; tries = 0;
+          yield v;
+          if (opts.limitBytes && offset > opts.limitBytes) return;
+        }
+      } catch (e) {
+        if (abort.signal.aborted) throw e;
+        if (++tries > 60) throw e;
+        S.retries++; S.lastError = String(e);
+        console.warn(`kosmos: connection dropped at ${(offset / 1e6).toFixed(0)} MB, reconnecting (${tries})…`, e);
+        await sleep(Math.min(30000, 1500 * tries));
+      }
+    }
+  }
+
   async function run(path, opts = {}) {
     if (S.state === "running") return "already running";
-    Object.assign(S, { state: "running", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, t0: Date.now(), error: null, url: path, sectors: {} });
+    Object.assign(S, { state: "running", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, retries: 0, lastError: null, t0: Date.now(), error: null, url: path, sectors: {} });
     out = gzipSink(); abort = new AbortController(); result = null;
     try {
-      const res = await fetch("/?download=" + encodeURIComponent(path), { signal: abort.signal });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      S.total = +(res.headers.get("content-length") || 0);
-      const counted = res.body.pipeThrough(new TransformStream({
-        transform(chunk, ctl) {
-          S.bytesIn += chunk.byteLength;
-          if (opts.limitBytes && S.bytesIn > opts.limitBytes) { ctl.terminate(); abort.abort(); return; }
-          ctl.enqueue(chunk);
-        },
-      }));
-      const text = counted.pipeThrough(new DecompressionStream("gzip")).pipeThrough(new TextDecoderStream());
-      const reader = text.getReader();
+      const ds = new DecompressionStream("gzip"), w = ds.writable.getWriter();
+      const pump = (async () => { for await (const v of bytesFrom(path, opts)) await w.write(v); await w.close(); })();
+      pump.catch((e) => w.abort(e).catch(() => {}));
+      const reader = ds.readable.pipeThrough(new TextDecoderStream()).getReader();
       let buf = "";
       for (;;) {
         let r;
