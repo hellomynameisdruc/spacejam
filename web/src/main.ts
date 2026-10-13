@@ -535,13 +535,13 @@ function drawSatellites(t: number) {
         const sx = (cx + dx) * k + ox, sy = (cy + dy) * k + oy;
         if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue;
         (z >= 0 ? front : back).rect(Math.round(sx - half), Math.round(sy - half), sz, sz);
-        if (likedYt.size && likedYt.has(ch.yt[i])) liked.rect(Math.round(sx - half) - 2.5, Math.round(sy - half) - 2.5, sz + 5, sz + 5);
+        if (likedYt.size && likedYt.has(ch.yt[i])) { const r = sz / 2 + 4.5, cx2 = Math.round(sx) + 0.5, cy2 = Math.round(sy) + 0.5; liked.moveTo(cx2, cy2 - r); liked.lineTo(cx2 + r, cy2); liked.lineTo(cx2, cy2 + r); liked.lineTo(cx2 - r, cy2); liked.closePath(); }
         if (titles && z > 0 && nT < 160 && label(ch.t[i], sx + 6, sy + 4, 11, sc(si, 0.75), "left")) nT++;
       }
     }
     ctx.fillStyle = sc(si, 0.35); ctx.fill(back);
     ctx.fillStyle = sc(si, 0.95); ctx.fill(front);
-    ctx.strokeStyle = mixW(si, 0.5, 0.95); ctx.lineWidth = 1; ctx.stroke(liked);
+    ctx.strokeStyle = mixW(si, 0.55, reduce ? 0.95 : 0.55 + 0.45 * Math.abs(Math.sin(t / 420))); ctx.lineWidth = 1; ctx.stroke(liked);
   });
 }
 function drawRoute(t: number) {
@@ -1098,7 +1098,7 @@ function render() {
         ${row("COORDINATES", `${ch.x[o.i].toFixed(0)} / ${ch.y[o.i].toFixed(0)}`)}</div>
       <div class="scope-c"><canvas id="wave"></canvas></div>
       ${map.meta.sample ? `<p class="note">TEST SIGNAL: videos won't play.</p>` : `<button class="play" data-r="${R(o)}" data-play="1">${nowPlaying && nowPlaying.s === o.s && nowPlaying.i === o.i ? "◉ ON AIR" : "▶ PLAY"}</button>`}
-      <button class="plot like${isLiked(o) ? " on" : ""}" data-like="1">${isLiked(o) ? "♥ LIKED" : "♡ LIKE"}</button>
+      <button class="plot like${isLiked(o) ? " on" : ""}" data-like="1">${isLiked(o) ? "◈ BEACON ON" : "◇ SET BEACON"}</button>
       <a class="out" href="https://www.youtube.com/watch?v=${esc(yt)}" target="_blank" rel="noopener">OPEN ON YOUTUBE ↗</a>
       ${near.length ? `<div><div class="ph-sub">NEAREST SIGNALS</div><div class="list">${near.map((r, k) => trackItem(r.s, r.i, k + 1)).join("")}</div></div>` : ""}`;
     const sd = hash(yt) % 97;
@@ -1259,16 +1259,16 @@ function likeRef(l: Like): TrackRef | null {
 function paintLikes() {
   $("likedN").textContent = String(likes.length);
   const cur = nowPlaying, on = isLiked(cur), b = $("pLike");
-  b.textContent = on ? "♥" : "♡"; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
-  b.setAttribute("aria-label", on ? "Unlike" : "Like");
+  b.textContent = on ? "◈" : "◇"; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
+  b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon");
   const d = document.querySelector<HTMLElement>("#detail [data-like]");
-  if (d && sel?.kind === "track") { const v = isLiked(sel); d.textContent = v ? "♥ LIKED" : "♡ LIKE"; d.classList.toggle("on", v); }
+  if (d && sel?.kind === "track") { const v = isLiked(sel); d.textContent = v ? "◈ BEACON ON" : "◇ SET BEACON"; d.classList.toggle("on", v); }
 }
 // YouTube builds a temporary playlist from a list of video ids; it can then be saved to the account
 const YT_BATCH = 50;
 async function renderLiked() {
   const el = $("liked");
-  if (!likes.length) { el.innerHTML = `<p class="note">NO LIKES YET. PRESS ♡ OR <kbd>L</kbd> ON A TRACK YOU LOVE.</p>`; return; }
+  if (!likes.length) { el.innerHTML = `<p class="note">NO BEACONS YET. SET ONE ON A SIGNAL YOU LOVE: ◇ OR <kbd>L</kbd>.</p>`; return; }
   await Promise.all([...new Set(likes.map((l) => l.s))].filter((s) => s < stars.length).map(loadChunk));
   const parts = Math.ceil(likes.length / YT_BATCH);
   const links = Array.from({ length: parts }, (_, k) => {
@@ -1278,7 +1278,7 @@ async function renderLiked() {
   el.innerHTML = links + `<p class="note ythint">Opens on YouTube; use “Save” there to keep it in your library.</p>` +
     likes.map((l, k) => {
       const r = likeRef(l);
-      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span>▸ ${esc(l.a)} — ${esc(l.t)}${l.s < stars.length ? ` · ${esc(stars[l.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(l.y)}" aria-label="Remove like">×</button></div>`;
+      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span>▸ ${esc(l.a)} — ${esc(l.t)}${l.s < stars.length ? ` · ${esc(stars[l.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(l.y)}" aria-label="Remove beacon">×</button></div>`;
     }).join("");
 }
 $("liked").addEventListener("click", (e) => {
@@ -1322,7 +1322,7 @@ function ticker() {
   let np = "ON AIR: SILENCE";
   if (nowPlaying && chunks[nowPlaying.s]) { const ch = chunks[nowPlaying.s]!; np = `ON AIR: <b>${esc(ch.an[ch.a[nowPlaying.i]])} — ${esc(ch.t[nowPlaying.i])}</b>${player.playing ? "" : " [PAUSED]"}`; }
   const parts = [np, `STARS <b>${stars.length}</b>`, `PLANETS <b>${fmt(planets.length)}</b>`, `SATELLITES <b>${fmt(map.meta.tracks)}</b>`, `RELEASES <b>${fmt(map.meta.releases)}</b>`,
-    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `LARGEST SYSTEM <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `LINKS <b>${links.length}</b>`, `PLAYED <b>${log.length}</b>`, `LIKED <b>${likes.length}</b>`, `SOURCE <b>DISCOGS CC0</b>`];
+    (() => { const b = stars.slice().sort((a, b) => b.tracks - a.tracks)[0]; return `LARGEST SYSTEM <b style="color:${b?.color}">${esc(b?.name.toUpperCase() || "—")}</b>`; })(), `LINKS <b>${links.length}</b>`, `PLAYED <b>${log.length}</b>`, `BEACONS <b>${likes.length}</b>`, `SOURCE <b>DISCOGS CC0</b>`];
   const one = parts.map((p) => `<span>${p}</span>`).join("");
   if (one !== lastTicker) { lastTicker = one; $("ticker").innerHTML = one + one; }
 }

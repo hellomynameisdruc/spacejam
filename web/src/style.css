@@ -204,10 +204,13 @@ input[type="range"]::-moz-range-track { height: 6px; border: 1px solid var(--lin
 input[type="range"]::-moz-range-progress { height: 6px; background: var(--acc) }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 6px; height: 14px; margin-top: -5px; background: var(--ink); box-shadow: var(--glow); border: 0 }
 input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: var(--ink); border: 0; border-radius: 0 }
-.pbar { display: flex; align-items: center; gap: 4px; padding-top: 6px }
-.pbar .key.sq { min-width: 26px; padding: 4px 5px; font-size: 10px }
-#vol { width: 54px; flex: none; margin-left: 4px }
-.tog { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .08em; cursor: var(--cur-hand, pointer); color: var(--dim); margin-left: auto }
+.pbar { display: grid; gap: 7px; padding-top: 7px }
+.pbar .tx { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px }
+.pbar .key.sq { min-width: 0; width: 100%; height: 24px; justify-content: center; padding: 0; font-size: 10px }
+.pbar .mix { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center }
+.pbar .vk { font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .08em; color: var(--dim) }
+#vol { width: 100%; margin: 0 }
+.tog { display: inline-flex; align-items: center; gap: 4px; font-family: var(--f-dot); font-size: 9.5px; letter-spacing: .08em; cursor: var(--cur-hand, pointer); color: var(--dim) }
 .tog input { appearance: none; width: 10px; height: 10px; border: 1px solid var(--ink); margin: 0 }
 .tog input:checked { background: var(--acc); border-color: var(--acc) }
 .tog input:checked + span { color: var(--acc) }

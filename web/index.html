@@ -50,12 +50,17 @@
               <span class="tc" id="tDur">0:00</span>
             </div>
             <div class="pbar">
-              <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
-              <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
-              <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
-              <button type="button" class="key sq like-k" id="pLike" aria-label="Like" aria-pressed="false">♡</button>
-              <input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume">
-              <label class="tog" title="Autopilot: fly to the nearest unheard track when this one ends"><input id="autopilot" type="checkbox" checked><span>AUTO</span></label>
+              <div class="tx">
+                <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
+                <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
+                <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
+                <button type="button" class="key sq like-k" id="pLike" aria-label="Set beacon" aria-pressed="false" title="Set a beacon on this signal (L)">◇</button>
+              </div>
+              <div class="mix">
+                <span class="vk" aria-hidden="true">VOL</span>
+                <input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume">
+                <label class="tog" title="Autopilot: fly to the nearest unheard track when this one ends"><input id="autopilot" type="checkbox" checked><span>AUTO</span></label>
+              </div>
             </div>
             <p class="pmsg" id="pMsg" hidden></p>
           </div>
@@ -90,7 +95,7 @@
         <div class="log">
           <div class="ph-sub logtabs" role="tablist">
             <button type="button" role="tab" id="tabLog" aria-selected="true">FLIGHT LOG</button>
-            <button type="button" role="tab" id="tabLiked" aria-selected="false">LIKED <b id="likedN">0</b></button>
+            <button type="button" role="tab" id="tabLiked" aria-selected="false">BEACONS <b id="likedN">0</b></button>
           </div>
           <div class="loglines" id="log"></div>
           <div class="loglines" id="liked" hidden></div>
@@ -104,7 +109,7 @@
         <input id="q" type="search" placeholder="search: style, label or artist" autocomplete="off" spellcheck="false">
         <div class="results" id="results" hidden></div>
       </div>
-      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>L</kbd>LIKE <kbd>ESC</kbd>BACK</div>
+      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>L</kbd>BEACON <kbd>ESC</kbd>BACK</div>
       <span class="copy">HELLOMYNAMEISDRUC © 2026</span>
     </footer>
   </div>
