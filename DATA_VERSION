@@ -1,1 +1,3 @@
-refactor: deterministic layout 2026-10-13T10:05:03Z
+discogs_20261001_releases.xml.gz
+galaxies 6 · releases 893570 · tracks 1675933 · styles 113 · labels 15773
+# The map itself lives in the `data` branch; changing this file redeploys the site.
