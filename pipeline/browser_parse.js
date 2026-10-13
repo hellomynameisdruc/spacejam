@@ -1,7 +1,8 @@
 // Picks the releases of every map sector out of the Discogs dump, right in a browser tab on
 // data.discogs.com (Discogs only lets real browsers download the dump). The dump streams through:
 // download → unzip → parse; nothing is written to disk until you save the result. If the connection
-// drops, it reconnects and carries on from the same byte (status().retries counts those).
+// drops, it reconnects and carries on from the same byte (status().retries counts those). Where the
+// server allows it, 4 parts of the file download at once (kosmos.run(path, {parallel: 1}) for one).
 // Releases are kept as they are (gzip-compressed in memory); the pipeline merges editions later
 // (pipeline/catalog.py), so the tab only needs a few hundred MB of memory.
 //
@@ -25,7 +26,7 @@
   const DISAMBIG = /\s\(\d+\)$/;
   const clean = (s) => (s || "").trim().replace(DISAMBIG, "");
 
-  const S = { state: "idle", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, retries: 0, lastError: null, t0: 0, error: null, url: null, sectors: {} };
+  const S = { state: "idle", bytesIn: 0, dl: 0, mode: null, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, retries: 0, lastError: null, t0: 0, error: null, url: null, sectors: {} };
   let abort = null, out = null;
 
   function trackTitle(vt, artist, tracklist) {
@@ -97,12 +98,14 @@
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  /** the dump's bytes; when the connection drops, reconnects and continues from the same byte */
-  async function* bytesFrom(path, opts) {
+  const url = (path) => "/?download=" + encodeURIComponent(path);
+
+  /** one stream from `from` to the end; when the connection drops, reconnects at the same byte */
+  async function* sequential(path, opts) {
     let offset = 0, tries = 0;
     for (;;) {
       try {
-        const res = await fetch("/?download=" + encodeURIComponent(path), { signal: abort.signal, headers: offset ? { Range: `bytes=${offset}-` } : {} });
+        const res = await fetch(url(path), { signal: abort.signal, headers: offset ? { Range: `bytes=${offset}-` } : {} });
         if (!res.ok) throw new Error("HTTP " + res.status);
         if (!S.total) S.total = +(res.headers.get("content-length") || 0);
         let skip = offset && res.status !== 206 ? offset : 0; // server ignored the range: skip what we have
@@ -115,7 +118,7 @@
           }
           let v = value;
           if (skip) { if (v.byteLength <= skip) { skip -= v.byteLength; continue; } v = v.subarray(skip); skip = 0; }
-          offset += v.byteLength; S.bytesIn = offset; tries = 0;
+          offset += v.byteLength; S.bytesIn = offset; S.dl = offset; tries = 0;
           yield v;
           if (opts.limitBytes && offset > opts.limitBytes) return;
         }
@@ -129,9 +132,67 @@
     }
   }
 
+  /** bytes a..b (inclusive) as a list of chunks; retries from where it stopped */
+  async function segment(path, a, b) {
+    const parts = []; let got = 0, tries = 0;
+    while (a + got <= b) {
+      try {
+        const res = await fetch(url(path), { signal: abort.signal, headers: { Range: `bytes=${a + got}-${b}` } });
+        if (res.status !== 206) throw new Error("HTTP " + res.status + " (expected 206)");
+        const reader = res.body.getReader();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          parts.push(value); got += value.byteLength; S.dl += value.byteLength; tries = 0;
+        }
+        if (a + got <= b) throw new Error(`segment cut short at ${a + got}`);
+      } catch (e) {
+        if (abort.signal.aborted) throw e;
+        if (++tries > 60) throw e;
+        S.retries++; S.lastError = String(e);
+        console.warn(`kosmos: segment ${(a / 1e6).toFixed(0)} MB dropped, retrying (${tries})…`, e);
+        await sleep(Math.min(30000, 1500 * tries));
+      }
+    }
+    return parts;
+  }
+
+  /** the dump's bytes in order. If the server allows ranges, several parts download at once (one
+   * connection is often throttled) and are handed on in order; otherwise one resumable stream. */
+  async function* bytesFrom(path, opts) {
+    const N = opts.parallel ?? 4, SEG = opts.segmentMB ? opts.segmentMB * 1e6 : 16e6;
+    let total = 0;
+    if (N > 1) {
+      try {
+        const probe = new AbortController();
+        const res = await fetch(url(path), { signal: probe.signal, headers: { Range: "bytes=0-0" } });
+        const m = /\/(\d+)\s*$/.exec(res.headers.get("content-range") || "");
+        if (res.status === 206 && m) total = +m[1];
+        probe.abort();
+      } catch (e) { console.warn("kosmos: range probe failed, using one connection", e); }
+    }
+    if (!total) { S.mode = "single"; yield* sequential(path, opts); return; }
+    S.mode = `parallel ×${N}`; S.total = total;
+    const end = opts.limitBytes ? Math.min(total, opts.limitBytes + SEG) : total;
+    const queue = []; let next = 0;
+    const fill = () => {
+      while (queue.length < N && next < end) {
+        const p = segment(path, next, Math.min(next + SEG, end) - 1); p.catch(() => {});
+        queue.push(p); next += SEG;
+      }
+    };
+    fill();
+    while (queue.length) {
+      const parts = await queue.shift();
+      fill();
+      for (const v of parts) { S.bytesIn += v.byteLength; yield v; }
+      if (opts.limitBytes && S.bytesIn > opts.limitBytes) return;
+    }
+  }
+
   async function run(path, opts = {}) {
     if (S.state === "running") return "already running";
-    Object.assign(S, { state: "running", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, retries: 0, lastError: null, t0: Date.now(), error: null, url: path, sectors: {} });
+    Object.assign(S, { state: "running", bytesIn: 0, total: 0, releases: 0, kept: 0, videos: 0, outMB: 0, dl: 0, mode: null, retries: 0, lastError: null, t0: Date.now(), error: null, url: path, sectors: {} });
     out = gzipSink(); abort = new AbortController(); result = null;
     try {
       const ds = new DecompressionStream("gzip"), w = ds.writable.getWriter();
@@ -162,7 +223,7 @@
   function status() {
     const sec = (Date.now() - S.t0) / 1000;
     return { ...S, mb: Math.round(S.bytesIn / 1e6), pct: S.total ? +(S.bytesIn * 100 / S.total).toFixed(1) : null,
-      mbps: +(S.bytesIn / 1e6 / Math.max(1, sec)).toFixed(1), minutes: +(sec / 60).toFixed(1),
+      mbps: +(S.bytesIn / 1e6 / Math.max(1, sec)).toFixed(1), dlMbps: +(S.dl / 1e6 / Math.max(1, sec)).toFixed(1), minutes: +(sec / 60).toFixed(1),
       etaMin: S.total && S.bytesIn ? Math.round((S.total - S.bytesIn) / (S.bytesIn / Math.max(1, sec)) / 60) : null };
   }
 
