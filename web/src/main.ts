@@ -56,3 +56,7 @@ routeFromHash();
 addEventListener("hashchange", routeFromHash);
 const m = location.hash.match(/^#t(\d+)-(\d+)$/);
 if (m && +m[1] < galaxy.stars.length) tracks.load(+m[1]).then((ch) => { if (+m[2] < ch.yt.length) select({ kind: "track", s: +m[1], i: +m[2] }); });
+
+// signature in the browser console
+console.log("%c SOUND COSMOS %c © 2026 hellomynameisdruc · all rights reserved · github.com/hellomynameisdruc/spacejam",
+  "background:#b8a8ff;color:#0b0716;font-weight:bold;padding:2px 4px", "color:#b8a8ff");
