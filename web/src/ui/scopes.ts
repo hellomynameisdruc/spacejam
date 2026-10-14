@@ -52,6 +52,59 @@ export function drawRadar(g: CanvasRenderingContext2D, w: number, h: number, t: 
   galaxy.stars.forEach((st, si) => { const x = cx + (st.x - b.x) / s, y = cy + (st.y - b.y) / s; g.fillStyle = sc(si, 1); g.shadowColor = sc(si, 1); g.shadowBlur = 5; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3); g.shadowBlur = 0; });
 }
 
+/** a wormhole in progress: k runs 0→1 through the transit (-1 = none), col is its current colour */
+export const warpFx: { k: number; col: (a?: number) => string } = { k: -1, col: ph };
+
+/** the trace while jumping through a wormhole: a riser that sweeps up and smears, a flatline at the
+ *  flash, then the signal rings back in at the destination */
+function drawWarpWave(g: CanvasRenderingContext2D, w: number, h: number, t: number, seedN: number) {
+  const k = warpFx.k, col = warpFx.col, speed = Math.sin(Math.PI * Math.min(1, k * 1.12));
+  g.fillStyle = BG; g.fillRect(0, 0, w, h);
+  // the grid streams past faster and faster
+  const off = (t * (0.02 + 0.5 * speed)) % 12;
+  g.strokeStyle = col(0.1 + 0.12 * speed); g.lineWidth = 1; g.beginPath();
+  for (let x = -off; x < w; x += 12) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); }
+  for (let y = 0; y < h; y += 12) { g.moveTo(0, y + 0.5); g.lineTo(w, y + 0.5); }
+  g.stroke();
+  const f1 = 2 + (seedN % 5), f2 = 7 + (seedN % 11);
+  const trace = (amp: number, freq: number, ph: number, jitter: number, a: number, lw: number) => {
+    g.strokeStyle = col(a); g.lineWidth = lw; g.beginPath();
+    for (let x = 0; x <= w; x += 2) {
+      const u = x / w * Math.PI * 2;
+      let y = h / 2 + h * amp * (Math.sin(u * f1 * freq + ph) * 0.7 + Math.sin(u * f2 * freq - ph * 1.7) * 0.3);
+      if (jitter) y += (Math.random() - 0.5) * h * jitter;
+      x === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke();
+  };
+  g.shadowColor = col(0.9); g.shadowBlur = 8;
+  let tag: string;
+  if (k < 0.72) {
+    // riser: the pitch sweeps up, the trace smears into phosphor ghosts
+    const freq = 1 + 9 * k * k, amp = 0.12 + 0.3 * speed, ph = t / (90 - 60 * speed);
+    for (let i = 4; i >= 1; i--) trace(amp * (1 - i * 0.08), freq * (1 - i * 0.03), ph - i * 0.35, 0, 0.12 * (5 - i) * speed, 1);
+    trace(amp, freq, ph, 0.04 * speed, 1, 1.6);
+    tag = `WARP ×${freq.toFixed(1)}`;
+  } else if (k < 0.84) {
+    // the flash: everything collapses into one burning line with a spike running across
+    const f = Math.sin(Math.PI * (k - 0.72) / 0.12), sx = ((k - 0.72) / 0.12) * w;
+    g.strokeStyle = "rgba(255,255,255,0.95)"; g.lineWidth = 2; g.beginPath();
+    g.moveTo(0, h / 2); g.lineTo(sx - 8, h / 2); g.lineTo(sx - 3, h * 0.1); g.lineTo(sx + 3, h * 0.9); g.lineTo(sx + 8, h / 2); g.lineTo(w, h / 2); g.stroke();
+    g.shadowBlur = 0; g.fillStyle = `rgba(255,255,255,${0.55 * f})`; g.fillRect(0, 0, w, h);
+    tag = "TRANSIT";
+  } else {
+    // arrival: the signal rings back in, settling down
+    const q = (k - 0.84) / 0.16, amp = 0.36 * (0.35 + 0.65 * q) * (1 + 0.6 * Math.exp(-q * 4) * Math.sin(q * 40));
+    trace(amp, 1, t / 280, 0.05 * (1 - q), 1, 1.5);
+    tag = "LOCK";
+  }
+  g.shadowBlur = 0;
+  g.font = `11px ${FONT_LBL}`; g.textAlign = "right";
+  const tw = g.measureText(tag).width + 10, tx = w - 6;
+  g.fillStyle = col(Math.floor(t / 120) % 2 ? 1 : 0.7); g.fillRect(tx - tw + 4, 6, tw, 15);
+  g.fillStyle = BG; g.fillText(tag, tx - 1, 18);
+}
+
 export type WaveMode = { scrub: number; sync: boolean; label?: string };
 const waveState = new WeakMap<CanvasRenderingContext2D, { amp: number; ph: number; last: number }>();
 /** the signal trace of a track; glides between states, tears like tape while seeking */
@@ -62,6 +115,7 @@ export function drawWave(g: CanvasRenderingContext2D, w: number, h: number, t: n
   st.amp += (target - st.amp) * Math.min(1, dt / 160);
   st.ph += dt * (mode.scrub ? mode.scrub * 0.045 : live ? 1 / 280 : 1 / 1400);
   waveState.set(g, st);
+  if (warpFx.k >= 0) { drawWarpWave(g, w, h, t, seedN); return; }
   g.fillStyle = BG; g.fillRect(0, 0, w, h);
   g.strokeStyle = ph(0.12); g.lineWidth = 1; g.beginPath();
   for (let x = 0; x < w; x += 12) { g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, h); }

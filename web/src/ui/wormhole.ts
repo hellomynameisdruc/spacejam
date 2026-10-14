@@ -7,6 +7,7 @@ import { cam } from "../render/camera";
 import { FONT_LBL, SC } from "../render/palette";
 import { viewportEl } from "../render/scene";
 import { glitchUI } from "./glitch";
+import { warpFx } from "./scopes";
 
 let wf: HTMLCanvasElement, wg: CanvasRenderingContext2D;
 export function initWormhole() {
@@ -30,6 +31,7 @@ export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () 
   const code = `${pad(Math.floor(Math.random() * 9999), 4)}.${pad(Math.floor(Math.random() * 999), 3)}`;
   const step = (now: number) => {
     const k = Math.min(1, (now - t0) / T), dt = Math.min(50, now - last) / 16.7; last = now;
+    warpFx.k = k; warpFx.col = (a = 1) => mix(k * 1.3, a);
     const fadeIn = Math.min(1, k / 0.16), fadeOut = k > 0.84 ? 1 - (k - 0.84) / 0.16 : 1, vis = Math.min(fadeIn, fadeOut);
     const speed = Math.sin(Math.PI * Math.min(1, k * 1.12));
     const vx = w / 2 + Math.sin(k * 9) * w * 0.035 * speed, vy = h / 2 + Math.cos(k * 7) * h * 0.035 * speed;
@@ -90,7 +92,7 @@ export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () 
     }
     if (!peaked && k >= 0.8) { peaked = true; onPeak(); }
     if (k < 1) requestAnimationFrame(step);
-    else { wf.style.display = "none"; state.warping = false; }
+    else { wf.style.display = "none"; state.warping = false; warpFx.k = -1; }
   };
   requestAnimationFrame(step);
 }
