@@ -47,7 +47,7 @@ export function paintOdysseyTag() {
   const orbiting = !!(p && ch && np!.s === p.s && ch.p[np!.i] === pi);
   $("dockOdy").hidden = !on && !orbiting;
   if (on) {
-    $("dockOdy").firstChild!.textContent = r!.star !== undefined ? "TOUR " : "ODYSSEY ";
+    $("dockOdy").firstChild!.textContent = r!.star !== undefined ? "HITCHHIKE " : "ODYSSEY ";
     $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;
   } else if (orbiting) {
     let heard = 0; for (let i = p!.t0; i < p!.t1; i++) if (state.played.has(ch!.yt[i])) heard++;
