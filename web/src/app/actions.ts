@@ -5,7 +5,7 @@ import { pad } from "../core/util";
 import { $ } from "../core/dom";
 import { beacons, chunk, flightLog, galaxy, motion, state, tracks } from "./state";
 import { orbitR } from "../model/galaxy";
-import { pickRouteTracks, planRoute, planSystemTour, starEnd } from "../model/routes";
+import { pickStopTracks, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
 import { renderDossier } from "../ui/dossier";
 import { decodeDossier } from "../ui/glitch";
@@ -109,7 +109,7 @@ export function toggleBeacon(r: TrackRef | null) { beacons.toggle(r, r ? galaxy.
 export async function buildRoute(a: number, b: number) {
   const plan = planRoute(galaxy, a, b);
   await Promise.all([...new Set(plan.stops.map((i) => galaxy.planets[i].s))].map((s) => tracks.load(s)));
-  const t = pickRouteTracks(galaxy, plan, (s) => chunk(s)!);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   replaceHash(`#r${a}-${b}`);
   renderRoutePanel(); fitRoute(); state.dirty = true;
@@ -136,7 +136,7 @@ export async function playSystem(st: number) {
   if (galaxy.meta.sample) return;
   const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
   await tracks.load(st);
-  const t = pickRouteTracks(galaxy, plan, (s) => chunk(s)!);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   replaceHash(`#s${st}`);
   renderRoutePanel(); state.dirty = true;
@@ -145,7 +145,7 @@ export async function playSystem(st: number) {
 async function openSystemTour(st: number) {
   const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
   await tracks.load(st);
-  const t = pickRouteTracks(galaxy, plan, (s) => chunk(s)!);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   renderRoutePanel(); fitRoute(); state.dirty = true;
 }

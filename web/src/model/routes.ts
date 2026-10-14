@@ -7,7 +7,6 @@
 // Start and finish in the same system → a round trip out through 3 neighbours and back.
 // Planning uses catalogue positions (orbits at t=0), so the same pair always gives the same route.
 import type { Chunk, TrackRef } from "../core/types";
-import { hash } from "../core/util";
 import { type Galaxy, midYear, shareOf } from "./galaxy";
 
 export const ROUTE_SYSTEMS = 5;
@@ -109,28 +108,42 @@ export function starEnd(g: Galaxy, st: number, toward: number, used: Set<number>
 
 export const TOUR_STOPS = 10;
 /**
- * A tour of one star system: up to 10 labels round the star, starting from the biggest one and
- * sweeping once round the orbits, mixing big inner planets with outer ones. Deterministic.
+ * A tour of one star system, different every time: up to 10 labels drawn at random from the inner,
+ * middle and outer orbits (the outer edge, where the smaller labels live, gets the most), then flown
+ * once round the star from a random bearing. `rnd` is injectable for tests.
  */
-export function planSystemTour(g: Galaxy, st: number): RoutePlan {
+export function planSystemTour(g: Galaxy, st: number, rnd: () => number = Math.random): RoutePlan {
   const S = g.stars[st], pool = poolOf(g, st, new Set());
   if (!pool.length) return { a: -1, b: -1, stops: [], hops: [st], star: st };
-  const cand = pool.slice(0, Math.max(TOUR_STOPS * 3, 30)); // the biggest labels, by releases
-  const ang = (i: number) => Math.atan2(g.planets[i].y - S.y, g.planets[i].x - S.x);
-  const start = cand[0], a0 = ang(start), turn = (i: number) => ((ang(i) - a0) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-  const n = Math.min(TOUR_STOPS, cand.length), stops = [start], used = new Set([start]);
-  for (let k = 1; k < n; k++) {
-    const want = (k / n) * Math.PI * 2;
-    let best = -1, bd = Infinity;
-    for (const i of cand) {
-      if (used.has(i)) continue;
-      const d = Math.abs(turn(i) - want) + (cand.indexOf(i) / cand.length) * 0.6; // near the angle, bigger first
-      if (d < bd) { bd = d; best = i; }
-    }
-    if (best < 0) break;
-    stops.push(best); used.add(best);
-  }
+  const byOrbit = [...pool].sort((x, y) => (g.planets[x].o ?? 0) - (g.planets[y].o ?? 0));
+  const third = Math.ceil(byOrbit.length / 3), rings = [byOrbit.slice(0, third), byOrbit.slice(third, 2 * third), byOrbit.slice(2 * third)];
+  const n = Math.min(TOUR_STOPS, pool.length), quota = [Math.round(n * 0.3), Math.round(n * 0.3)];
+  quota.push(n - quota[0] - quota[1]);
+  const take = (from: number[], k: number, out: number[]) => {
+    const left = from.filter((i) => !out.includes(i));
+    for (let j = 0; j < k && left.length; j++) out.push(left.splice(Math.floor(rnd() * left.length), 1)[0]);
+  };
+  const picked: number[] = [];
+  rings.forEach((ring, k) => take(ring, quota[k], picked));
+  take(pool, n - picked.length, picked); // a small system: fill up from anywhere
+  const start = rnd() * Math.PI * 2;
+  const turn = (i: number) => ((Math.atan2(g.planets[i].y - S.y, g.planets[i].x - S.x) - start) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  const stops = picked.sort((x, y) => turn(x) - turn(y));
   return { a: stops[0], b: stops[stops.length - 1], stops, hops: [st], star: st };
+}
+
+/** random tracks for each stop of an odyssey or tour, ones not heard yet first; at least MIN_ROUTE_TRACKS overall */
+export function pickStopTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) => Chunk, heard: Set<string>, rnd: () => number = Math.random): TrackRef[][] {
+  const per = Math.max(2, Math.ceil(MIN_ROUTE_TRACKS / Math.max(1, plan.stops.length))), seen = new Set<string>();
+  return plan.stops.map((pi) => {
+    const p = g.planets[pi], ch = chunk(p.s), all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k);
+    const fresh = all.filter((i) => !heard.has(ch.yt[i])), out: TrackRef[] = [];
+    for (const src of [fresh, all]) {
+      const left = src.filter((i) => !seen.has(ch.yt[i]));
+      while (out.length < per && left.length) { const i = left.splice(Math.floor(rnd() * left.length), 1)[0]; seen.add(ch.yt[i]); out.push({ s: p.s, i }); }
+    }
+    return out.sort((x, y) => x.i - y.i);
+  });
 }
 
 export function planRoute(g: Galaxy, a: number, b: number): RoutePlan {
@@ -159,33 +172,6 @@ export function planRoute(g: Galaxy, a: number, b: number): RoutePlan {
     for (const p of [first, second]) if (p >= 0) stops.push(p);
   }
   return { a, b, stops, hops };
-}
-
-/**
- * Tracks for each stop: at least MIN_ROUTE_TRACKS overall — one per stop, then round-robin with the
- * origin and destination first — spread across each label's years (chunks store tracks oldest first).
- * `chunk(s)` must return a loaded chunk for every star the route visits.
- */
-export function pickRouteTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) => Chunk): TrackRef[][] {
-  const N = plan.stops.length, avail = plan.stops.map((pi) => g.planets[pi].t1 - g.planets[pi].t0);
-  const cnt = avail.map((n) => Math.min(1, n)), order = [0, N - 1, ...Array.from({ length: Math.max(0, N - 2) }, (_, k) => k + 1)];
-  let total = cnt.reduce((x, y) => x + y, 0), grew = true;
-  while (total < Math.max(MIN_ROUTE_TRACKS, N) && grew) {
-    grew = false;
-    for (const k of order) { if (total >= Math.max(MIN_ROUTE_TRACKS, N)) break; if (cnt[k] < avail[k]) { cnt[k]++; total++; grew = true; } }
-  }
-  const seen = new Set<string>();
-  return plan.stops.map((pi, k) => {
-    const p = g.planets[pi], ch = chunk(p.s), n = avail[k], c = cnt[k], off = hash(p.name + ":" + g.planets[plan.b].name) % Math.max(1, n);
-    const out: TrackRef[] = [];
-    for (let j = 0; j < c; j++) {
-      for (let tries = 0; tries < n; tries++) {
-        const i = p.t0 + ((Math.floor((j + 0.5) * n / c) + off + tries) % n);
-        if (seen.has(ch.yt[i])) continue; seen.add(ch.yt[i]); out.push({ s: p.s, i }); break;
-      }
-    }
-    return out.sort((x, y) => x.i - y.i);
-  });
 }
 
 /** label of a stop in the route list */

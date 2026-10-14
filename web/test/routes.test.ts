@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeChunk, makeGalaxy } from "./fixtures";
-import { MIN_ROUTE_TRACKS, pathOfLen, pickRouteTracks, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
+import { lcg } from "../src/core/util";
+import { MIN_ROUTE_TRACKS, pathOfLen, pickStopTracks, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
 
 const g = makeGalaxy(10, 8, 6);
 const chunks = g.stars.map((_, s) => makeChunk(g, s));
@@ -69,10 +70,10 @@ describe("sparse galaxy fallback", () => {
   });
 });
 
-describe("pickRouteTracks", () => {
+describe("pickStopTracks", () => {
   it("at least MIN_ROUTE_TRACKS distinct tracks from the stops' own planets", () => {
     const plan = planRoute(g, first(0), first(4));
-    const t = pickRouteTracks(g, plan, (s) => chunks[s]);
+    const t = pickStopTracks(g, plan, (s) => chunks[s], new Set(), lcg(3));
     const flat = t.flat();
     expect(flat.length).toBeGreaterThanOrEqual(MIN_ROUTE_TRACKS);
     expect(new Set(flat.map((r) => chunks[r.s].yt[r.i])).size).toBe(flat.length);
@@ -81,17 +82,26 @@ describe("pickRouteTracks", () => {
 });
 
 describe("whole stars", () => {
-  it("a system tour visits distinct planets of one star, starting from the biggest", () => {
-    const r = planSystemTour(g, 3);
+  it("a system tour: distinct planets of one star from every ring, different each time", () => {
+    const r = planSystemTour(g, 3, lcg(1));
     expect(r.star).toBe(3); expect(r.hops).toEqual([3]);
-    expect(r.stops[0]).toBe(first(3));
     expect(r.stops.every((i) => g.planets[i].s === 3)).toBe(true);
     expect(new Set(r.stops).size).toBe(r.stops.length);
-    expect(r.stops.length).toBe(Math.min(10, g.planetsByStar[3].length));
-    expect(planSystemTour(g, 3)).toEqual(r); // deterministic
-    const t = pickRouteTracks(g, r, (s) => chunks[s]);
-    expect(t.flat().length).toBeGreaterThanOrEqual(Math.min(MIN_ROUTE_TRACKS, r.stops.reduce((n, i) => n + g.planets[i].t1 - g.planets[i].t0, 0)));
+    expect(r.stops.length).toBe(Math.min(10, g.planetsByStar[3].filter((i) => g.planets[i].t1 > g.planets[i].t0).length));
+    expect(planSystemTour(g, 3, lcg(1))).toEqual(r); // same seed, same tour
+    const others = [2, 3, 4, 5].map((k) => planSystemTour(g, 3, lcg(k)).stops.join());
+    expect(new Set(others).size).toBeGreaterThan(1); // otherwise it changes
     expect(r.stops.map((_, k) => stopKind(g, r, k)).every((k) => k === "ORBIT")).toBe(true);
+  });
+  it("tour tracks are random, distinct and prefer unheard ones", () => {
+    const r = planSystemTour(g, 3, lcg(7)), heard = new Set<string>();
+    const t1 = pickStopTracks(g, r, (s) => chunks[s], heard, lcg(1)).flat();
+    const ids = t1.map((t) => chunks[t.s].yt[t.i]);
+    expect(new Set(ids).size).toBe(ids.length);
+    ids.forEach((y) => heard.add(y));
+    const t2 = pickStopTracks(g, r, (s) => chunks[s], heard, lcg(2)).flat().map((t) => chunks[t.s].yt[t.i]);
+    const avail = r.stops.reduce((n, i) => n + g.planets[i].t1 - g.planets[i].t0, 0);
+    if (avail >= ids.length * 2) expect(t2.some((y) => heard.has(y))).toBe(false);
   });
   it("a star at the end of an odyssey stands in with one of its own planets", () => {
     const pa = starEnd(g, 0, 5, new Set()), pb = starEnd(g, 5, 0, new Set([pa]));
