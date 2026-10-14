@@ -5,7 +5,7 @@
 import { BG, FONT_LBL, sc, SC } from "./palette";
 import { galaxy, motion, state } from "../app/state";
 import { orbitR } from "../model/galaxy";
-import { cam, LOD_PLANETS } from "./camera";
+import { cam, LOD_PLANETS, LOD_TRACKS } from "./camera";
 import { pulseOf } from "./pulsar";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
@@ -84,9 +84,19 @@ function render(si: number, px: number, theta: number) {
   return canvas;
 }
 
+/** the probe seen from afar: a tiny dish-and-bus mark circling just off the planet, blinking */
+function drawMark(ctx: CanvasRenderingContext2D, si: number, cx: number, cy: number, pr: number, t: number) {
+  const a = (t / 42000) * Math.PI * 2, R = pr + 7, x = Math.round(cx + Math.cos(a) * R), y = Math.round(cy + Math.sin(a) * R);
+  ctx.fillStyle = sc(si, 0.95);
+  ctx.fillRect(x - 2, y - 2, 2, 4); ctx.fillRect(x, y - 1, 2, 2); ctx.fillRect(x + 2, y - 3, 1, 6); // dish, bus, wings
+  if (Math.floor(t / 900) % 2) { ctx.fillStyle = "#ff4d6d"; ctx.fillRect(x + 4, y - 1, 2, 2); }
+}
+
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
   const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y);
+  // from further out the probe is just a small blinking mark beside its planet
+  if (cam.s < LOD_TRACKS) { drawMark(ctx, pl.s, c.x, c.y, Math.max(3, pl.r * cam.s), t); return; }
   const R = Math.max(orbitR(pl) * cam.s + 22, pl.r * cam.s + 40), a = (t / 42000) * Math.PI * 2; // one slow lap in ~40 s
   const x = c.x + Math.cos(a) * R, y = c.y + Math.sin(a) * R * 0.92;
   if (x < -90 || y < -90 || x > cam.W + 90 || y > cam.H + 90) return;
@@ -109,7 +119,7 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   probe(t);
   // the dish (the model's left side) keeps facing the planet all the way round
   const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, Math.atan2(c.y - y, c.x - x) - Math.PI);
-  const scale = cam.s > 2 ? 1.25 : 1, w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
+  const scale = Math.min(0.85, 0.5 + (cam.s - LOD_TRACKS) * 0.08), w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h / 2), w, h); ctx.restore();
 
   // a schematic call-out, like a diagnostic screen
