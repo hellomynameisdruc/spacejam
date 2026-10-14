@@ -13,7 +13,7 @@ export const ROUTE_SYSTEMS = 5;
 export const MIN_ROUTE_TRACKS = 20;
 
 /** `star` is set on a system tour: a loop round one star instead of a flight between two planets */
-export type RoutePlan = { a: number; b: number; stops: number[]; hops: number[]; star?: number };
+export type RoutePlan = { a: number; b: number; stops: number[]; hops: number[]; star?: number; years?: [number, number] };
 export type Route = RoutePlan & { tracks: TrackRef[][]; flat: TrackRef[]; loading?: boolean };
 
 /** strongest-link path between two styles (Dijkstra; strong links are short) */
@@ -132,6 +132,32 @@ export function planSystemTour(g: Galaxy, st: number, rnd: () => number = Math.r
   return { a: stops[0], b: stops[stops.length - 1], stops, hops: [st], star: st };
 }
 
+export const LIGHT_YEARS_MIN = 8, LIGHT_YEARS_MAX = 30;
+/**
+ * LIGHT YEARS: a label's history in order, from its first dated release to its last. With 8+ active
+ * years it's one track per year (evenly thinned out past 30); a short-lived label gets 8–12 tracks spread
+ * evenly through its catalogue instead. Undated tracks are left out; null when fewer than 3 are dated.
+ */
+export function planLightYears(g: Galaxy, pi: number, ch: Chunk, heard: Set<string>, rnd: () => number = Math.random): Route | null {
+  const p = g.planets[pi], seen = new Set<string>(), dated: number[] = [];
+  for (let i = p.t0; i < p.t1; i++) if (ch.yr[i] && !seen.has(ch.yt[i])) { seen.add(ch.yt[i]); dated.push(i); }
+  if (dated.length < 3) return null;
+  dated.sort((x, y) => ch.yr[x] - ch.yr[y] || x - y);
+  const byYear = new Map<number, number[]>();
+  for (const i of dated) { const y = ch.yr[i]; if (!byYear.has(y)) byYear.set(y, []); byYear.get(y)!.push(i); }
+  const pickOne = (list: number[]) => { const fresh = list.filter((i) => !heard.has(ch.yt[i])), src = fresh.length ? fresh : list; return src[Math.floor(rnd() * src.length)]; };
+  let picks: number[];
+  if (byYear.size >= LIGHT_YEARS_MIN) {
+    const years = [...byYear.keys()], n = Math.min(LIGHT_YEARS_MAX, years.length);
+    picks = Array.from({ length: n }, (_, k) => pickOne(byYear.get(years[Math.round(k * (years.length - 1) / Math.max(1, n - 1))])!));
+  } else {
+    const n = Math.min(dated.length, Math.max(LIGHT_YEARS_MIN, Math.min(12, dated.length)));
+    picks = Array.from({ length: n }, (_, k) => { const a = Math.floor(k * dated.length / n), b = Math.max(a + 1, Math.floor((k + 1) * dated.length / n)); return pickOne(dated.slice(a, b)); });
+  }
+  const tracks = [picks.map((i) => ({ s: p.s, i }))];
+  return { a: pi, b: pi, stops: [pi], hops: [p.s], years: [ch.yr[dated[0]], ch.yr[dated[dated.length - 1]]], tracks, flat: tracks[0] };
+}
+
 /** a hitchhike round a system is 42 tracks long — the answer, of course */
 export const HITCHHIKE_TRACKS = 42;
 
@@ -187,7 +213,8 @@ export function planRoute(g: Galaxy, a: number, b: number): RoutePlan {
 }
 
 /** label of a stop in the route list */
-export function stopKind(g: Galaxy, r: RoutePlan, k: number): "ORIGIN" | "DESTINATION" | "EXIT" | "ENTRY" | "WAYPOINT" | "ORBIT" {
+export function stopKind(g: Galaxy, r: RoutePlan, k: number): "ORIGIN" | "DESTINATION" | "EXIT" | "ENTRY" | "WAYPOINT" | "ORBIT" | "TIMELINE" {
+  if (r.years) return "TIMELINE";
   if (r.star !== undefined) return "ORBIT";
   const st = (j: number) => g.planets[r.stops[j]]?.s, s = st(k);
   return k === 0 ? "ORIGIN" : k === r.stops.length - 1 ? "DESTINATION" : st(k + 1) !== s ? "EXIT" : st(k - 1) !== s ? "ENTRY" : "WAYPOINT";

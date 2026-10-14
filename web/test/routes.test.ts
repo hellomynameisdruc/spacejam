@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeChunk, makeGalaxy } from "./fixtures";
 import { lcg } from "../src/core/util";
-import { HITCHHIKE_TRACKS, MIN_ROUTE_TRACKS, pathOfLen, pickStopTracks, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
+import { HITCHHIKE_TRACKS, LIGHT_YEARS_MAX, LIGHT_YEARS_MIN, MIN_ROUTE_TRACKS, pathOfLen, pickStopTracks, planLightYears, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
 
 const g = makeGalaxy(10, 8, 6);
 const chunks = g.stars.map((_, s) => makeChunk(g, s));
@@ -113,5 +113,19 @@ describe("whole stars", () => {
     expect(g.planets[pa].s).toBe(0); expect(g.planets[pb].s).toBe(5);
     const r = planRoute(g, pa, pb);
     expect(r.stops[0]).toBe(pa); expect(r.stops[r.stops.length - 1]).toBe(pb);
+  });
+});
+
+describe("light years", () => {
+  it("a label's tracks in time order, first year to last", () => {
+    const pi = first(2), ch = chunks[g.planets[pi].s], r = planLightYears(g, pi, ch, new Set(), lcg(4));
+    if (!r) return; // fixture label without dated tracks
+    const yrs = r.flat.map((t) => ch.yr[t.i]);
+    expect(yrs.every((y) => y > 0)).toBe(true);
+    expect([...yrs].sort((a, b) => a - b)).toEqual(yrs);
+    expect(r.flat.length).toBeLessThanOrEqual(LIGHT_YEARS_MAX);
+    expect(r.flat.length).toBeGreaterThanOrEqual(Math.min(LIGHT_YEARS_MIN, new Set(r.flat.map((t) => ch.yt[t.i])).size));
+    expect(r.years![0]).toBe(yrs[0]); expect(r.years![1]).toBeGreaterThanOrEqual(yrs[yrs.length - 1]);
+    expect(stopKind(g, r, 0)).toBe("TIMELINE");
   });
 });

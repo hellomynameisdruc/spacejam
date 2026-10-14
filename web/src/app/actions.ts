@@ -5,7 +5,7 @@ import { pad } from "../core/util";
 import { $ } from "../core/dom";
 import { beacons, chunk, flightLog, galaxy, motion, state, tracks } from "./state";
 import { orbitR } from "../model/galaxy";
-import { HITCHHIKE_TRACKS, pickStopTracks, planRoute, planSystemTour, starEnd } from "../model/routes";
+import { HITCHHIKE_TRACKS, pickStopTracks, planLightYears, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
 import { renderDossier } from "../ui/dossier";
 import { decodeDossier } from "../ui/glitch";
@@ -93,7 +93,10 @@ export function next() {
       if (state.routeIdx + 1 < route.flat.length) { playRouteAt(state.routeIdx + 1); return; }
       // the end of the line: 2001 for odysseys, the Guide for hitchhikers
       state.routeIdx = -1; renderRoutePanel();
-      $("routeMeta").textContent = route.star !== undefined ? "SO LONG, AND THANKS FOR ALL THE TRACKS · AUTOPILOT RESUMES" : "MY GOD, IT'S FULL OF STARS · ODYSSEY COMPLETE, AUTOPILOT RESUMES";
+      const lastYear = galaxy.meta.years?.[1] ?? new Date().getFullYear();
+      $("routeMeta").textContent = route.years
+        ? (route.years[1] >= lastYear - 1 ? `NOW PLAYING · ${route.years[1]} · AUTOPILOT RESUMES` : `LAST TRANSMISSION · ${route.years[1]} · AUTOPILOT RESUMES`)
+        : route.star !== undefined ? "SO LONG, AND THANKS FOR ALL THE TRACKS · AUTOPILOT RESUMES" : "MY GOD, IT'S FULL OF STARS · ODYSSEY COMPLETE, AUTOPILOT RESUMES";
     } else { state.routeIdx = -1; renderRoutePanel(); }
   }
   if (state.orbit !== null) { playOrbit(state.orbit); return; }
@@ -152,6 +155,15 @@ export function startPick(i: number, kind: "planet" | "star" = "planet") {
   cam.setFollow(null); cam.fly(S.x, S.y, k, 1100);
 }
 export function endPick() { state.routePick = null; hidePickHint(); }
+/** LIGHT YEARS: a label's history from first release to last, played at once */
+export async function playLightYears(pi: number) {
+  if (galaxy.meta.sample) return;
+  const s = galaxy.planets[pi].s, ch = await tracks.load(s);
+  const r = planLightYears(galaxy, pi, ch, state.played); if (!r) return;
+  state.route = r; state.routeIdx = -1; renderRoutePanel(); state.dirty = true;
+  playRouteAt(0);
+}
+
 /** a tour round one star system, played at once */
 export async function playSystem(st: number) {
   if (galaxy.meta.sample) return;

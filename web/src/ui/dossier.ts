@@ -5,7 +5,7 @@ import { $, reduce } from "../core/dom";
 import { beacons, chunk, galaxy, isNowPlaying, state, tracks } from "../app/state";
 import { PTYPE_INFO, spanOf } from "../model/galaxy";
 import { tempoLabel } from "../model/tempo";
-import { flyToNebula, nearestTracks, playOrbit, playSystem, select, startPick, toggleBeacon, trackCode } from "../app/actions";
+import { flyToNebula, nearestTracks, playLightYears, playOrbit, playSystem, select, startPick, toggleBeacon, trackCode } from "../app/actions";
 import { sc } from "../render/palette";
 import { onFrame } from "../render/scene";
 import { drawPulsarHero, drawRadar, drawSphere, drawWave, fitCanvas, fitted } from "./scopes";
@@ -48,6 +48,7 @@ function sector() {
       <div><div class="ph-sub">HOW TO EXPLORE</div><ul class="howto">
         <li><b>Zoom</b> in: ${many ? "galaxies → " : ""}styles → labels → tracks → titles.</li>
         <li><b>Click</b> a star, planet or track to open its dossier.</li>
+        <li><b>Light years</b> on a planet: the label's story in order, one track a year from its first release to its last.</li>
         <li><b>Solaris</b> on a planet: park a station in its orbit and listen to that label, track after unheard track.</li>
         <li><b>Start an odyssey</b> from a star: 20+ tracks across five star systems.</li>
         <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 42 tracks, a new ride every time.</li>
@@ -87,9 +88,10 @@ function planet(pi: number, o: Sel) {
   const g = galaxy, p = g.planets[pi], s = g.stars[p.s], ch = chunk(p.s), ty = g.ptype[pi];
   if (!ch) tracks.load(p.s).then(() => { if (state.sel === o) renderDossier(); });
   const n = p.t1 - p.t0, shown = Math.min(n, 150), sys = g.planetsByStar[p.s], rank = sys.indexOf(pi) + 1;
-  let activity = "";
+  let activity = "", ly: [number, number] | null = null;
   if (ch && n) {
     const ys = ch.yr.slice(p.t0, p.t1).filter(Boolean);
+    if (ys.length >= 3 && !g.meta.sample) ly = [Math.min(...ys), Math.max(...ys)];
     if (ys.length) { const y0 = Math.min(...ys), cnt = new Array(Math.max(...ys) - y0 + 1).fill(0); ys.forEach((y) => cnt[y - y0]++); activity = hist(cnt, y0, "ACTIVITY PER YEAR"); }
   }
   const sd = hash(p.name) % 100;
@@ -107,6 +109,7 @@ function planet(pi: number, o: Sel) {
       <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", `<span title="${esc(planetType(pi))}">${PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : "")}</span>`)}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
       ${activity}
       ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ SOLARIS</button>` : ""}
+      ${ly ? `<button class="plot crt" data-years="${pi}"><span>⟶ LIGHT YEARS · ${ly[0]}–${ly[1]}</span></button>` : ""}
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`,
   };
@@ -173,6 +176,7 @@ export function initDossier() {
     const t = e.target as HTMLElement;
     const ps = t.closest<HTMLElement>("[data-route-star]"); if (ps) { startPick(+ps.dataset.routeStar!, "star"); return; }
     const sy = t.closest<HTMLElement>("[data-system]"); if (sy) { playSystem(+sy.dataset.system!); return; }
+    const yr = t.closest<HTMLElement>("[data-years]"); if (yr) { playLightYears(+yr.dataset.years!); return; }
     const nb = t.closest<HTMLElement>("[data-neb]"); if (nb) { flyToNebula(+nb.dataset.neb!); return; }
     const po = t.closest<HTMLElement>("[data-orbit]"); if (po) { playOrbit(+po.dataset.orbit!); return; }
     if (t.closest("[data-like]")) { if (state.sel?.kind === "track") toggleBeacon(state.sel); return; }
