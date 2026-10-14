@@ -50,7 +50,7 @@ function sector() {
         <li><b>Click</b> a star, planet or track to open its dossier.</li>
         <li><b>Play the orbit</b> on a planet: a random track from that label.</li>
         <li><b>Start an odyssey</b> from a star or a planet: 20+ tracks across five star systems.</li>
-        <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 20 tracks, a new ride every time.</li>
+        <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 42 tracks, a new ride every time.</li>
         <li><b>Wormhole</b> jumps to a random track anywhere on the map.</li>
         <li><b>Beacon</b> marks tracks you love; the BEACONS tab opens them as a YouTube playlist.</li></ul></div>
       <div class="bars"><div class="ph-sub">PLANET TYPES</div>${(Object.keys(PTYPE_INFO) as PType[]).map((k) => { const c = ptype.filter((x) => x === k).length; return meter(PTYPE_INFO[k][0], c / Math.max(1, planets.length), fmt(c)); }).join("")}<p class="note">Giants are the biggest labels, ringed worlds are long-runners (15+ years), cratered ones went quiet before 2001, ice worlds started after 2010.</p></div>

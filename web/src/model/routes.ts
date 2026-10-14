@@ -132,10 +132,22 @@ export function planSystemTour(g: Galaxy, st: number, rnd: () => number = Math.r
   return { a: stops[0], b: stops[stops.length - 1], stops, hops: [st], star: st };
 }
 
-/** random tracks for each stop of an odyssey or tour, ones not heard yet first; at least MIN_ROUTE_TRACKS overall */
-export function pickStopTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) => Chunk, heard: Set<string>, rnd: () => number = Math.random): TrackRef[][] {
-  const per = Math.max(2, Math.ceil(MIN_ROUTE_TRACKS / Math.max(1, plan.stops.length))), seen = new Set<string>();
-  return plan.stops.map((pi) => {
+/** a hitchhike round a system is 42 tracks long — the answer, of course */
+export const HITCHHIKE_TRACKS = 42;
+
+/**
+ * Random tracks for each stop of an odyssey or a hitchhike, ones not heard yet first: `total`
+ * tracks shared out as evenly as the stops allow (a small label passes its share on to the others).
+ */
+export function pickStopTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) => Chunk, heard: Set<string>, rnd: () => number = Math.random, total = MIN_ROUTE_TRACKS): TrackRef[][] {
+  const seen = new Set<string>(), avail = plan.stops.map((pi) => g.planets[pi].t1 - g.planets[pi].t0);
+  const cnt = avail.map(() => 0);
+  for (let left = total, grew = true; left > 0 && grew;) {
+    grew = false;
+    for (let k = 0; k < cnt.length && left > 0; k++) if (cnt[k] < avail[k]) { cnt[k]++; left--; grew = true; }
+  }
+  return plan.stops.map((pi, k) => {
+    const per = cnt[k];
     const p = g.planets[pi], ch = chunk(p.s), all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k);
     const fresh = all.filter((i) => !heard.has(ch.yt[i])), out: TrackRef[] = [];
     for (const src of [fresh, all]) {

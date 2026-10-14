@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { makeChunk, makeGalaxy } from "./fixtures";
 import { lcg } from "../src/core/util";
-import { MIN_ROUTE_TRACKS, pathOfLen, pickStopTracks, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
+import { HITCHHIKE_TRACKS, MIN_ROUTE_TRACKS, pathOfLen, pickStopTracks, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
 
 const g = makeGalaxy(10, 8, 6);
 const chunks = g.stars.map((_, s) => makeChunk(g, s));
@@ -92,6 +92,11 @@ describe("whole stars", () => {
     const others = [2, 3, 4, 5].map((k) => planSystemTour(g, 3, lcg(k)).stops.join());
     expect(new Set(others).size).toBeGreaterThan(1); // otherwise it changes
     expect(r.stops.map((_, k) => stopKind(g, r, k)).every((k) => k === "ORBIT")).toBe(true);
+  });
+  it("a hitchhike is 42 tracks when the labels have them", () => {
+    const r = planSystemTour(g, 3, lcg(5)), avail = r.stops.reduce((n, i) => n + g.planets[i].t1 - g.planets[i].t0, 0);
+    const t = pickStopTracks(g, r, (s) => chunks[s], new Set(), lcg(5), HITCHHIKE_TRACKS).flat();
+    expect(t.length).toBe(Math.min(HITCHHIKE_TRACKS, avail));
   });
   it("tour tracks are random, distinct and prefer unheard ones", () => {
     const r = planSystemTour(g, 3, lcg(7)), heard = new Set<string>();

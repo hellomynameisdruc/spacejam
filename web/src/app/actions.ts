@@ -5,7 +5,7 @@ import { pad } from "../core/util";
 import { $ } from "../core/dom";
 import { beacons, chunk, flightLog, galaxy, motion, state, tracks } from "./state";
 import { orbitR } from "../model/galaxy";
-import { pickStopTracks, planRoute, planSystemTour, starEnd } from "../model/routes";
+import { HITCHHIKE_TRACKS, pickStopTracks, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
 import { renderDossier } from "../ui/dossier";
 import { decodeDossier } from "../ui/glitch";
@@ -155,7 +155,7 @@ export async function playSystem(st: number) {
   if (galaxy.meta.sample) return;
   const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
   await tracks.load(st);
-  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   replaceHash(`#s${st}`);
   renderRoutePanel(); state.dirty = true;
@@ -164,7 +164,7 @@ export async function playSystem(st: number) {
 async function openSystemTour(st: number) {
   const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
   await tracks.load(st);
-  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   renderRoutePanel(); fitRoute(); state.dirty = true;
 }
