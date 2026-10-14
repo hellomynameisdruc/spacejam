@@ -61,6 +61,3 @@ if (m && +m[1] < galaxy.stars.length) tracks.load(+m[1]).then((ch) => { if (+m[2
 console.log("%c SOUND COSMOS %c © 2026 hellomynameisdruc · all rights reserved · github.com/hellomynameisdruc/spacejam",
   "background:#b8a8ff;color:#0b0716;font-weight:bold;padding:2px 4px", "color:#b8a8ff");
 
-// preview hook for picking the SOLARIS ship (removed once chosen)
-import { setShipVariant } from "./render/station";
-(window as unknown as { __ship: (v: string) => void }).__ship = setShipVariant;

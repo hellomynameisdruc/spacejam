@@ -1,4 +1,4 @@
-// SOLARIS: while a planet's orbit is playing, a small craft circles it just outside its satellites
+// SOLARIS: while a planet's orbit is playing, a small probe circles it just outside its satellites
 // and listens. It is drawn like the planets — solid phosphor, ordered dithering, dark scanlines —
 // on a tiny grid that is re-shaded every frame, so its parts can move: a dish that turns, panels
 // that tilt to the light, lights that blink. Signal pulses travel down to the planet on the beat.
@@ -28,48 +28,26 @@ const line = (x0: number, y0: number, x1: number, y1: number, v: number) => {
 };
 const lit = (u: number, v: number, base = 1) => base * Math.max(0.18, Math.min(1, 0.62 - u * 0.38 - v * 0.3)); // light from the upper left
 
-/** the craft, drawn into the grid for time t (ms); faces left (its dish/front toward the planet) */
-const CRAFTS: Record<string, (t: number) => void> = {
-  // a deep-space probe: big dish, instrument bus, long boom, power arm — the dish turns slowly
-  probe: (t) => {
-    const turn = Math.sin(t / 2600) * 0.5, rx = 3 + 4.2 * Math.cos(turn);
-    line(16, 14, 42, 6, 0.75); rect(40, 4, 43, 7, (x, y) => lit((x - 41) / 2, (y - 5) / 2)); // boom and its sensor
-    line(18, 17, 10, 26, 0.6); rect(8, 24, 11, 27, (x, y) => lit((x - 9) / 2, (y - 25) / 2, 0.85)); // power arm
-    rect(16, 10, 23, 18, (x, y) => ((x + y) % 3 === 0 ? -1 : lit((x - 19) / 4, (y - 14) / 4, 0.8))); // bus, foil panels
-    ellipse(12, 14, rx, 10, (u, v) => (u * u + v * v > 0.8 ? 0.95 : lit(-u, v, 0.75))); // the dish, rim bright, bowl in shade
-    line(12, 14, 4 - 3 * Math.cos(turn), 14, 0.9); // feed horn
-    grid.light.push([42, 5, Math.floor(t / 700) % 2 ? "#ff4d6d" : ""]);
-  },
-  // a satellite: drum body with bands that roll past, two wings of cells that tilt to the sun
-  satellite: (t) => {
-    const tilt = Math.cos(t / 3200), h = Math.max(1, Math.round(7 * Math.abs(tilt))), back = tilt < 0;
-    const wing = (x0: number, x1: number) => rect(x0, 14 - h, x1, 14 + h, (x, y) => (x % 4 === 0 || (y - 14) % 3 === 0 ? -1 : back ? 0.32 : lit((x - 22) / 22, (y - 14) / 8, 0.95)));
-    wing(1, 14); wing(30, 43);
-    line(14, 14, 18, 14, 0.8); line(26, 14, 30, 14, 0.8); // arms
-    const roll = Math.floor(t / 160);
-    rect(18, 6, 26, 22, (x, y) => ((y + roll) % 4 === 0 ? -1 : lit((x - 22) / 5, (y - 14) / 9))); // body
-    ellipse(22, 5, 4, 1.5, (u) => lit(u, -0.5)); ellipse(22, 23, 4, 1.5, (u) => lit(u, 0.5, 0.6)); // caps
-    line(22, 3, 22, 0, 0.9); // antenna
-    grid.light.push([22, 0, Math.floor(t / 500) % 3 === 0 ? "#ff4d6d" : ""]);
-  },
-  // a station: modules in a cross round a node, long panels that turn, docking lights in turn
-  station: (t) => {
-    const tilt = Math.cos(t / 3600), h = Math.max(1, Math.round(4 * Math.abs(tilt))), back = tilt < 0;
-    const panel = (x0: number, x1: number, cy: number) => rect(x0, cy - h, x1, cy + h, (x, y) => ((x - x0) % 3 === 2 ? -1 : back ? 0.3 : lit((x - 22) / 22, (y - cy) / 6, 0.95)));
-    line(2, 14, 42, 14, 0.7); // truss
-    panel(1, 9, 8); panel(1, 9, 20); panel(35, 43, 8); panel(35, 43, 20);
-    line(5, 8, 5, 20, 0.6); line(39, 8, 39, 20, 0.6);
-    rect(12, 12, 32, 16, (x, y) => (x % 5 === 0 ? -1 : lit((x - 22) / 10, (y - 14) / 2))); // main module
-    rect(20, 3, 24, 25, (x, y) => (y % 5 === 0 ? -1 : lit((x - 22) / 2, (y - 14) / 11))); // cross module
-    ellipse(22, 14, 3.5, 3.5, (u, v) => lit(u, v)); // node
-    const k = Math.floor(t / 400) % 4, ends: [number, number][] = [[12, 14], [32, 14], [22, 3], [22, 25]];
-    grid.light.push([ends[k][0], ends[k][1], "#ff4d6d"]);
-  },
-};
-
-/** the craft on the map (one of CRAFTS) */
-export let shipVariant = "probe";
-export const setShipVariant = (v: string) => { if (CRAFTS[v]) shipVariant = v; };
+/**
+ * The probe, drawn into the grid for time t (ms), facing left (its dish toward the planet): a big
+ * dish that slowly swings, an instrument bus with two wings of solar cells that tilt to the light,
+ * a long sensor boom with a blinking tip and a power arm. Everything moves slowly.
+ */
+function probe(t: number) {
+  const swing = Math.sin(t / 9000) * 0.45, rx = 3.2 + 4 * Math.cos(swing); // the dish turns on its mount
+  const tilt = Math.cos(t / 11000), pw = Math.max(0.6, 2.6 * Math.abs(tilt)), back = tilt < 0;
+  // solar wings above and below the bus, cell seams every third row; the back side is dull
+  const wing = (y0: number, y1: number) => rect(19.5 - pw, y0, 19.5 + pw, y1, (x, y) => ((y - y0) % 3 === 2 ? -1 : back ? 0.3 : lit((x - 19) / 6, (y - 14) / 14, 0.95)));
+  line(19.5, 9, 19.5, 7, 0.7); line(19.5, 19, 19.5, 21, 0.7); // wing masts
+  wing(0, 6); wing(22, 27);
+  line(23, 14, 42, 7, 0.75); rect(40, 5, 43, 8, (x, y) => lit((x - 41) / 2, (y - 6) / 2)); // boom and its sensor
+  line(17, 18, 10, 26, 0.6); rect(8, 24, 11, 27, (x, y) => lit((x - 9) / 2, (y - 25) / 2, 0.85)); // power arm
+  rect(16, 10, 23, 18, (x, y) => ((x + y) % 3 === 0 ? -1 : lit((x - 19) / 4, (y - 14) / 4, 0.8))); // bus, foil panels
+  // the dish, its edge softened by coverage so the swing reads smoothly in the dither
+  ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.75)) * edge; });
+  line(11, 14, 3 - 3 * Math.cos(swing), 14, 0.9); // feed horn
+  grid.light.push([42, 6, Math.floor(t / 900) % 2 ? "#ff4d6d" : ""]);
+}
 
 let canvas: HTMLCanvasElement | null = null;
 /** shade the grid into a canvas: `px` device pixels per cell, dithered per device pixel */
@@ -98,7 +76,7 @@ function render(si: number, px: number, mirror: boolean) {
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
   const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y);
-  const R = Math.max(orbitR(pl) * cam.s + 22, pl.r * cam.s + 40), a = (t / 16000) * Math.PI * 2;
+  const R = Math.max(orbitR(pl) * cam.s + 22, pl.r * cam.s + 40), a = (t / 42000) * Math.PI * 2; // one slow lap in ~40 s
   const x = c.x + Math.cos(a) * R, y = c.y + Math.sin(a) * R * 0.92;
   if (x < -90 || y < -90 || x > cam.W + 90 || y > cam.H + 90) return;
   const { bar } = pulseOf(pl.s, t), col = (al: number) => sc(pl.s, al);
@@ -115,10 +93,9 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
     ctx.strokeStyle = col(0.75 * (1 - f)); ctx.beginPath(); ctx.arc(px0, py0, rr, Math.atan2(uy, ux) - 0.9, Math.atan2(uy, ux) + 0.9); ctx.stroke();
   }
 
-  (window as unknown as { __shipXY: number[] }).__shipXY = [x, y]; // DEBUG
   // the craft: re-shaded every frame, its front toward the planet
   grid.tone.fill(0); grid.light.length = 0;
-  CRAFTS[shipVariant](t);
+  probe(t);
   const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, c.x > x);
   const scale = cam.s > 2 ? 1.25 : 1, w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h / 2), w, h); ctx.restore();
