@@ -165,7 +165,8 @@ def test_browser_script_has_the_same_sectors():
     assert "KEEP_GENRES = " + json.dumps(K.keep_genres()).replace('","', '", "') in body
 
 
-def test_sectors_become_galaxies():
+def test_sectors_become_galaxies(monkeypatch):
+    monkeypatch.setattr(B.C, "MIN_NEIGHBOUR_RELEASES", 0)  # Tech House rides along as a neighbour here
     sectors = [{"id": "house", "name": "House", "genres": ["Electronic"], "styles": ["House", "Deep House"]},
                {"id": "techno", "name": "Techno", "genres": ["Electronic"], "styles": ["Techno", "Minimal"]}]
     ids = iter(range(10**9))
@@ -189,3 +190,11 @@ def test_sectors_become_galaxies():
 
 def rel_(styles, label, year, ids):
     return rel(styles, label, year, ids=ids)
+
+
+def test_neighbour_styles_need_more_releases():
+    rel = [{"styles": ["House"]}] * 5 + [{"styles": ["House", "Pop Rock"]}] * 3 + [{"styles": ["Juke"]}] * 2
+    _, stars = B.style_counts(rel, 2, core={"House", "Juke"}, min_neighbour=4)
+    assert stars == ["House", "Juke"]
+    _, stars = B.style_counts(rel, 2)
+    assert set(stars) == {"House", "Pop Rock", "Juke"}

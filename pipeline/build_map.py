@@ -45,11 +45,14 @@ def load(path):
 
 
 # ---------- styles ----------
-def style_counts(rel, min_style):
-    """Releases per style, and the styles big enough to become stars (most common first)."""
+def style_counts(rel, min_style, core=None, min_neighbour=0):
+    """Releases per style, and the styles big enough to become stars (most common first).
+    With `core` (the galaxies' own styles), any other style that rides along on their releases
+    (rock, pop, jazz…) needs `min_neighbour` releases, so the map stays electronic at heart."""
     # dict.fromkeys de-duplicates in a fixed order (a set's order changes between runs)
     style_n = Counter(s for r in rel for s in dict.fromkeys(r["styles"]))
-    stars = [s for s, n in style_n.most_common() if n >= min_style]
+    stars = [s for s, n in style_n.most_common()
+             if n >= min_style and (core is None or s in core or n >= min_neighbour)]
     return style_n, stars
 
 
@@ -484,7 +487,8 @@ def build(rel, min_style, min_label, sample=False, sectors=None):
     """Catalogue releases → (map.json content, track chunks, artist index). Stars are grouped into
     galaxies by sector (see star_galaxies)."""
     sectors = sectors or []
-    style_n, stars = style_counts(rel, min_style)
+    core = {st for sec in sectors for st in sec["styles"]} if sectors else None
+    style_n, stars = style_counts(rel, min_style, core, max(min_style, C.MIN_NEIGHBOUR_RELEASES))
     weight = style_links(rel, stars, style_n)
     y0, y1, year_hist = year_histograms(rel, stars)
     gal, gids = star_galaxies(rel, stars, sectors)

@@ -42,6 +42,11 @@ const BY_NAME: Record<string, Tempo> = {
   "Illbient": null, "New Age": null, "Modern Classical": null, "Soundtrack": null, "Field Recording": null,
   "Avantgarde": null, "Instrumental": null, "Folk": null, "Indie Pop": null, "Indie Rock": null,
   "Alternative Rock": null, "Post Rock": null, "Psychedelic Rock": null, "Black Metal": null,
+  // electro, wave, bass, hard and the rest of the 13 galaxies
+  "Electroclash": T(120, 130), "Coldwave": T(110, 135), "Post-Punk": T(120, 150), "Goth Rock": T(110, 140),
+  "Punk": T(150, 190), "Juke": T(155, 165), "Speedcore": T(250, 350), "Jumpstyle": T(140, 150),
+  "Balearic": T(100, 120), "Trap": T(130, 150), "Krautrock": null, "Art Rock": null, "Lo-Fi": null,
+  "Power Electronics": null, "Musique Concrète": null,
 };
 
 const BY_WORD: [RegExp, Tempo][] = [

@@ -8,7 +8,9 @@ WEB_DATA_DIR = ROOT / "web" / "public" / "data"  # те, що читає сай�
 # Sectors (which genres and styles each map takes) live in sectors.json
 
 # Releases a style needs to become a star
-MIN_STYLE_RELEASES = 1500
+MIN_STYLE_RELEASES = 900
+# ...and a style that is not one of the galaxies' own (rock, pop, jazz riding along on their releases)
+MIN_NEIGHBOUR_RELEASES = 2500
 # Скільки релізів має бути в лейбла, щоб він став планетою (менші йдуть у пояс астероїдів)
 MIN_LABEL_RELEASES = 6
 # Максимум треків довкола однієї планети (щоб гіганти не з'їли простір)
