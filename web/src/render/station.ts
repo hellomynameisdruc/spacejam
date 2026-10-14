@@ -127,5 +127,5 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   ctx.strokeStyle = col(0.6); ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(x + (left ? -1 : 1) * w * 0.3, y - h * 0.3); ctx.lineTo(lx, ly); ctx.lineTo(lx + (left ? -46 : 46), ly); ctx.stroke();
   ctx.fillStyle = col(0.9); ctx.font = `9px ${FONT_LBL}`; ctx.textAlign = left ? "right" : "left";
-  ctx.fillText("SOLARIS · LISTENING", lx + (left ? -2 : 2), ly - 3);
+  ctx.fillText("SOLARIS STATION · LISTENING", lx + (left ? -2 : 2), ly - 3);
 }

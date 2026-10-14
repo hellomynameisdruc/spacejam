@@ -49,7 +49,7 @@ function sector() {
         <li><b>Zoom</b> in: ${many ? "galaxies → " : ""}styles → labels → tracks → titles.</li>
         <li><b>Click</b> a star, planet or track to open its dossier.</li>
         <li><b>Time warp</b> on a planet: the label's story in order, one track a year from its first release to its last.</li>
-        <li><b>Solaris</b> on a planet: park a station in its orbit and listen to that label, track after unheard track.</li>
+        <li><b>Solaris station</b> on a planet: park a radio station in its orbit and listen to that label, track after unheard track.</li>
         <li><b>Start an odyssey</b> from a star: 20+ tracks across five star systems.</li>
         <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 42 tracks, a new ride every time.</li>
         <li><b>Wormhole</b> jumps to a random track anywhere on the map.</li>
@@ -108,7 +108,7 @@ function planet(pi: number, o: Sel) {
         <div class="ident"><span class="code">PL-${pad(pi, 4)} // LABEL</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
       <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", `<span title="${esc(planetType(pi))}">${PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : "")}</span>`)}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
       ${activity}
-      ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ SOLARIS</button>` : ""}
+      ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ SOLARIS STATION</button>` : ""}
       ${ly ? `<button class="plot crt" data-years="${pi}"><span>⟶ TIME WARP · ${ly[0]}–${ly[1]}</span></button>` : ""}
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`,

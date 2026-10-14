@@ -421,3 +421,6 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 /* No scrollbars anywhere: lists and panels still scroll with the wheel, a finger or the keys */
 * { scrollbar-width: none !important; -ms-overflow-style: none }
 *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important }
+/* the player's header stays on one line: ON AIR and the mode tag never wrap */
+.dock-head .dock-k, .dock-ody { white-space: nowrap }
+.dock-ody { letter-spacing: .06em; min-width: 0; overflow: hidden; text-overflow: clip }
