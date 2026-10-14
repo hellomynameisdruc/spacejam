@@ -1,41 +1,73 @@
-// SOLARIS: while a planet's orbit is playing, a small wireframe ship circles it just outside its
-// satellites, turning slowly on its long axis like a schematic on a diagnostic screen. A listening
-// dish leads the way, a ring of antennae turns round the hull, and a faint beam reaches down to the
-// planet on the beat. Drawn as phosphor lines in the system's colour, like the rest of the map.
-import { FONT_LBL, sc } from "./palette";
+// SOLARIS: while a planet's orbit is playing, a small pixel ship circles it just outside its
+// satellites, drawn like the planets: solid phosphor, dithered shading, dark scanlines. A faint
+// beam reaches down to the planet on the beat and the engines flicker.
+import { BG, FONT_LBL, sc } from "./palette";
 import { galaxy, motion, state } from "../app/state";
 import { orbitR } from "../model/galaxy";
 import { cam, LOD_PLANETS } from "./camera";
 import { pulseOf } from "./pulsar";
 
-type V3 = [number, number, number];
+// # hull · + half-tone · - quarter-tone · o window · e engine · . empty. Noses point right.
+const SHIPS: Record<string, string[]> = {
+  cruiser: [
+    ".....###.............",
+    "...##+++##...........",
+    "..#++---++#####......",
+    "e##+++++++++++####...",
+    "ee#+o+o+o++++++++###.",
+    "e##+++++++++++####...",
+    "..#++---++#####......",
+    "...##+++##...........",
+    ".....###.............",
+  ],
+  rocket: [
+    "....##.........",
+    "....#+#........",
+    "e..##-+###.....",
+    "ee#+++++++####.",
+    "ee#+o+o+++++++#",
+    "ee#+++++++####.",
+    "e..##-+###.....",
+    "....#+#........",
+    "....##.........",
+  ],
+  saucer: [
+    ".....#####.....",
+    "....#ooooo#....",
+    "..###########..",
+    ".#+-+-+-+-+-+#.",
+    "###############",
+    ".#++++++++++++.",
+    "...e...e...e...",
+  ],
+};
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
-/** the ship as points and edges, nose along +x, length about 1 */
-const SHIP = (() => {
-  const pts: V3[] = [], edges: [number, number][] = [];
-  const ring = (x: number, r: number, n: number, twist = 0) => {
-    const first = pts.length;
-    for (let k = 0; k < n; k++) { const a = twist + (k / n) * Math.PI * 2; pts.push([x, Math.cos(a) * r, Math.sin(a) * r]); }
-    for (let k = 0; k < n; k++) edges.push([first + k, first + ((k + 1) % n)]);
-    return first;
-  };
-  const join = (a: number, b: number, n: number) => { for (let k = 0; k < n; k++) edges.push([a + k, b + k]); };
-  // tapered hull: tail spike to the shoulders, six-sided
-  const tail = pts.length; pts.push([-0.55, 0, 0]);
-  const hull = [ring(-0.36, 0.035, 6), ring(-0.12, 0.06, 6), ring(0.12, 0.075, 6), ring(0.26, 0.09, 6)];
-  for (let k = 0; k < 6; k++) edges.push([tail, hull[0] + k]);
-  for (let j = 1; j < hull.length; j++) join(hull[j - 1], hull[j], 6);
-  // the listening dish: flares out at the bow, a shallow cone with a feed spike
-  const lip = ring(0.38, 0.24, 12, Math.PI / 12), rim = ring(0.43, 0.27, 12, Math.PI / 12);
-  for (let k = 0; k < 6; k++) edges.push([hull[3] + k, lip + 2 * k]);
-  join(lip, rim, 12);
-  const feed = pts.length; pts.push([0.62, 0, 0]);
-  for (let k = 0; k < 12; k += 3) edges.push([rim + k, feed]);
-  // antenna ring amidships on four struts
-  const ant = ring(-0.02, 0.17, 8, Math.PI / 8), core = ring(-0.02, 0.068, 4, Math.PI / 8);
-  for (let k = 0; k < 4; k++) edges.push([core + k, ant + 2 * k]);
-  return { pts, edges, tail };
-})();
+/** the variant on the map (picked from three; see SHIPS) */
+export let shipVariant = "cruiser";
+export const setShipVariant = (v: string) => { if (SHIPS[v]) shipVariant = v; };
+
+const cache = new Map<string, HTMLCanvasElement>();
+/** the ship as a crisp sprite in a system's colour: cells of `px` device pixels */
+function sprite(si: number, px: number, flick: boolean) {
+  const key = `${shipVariant}|${si}|${px}|${flick}`; let c = cache.get(key); if (c) return c;
+  const rows = SHIPS[shipVariant], w = rows[0].length, h = rows.length;
+  c = document.createElement("canvas"); c.width = w * px; c.height = h * px;
+  const g = c.getContext("2d")!;
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === ".") return;
+    for (let sy = 0; sy < px; sy++) for (let sx = 0; sx < px; sx++) {
+      const X = x * px + sx, Y = y * px + sy, b = BAYER[(Y % 4) * 4 + (X % 4)] / 16, scan = Y % 3 === 2;
+      let fill: string | null;
+      if (ch === "o") fill = BG;
+      else if (ch === "e") fill = flick ? (b < 0.6 ? "#ff8a3d" : "#ff4d6d") : (b < 0.35 ? "#ff4d6d" : null);
+      else { const tone = ch === "#" ? 1 : ch === "+" ? 0.55 : 0.3; fill = b < tone ? sc(si, scan ? 0.55 : 1) : null; }
+      if (fill) { g.fillStyle = fill; g.fillRect(X, Y, 1, 1); }
+    }
+  }));
+  if (cache.size > 200) cache.clear();
+  cache.set(key, c); return c;
+}
 
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
@@ -52,31 +84,17 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   ctx.strokeStyle = col(0.2 + 0.35 * (1 - bar));
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(c.x - dx / dl * pr, c.y - dy / dl * pr); ctx.stroke();
 
-  // the ship: roll on its axis, a fixed three-quarter tilt, nose along the orbit
-  const L = Math.max(28, Math.min(56, 18 + cam.s * 13)), roll = t / 2600, tilt = 0.55;
-  const head = a + Math.PI / 2, ch = Math.cos(head), shd = Math.sin(head);
-  const cr = Math.cos(roll), sr = Math.sin(roll), ct = Math.cos(tilt), st = Math.sin(tilt);
-  const P = SHIP.pts.map(([px, py, pz]) => {
-    const y1 = py * cr - pz * sr, z1 = py * sr + pz * cr; // roll about the long axis
-    const x2 = px * ct + z1 * st, z2 = -px * st + z1 * ct; // tilt toward the viewer
-    return { sx: x + (x2 * ch - y1 * shd) * L, sy: y + (x2 * shd + y1 * ch) * L * 0.92, z: z2 };
-  });
-  ctx.lineCap = "round";
-  for (const [w, al] of [[2.6, 0.16], [1, 0.95]] as const) { // a soft phosphor glow, then the line
-    ctx.lineWidth = w;
-    for (const [i, j] of SHIP.edges) {
-      const A = P[i], B = P[j], depth = (A.z + B.z) / 2; // edges at the back are dimmer
-      ctx.strokeStyle = col(al * (0.55 + 0.45 * Math.max(0, Math.min(1, 0.5 - depth * 2))));
-      ctx.beginPath(); ctx.moveTo(A.sx, A.sy); ctx.lineTo(B.sx, B.sy); ctx.stroke();
-    }
-  }
-  // tail beacon on the beat
-  if (bar > 0.7) { const T = P[SHIP.tail]; ctx.fillStyle = "#ff4d6d"; ctx.fillRect(Math.round(T.sx) - 1, Math.round(T.sy) - 1, 3, 3); }
+  // the ship stays level and crisp, like pixel art should: it only turns to face the way it flies
+  const px = Math.max(2, Math.min(3, Math.round(cam.DPR * (cam.s > 2 ? 1.5 : 1.1))));
+  const sp = sprite(pl.s, px, Math.floor(t / 90) % 2 === 0), w = sp.width / cam.DPR, h = sp.height / cam.DPR;
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(x), Math.round(y));
+  if (shipVariant !== "saucer" && -Math.sin(a) < 0) ctx.scale(-1, 1); // moving left: face left
+  ctx.drawImage(sp, -w / 2, -h / 2, w, h); ctx.restore();
 
   // a schematic call-out, like a diagnostic screen
-  const lx = x + (x < c.x ? -1 : 1) * (L * 0.55 + 18), ly = y - L * 0.45 - 6;
+  const left = x < c.x, lx = x + (left ? -1 : 1) * (w * 0.5 + 14), ly = y - h - 10;
   ctx.strokeStyle = col(0.6); ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(x, y - L * 0.12); ctx.lineTo(lx, ly); ctx.lineTo(lx + (x < c.x ? -46 : 46), ly); ctx.stroke();
-  ctx.fillStyle = col(0.9); ctx.font = `9px ${FONT_LBL}`; ctx.textAlign = x < c.x ? "right" : "left";
-  ctx.fillText("SOLARIS · LISTENING", lx + (x < c.x ? -2 : 2), ly - 3);
+  ctx.beginPath(); ctx.moveTo(x, y - h * 0.4); ctx.lineTo(lx, ly); ctx.lineTo(lx + (left ? -46 : 46), ly); ctx.stroke();
+  ctx.fillStyle = col(0.9); ctx.font = `9px ${FONT_LBL}`; ctx.textAlign = left ? "right" : "left";
+  ctx.fillText("SOLARIS · LISTENING", lx + (left ? -2 : 2), ly - 3);
 }
