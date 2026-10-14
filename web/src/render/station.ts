@@ -9,7 +9,7 @@ import { cam, LOD_PLANETS, LOD_TRACKS } from "./camera";
 import { pulseOf } from "./pulsar";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const GW = 44, GH = 40, OY = 6; // the craft's grid, in cells; drawing coordinates sit OY cells down
+const GW = 44, GH = 52, OY = 12; // the craft's grid, in cells; drawing coordinates sit OY cells down
 type Grid = { tone: Float32Array; light: [number, number, string][] };
 const grid: Grid = { tone: new Float32Array(GW * GH), light: [] };
 // tone > 0: lit share of the cell's dither (0…1); -1: a dark cell (shadow, window, panel seam)
@@ -30,23 +30,20 @@ const lit = (u: number, v: number, base = 1) => base * Math.max(0.18, Math.min(1
 
 /**
  * The probe, drawn into the grid for time t (ms), facing left (its dish toward the planet): a big
- * dish that slowly swings, an instrument bus with two wings of solar cells that tilt to the light,
- * a long sensor boom with a blinking tip and a power arm. Everything moves slowly.
+ * dish that slowly swings, a small bus with two big wings of solar cells that tilt to the light and
+ * a sensor boom with a blinking tip. Kept simple, so it reads like the planets, not like a drawing.
  */
 function probe(t: number) {
   const swing = Math.sin(t / 9000) * 0.45, rx = 3.2 + 4 * Math.cos(swing); // the dish turns on its mount
-  const tilt = Math.cos(t / 11000), pw = Math.max(0.8, 4 * Math.abs(tilt)), back = tilt < 0;
-  // solar wings above and below the bus, cell seams every third row; the back side is dull
-  const wing = (y0: number, y1: number) => rect(19.5 - pw, y0, 19.5 + pw, y1, (x, y) => ((y - y0) % 3 === 2 ? -1 : back ? 0.3 : lit((x - 19) / 6, (y - 14) / 14, 0.95)));
-  line(19.5, 9, 19.5, 6, 0.7); line(19.5, 19, 19.5, 22, 0.7); // wing masts
-  wing(-6, 5); wing(23, 33);
-  line(23, 14, 42, 7, 0.75); rect(40, 5, 43, 8, (x, y) => lit((x - 41) / 2, (y - 6) / 2)); // boom and its sensor
-  line(17, 18, 10, 26, 0.6); rect(8, 24, 11, 27, (x, y) => lit((x - 9) / 2, (y - 25) / 2, 0.85)); // power arm
-  rect(16, 10, 23, 18, (x, y) => ((x + y) % 3 === 0 ? -1 : lit((x - 19) / 4, (y - 14) / 4, 0.8))); // bus, foil panels
-  // the dish, its edge softened by coverage so the swing reads smoothly in the dither
-  ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.75)) * edge; });
-  line(11, 14, 3 - 3 * Math.cos(swing), 14, 0.9); // feed horn
-  grid.light.push([42, 6 + OY, Math.floor(t / 900) % 2 ? "#ff4d6d" : ""]);
+  const tilt = Math.cos(t / 11000), pw = Math.max(1, 5.5 * Math.abs(tilt)), back = tilt < 0;
+  // two big solar wings above and below the bus, a seam every fourth row; the back side is dull
+  const wing = (y0: number, y1: number) => rect(19.5 - pw, y0, 19.5 + pw, y1, (x, y) => ((y - y0) % 4 === 3 ? -1 : back ? 0.3 : lit((x - 19) / 8, (y - 14) / 20, 0.95)));
+  line(19.5, 10, 19.5, 6, 0.7); line(19.5, 18, 19.5, 22, 0.7); // wing masts
+  wing(-11, 5); wing(23, 39);
+  line(23, 14, 38, 9, 0.7); // sensor boom
+  rect(16, 10, 23, 18, (x, y) => lit((x - 19) / 4, (y - 14) / 4, 0.8)); // bus
+  ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.7)) * edge; }); // dish
+  grid.light.push([38, 9 + OY, Math.floor(t / 900) % 2 ? "#ff4d6d" : ""]);
 }
 
 let canvas: HTMLCanvasElement | null = null;
@@ -71,8 +68,8 @@ function render(si: number, px: number, theta: number) {
     for (let sy = 0; sy < px; sy++) for (let sx = 0; sx < px; sx++) {
       const X = cx * px + sx, Y = cy * px + sy, k = (Y * W + X) * 4;
       if (v < 0) { d[k] = br; d[k + 1] = bgg; d[k + 2] = bb; d[k + 3] = 255; continue; }
-      if (BAYER[(Y % 4) * 4 + (X % 4)] / 16 >= v) continue;
-      d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = Y % 3 === 2 ? 140 : 255;
+      if (BAYER[(cy % 4) * 4 + (cx % 4)] / 16 >= v) continue; // one dither step per cell, chunky like the planets
+      d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = cy % 3 === 2 ? 140 : 255;
     }
   }
   g.putImageData(img, 0, 0);
