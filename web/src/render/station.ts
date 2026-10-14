@@ -50,26 +50,37 @@ function probe(t: number) {
 }
 
 let canvas: HTMLCanvasElement | null = null;
-/** shade the grid into a canvas: `px` device pixels per cell, dithered per device pixel */
-function render(si: number, px: number, mirror: boolean) {
-  const W = GW * px, H = GH * px;
+const D = Math.ceil(Math.hypot(GW, GH)) + 2; // the turned grid fits any angle
+/**
+ * Shade the probe into a canvas turned by `theta` (radians): every screen cell looks up the probe
+ * cell under it, then gets its own dither and scanline, so the craft turns smoothly and stays crisp
+ * (turning finished pixel art would smear it). `px` device pixels per cell.
+ */
+function render(si: number, px: number, theta: number) {
+  const W = D * px;
   if (!canvas) canvas = document.createElement("canvas");
-  if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
-  const g = canvas.getContext("2d")!, img = g.createImageData(W, H), d = img.data, [r, gg, b] = SC[si];
+  if (canvas.width !== W) { canvas.width = W; canvas.height = W; }
+  const g = canvas.getContext("2d")!, img = g.createImageData(W, W), d = img.data, [r, gg, b] = SC[si];
   const bg = BG.replace("#", ""), br = parseInt(bg.slice(0, 2), 16), bgg = parseInt(bg.slice(2, 4), 16), bb = parseInt(bg.slice(4, 6), 16);
-  for (let cy = 0; cy < GH; cy++) for (let cx = 0; cx < GW; cx++) {
-    const v = grid.tone[cy * GW + cx]; if (!v) continue;
-    const ox = (mirror ? GW - 1 - cx : cx) * px;
+  const co = Math.cos(-theta), sn = Math.sin(-theta), h = D / 2;
+  for (let cy = 0; cy < D; cy++) for (let cx = 0; cx < D; cx++) {
+    const ux = cx + 0.5 - h, uy = cy + 0.5 - h;
+    const mx = Math.floor(ux * co - uy * sn + GW / 2), my = Math.floor(ux * sn + uy * co + GH / 2);
+    if (mx < 0 || my < 0 || mx >= GW || my >= GH) continue;
+    const v = grid.tone[my * GW + mx]; if (!v) continue;
     for (let sy = 0; sy < px; sy++) for (let sx = 0; sx < px; sx++) {
-      const X = ox + sx, Y = cy * px + sy, k = (Y * W + X) * 4;
+      const X = cx * px + sx, Y = cy * px + sy, k = (Y * W + X) * 4;
       if (v < 0) { d[k] = br; d[k + 1] = bgg; d[k + 2] = bb; d[k + 3] = 255; continue; }
       if (BAYER[(Y % 4) * 4 + (X % 4)] / 16 >= v) continue;
-      const scan = Y % 3 === 2 ? 0.55 : 1;
-      d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = Math.round(255 * scan);
+      d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = Y % 3 === 2 ? 140 : 255;
     }
   }
   g.putImageData(img, 0, 0);
-  for (const [x, y, c] of grid.light) if (c) { g.fillStyle = c; g.fillRect((mirror ? GW - 1 - x : x) * px - px, y * px - px, px * 3, px * 3); }
+  const ci = Math.cos(theta), si2 = Math.sin(theta);
+  for (const [x, y, c] of grid.light) if (c) {
+    const lx = x + 0.5 - GW / 2, ly = y + 0.5 - GH / 2, X = Math.floor(lx * ci - ly * si2 + h), Y = Math.floor(lx * si2 + ly * ci + h);
+    g.fillStyle = c; g.fillRect((X - 1) * px, (Y - 1) * px, px * 3, px * 3);
+  }
   return canvas;
 }
 
@@ -96,7 +107,8 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   // the craft: re-shaded every frame, its front toward the planet
   grid.tone.fill(0); grid.light.length = 0;
   probe(t);
-  const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, c.x > x);
+  // the dish (the model's left side) keeps facing the planet all the way round
+  const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, Math.atan2(c.y - y, c.x - x) - Math.PI);
   const scale = cam.s > 2 ? 1.25 : 1, w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h / 2), w, h); ctx.restore();
 
