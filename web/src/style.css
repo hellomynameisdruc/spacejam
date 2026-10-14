@@ -417,3 +417,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 }
 .route-hint .deny { color: #ff4d6d; text-shadow: 0 0 6px rgb(255 77 109 / .6) }
 .rt .t i { font-style: normal; color: var(--acc); margin-right: 2px }
+
+/* No scrollbars anywhere: lists and panels still scroll with the wheel, a finger or the keys */
+* { scrollbar-width: none !important; -ms-overflow-style: none }
+*::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important }
