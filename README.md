@@ -10,7 +10,7 @@
 
 <p align="center">
   <b>Galaxies are genres · stars are styles · planets are labels · satellites are tracks.</b><br>
-  Fly through 1.6 million tracks of electronic music, from whole genres down to a single record, and listen as you go.
+  Fly through 2.1 million tracks of electronic music, from whole genres down to a single record, and listen as you go.
 </p>
 
 <p align="center">
@@ -23,10 +23,10 @@
 
 | Galaxies | Stars | Planets | Satellites | Releases | Years |
 |:-:|:-:|:-:|:-:|:-:|:-:|
-| **6** | **113** | **15,773** | **1,675,933** | **893,570** | **1980–2026** |
+| **13** | **128** | **20,488** | **2,115,206** | **1,143,694** | **1980–2026** |
 | genres | styles | labels | tracks | from Discogs | of music |
 
-House · Techno · Disco · Trance · Drum n Bass · Ambient
+House · Techno · Disco · Trance · Drum n Bass · Ambient · Downtempo · Experimental · Electro · Synth & Wave · UK Bass · Hardcore · Eurodance
 
 ## What is out there
 
@@ -128,7 +128,7 @@ Every push runs types, lint (ESLint, ruff) and tests for the site and the pipeli
 - [ ] Accounts: beacons and flight log synced between devices, public beacon collections
 - [ ] Search by track title
 - [ ] Live-video checks, so dead satellites go dark
-- [ ] New galaxies: Electro, Synth-pop, Bass
+- [x] New galaxies: Downtempo, Experimental, Electro, Synth & Wave, UK Bass, Hardcore, Eurodance
 - [ ] A fresh map every month, straight from the new Discogs dump
 - [ ] Its own domain
 
