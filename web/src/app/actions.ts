@@ -91,7 +91,9 @@ export function next() {
     const cur = route.flat[state.routeIdx];
     if (cur && cur.s === np.s && cur.i === np.i) {
       if (state.routeIdx + 1 < route.flat.length) { playRouteAt(state.routeIdx + 1); return; }
-      state.routeIdx = -1; renderRoutePanel(); $("routeMeta").textContent = "ODYSSEY COMPLETE · AUTOPILOT RESUMES";
+      // the end of the line: 2001 for odysseys, the Guide for hitchhikers
+      state.routeIdx = -1; renderRoutePanel();
+      $("routeMeta").textContent = route.star !== undefined ? "SO LONG, AND THANKS FOR ALL THE TRACKS · AUTOPILOT RESUMES" : "MY GOD, IT'S FULL OF STARS · ODYSSEY COMPLETE, AUTOPILOT RESUMES";
     } else { state.routeIdx = -1; renderRoutePanel(); }
   }
   if (state.orbit !== null) { playOrbit(state.orbit); return; }

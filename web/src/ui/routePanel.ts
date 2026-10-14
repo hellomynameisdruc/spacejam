@@ -17,8 +17,9 @@ let denyT = 0, pickText = "";
 /** a click inside the origin's own system: say so in the hint for a moment */
 export function denyPick(starName: string) {
   const el = $("routeHintText"); if (!denyT) pickText = el.innerHTML;
-  el.innerHTML = `<b class="deny">✕ ${esc(starName.toUpperCase())}</b> IS WHERE THE ODYSSEY STARTS · PICK ANOTHER SYSTEM`;
-  clearTimeout(denyT); denyT = window.setTimeout(() => { el.innerHTML = pickText; denyT = 0; }, 1800);
+  // HAL 9000 keeps the pod bay doors shut
+  el.innerHTML = `<b class="deny">✕ I'M SORRY, DAVE. I'M AFRAID I CAN'T DO THAT.</b> ${esc(starName.toUpperCase())} IS WHERE THE ODYSSEY STARTS`;
+  clearTimeout(denyT); denyT = window.setTimeout(() => { el.innerHTML = pickText; denyT = 0; }, 2800);
 }
 
 /** width the panel takes on wide screens, so the camera can keep the route clear of it */
