@@ -13,10 +13,11 @@ import re
 import time
 import xml.etree.ElementTree as ET
 
-from catalog import in_sector, load_sectors
+from catalog import in_sector, keep_genres, load_sectors
 from config import DATA_DIR
 
 SECTORS = load_sectors()
+KEEP = set(keep_genres())
 GENRES = {g for s in SECTORS for g in s["genres"]}
 
 YT_RE = re.compile(r"(?:v=|youtu\.be/|/embed/)([A-Za-z0-9_-]{11})")
@@ -44,7 +45,7 @@ def parse_release(el: ET.Element) -> dict | None:
     if not GENRES.intersection(genres):
         return None
     styles = [s.text for s in el.iterfind("styles/style") if s.text]
-    if not any(in_sector({"genres": genres, "styles": styles}, sec) for sec in SECTORS):
+    if not KEEP.intersection(genres) and not any(in_sector({"genres": genres, "styles": styles}, sec) for sec in SECTORS):
         return None
     videos = []
     for v in el.iterfind("videos/video"):

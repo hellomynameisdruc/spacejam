@@ -13,15 +13,23 @@
 //   kosmos.save()                                               // download sectors.jsonl.gz
 (() => {
   /*SECTORS*/const SECTORS = [
-    { id: "house", genres: ["Electronic"], styles: ["House", "Deep House", "Tech House", "Acid House", "Garage House", "Progressive House", "Hard House", "Ghetto House", "Hip-House", "Italo House", "Electro House", "Speed Garage", "UK Garage", "Euro House", "Latin House", "Afro House", "Jackin House", "Funky House", "Ghettotech"] },
-    { id: "techno", genres: ["Electronic"], styles: ["Techno", "Minimal", "Minimal Techno", "Dub Techno", "Deep Techno", "Hard Techno", "Schranz", "Acid", "Bleep"] },
+    { id: "house", genres: ["Electronic"], styles: ["House", "Deep House", "Tech House", "Acid House", "Garage House", "Progressive House", "Hard House", "Ghetto House", "Hip-House", "Italo House", "Electro House", "Latin House", "Afro House", "Jackin House", "Funky House", "Tribal House"] },
+    { id: "techno", genres: ["Electronic"], styles: ["Techno", "Minimal", "Minimal Techno", "Dub Techno", "Deep Techno", "Hard Techno", "Schranz", "Acid", "Bleep", "Tribal"] },
     { id: "disco", genres: ["Electronic", "Funk / Soul"], styles: ["Disco", "Nu-Disco", "Italo-Disco", "Euro-Disco", "Hi NRG", "Boogie"] },
     { id: "trance", genres: ["Electronic"], styles: ["Trance", "Progressive Trance", "Psy-Trance", "Goa Trance", "Hard Trance", "Tech Trance"] },
     { id: "dnb", genres: ["Electronic"], styles: ["Drum n Bass", "Jungle", "Breakbeat", "Breaks", "Progressive Breaks", "Big Beat", "Breakcore", "Halftime"] },
-    { id: "ambient", genres: ["Electronic"], styles: ["Ambient", "Downtempo", "IDM", "Trip Hop", "Dark Ambient", "Berlin-School", "Illbient", "Glitch"] },
-  ];/*END*/
+    { id: "ambient", genres: ["Electronic"], styles: ["Ambient", "Dark Ambient", "Drone", "New Age", "Berlin-School", "Field Recording"] },
+    { id: "downtempo", genres: ["Electronic"], styles: ["Downtempo", "Trip Hop", "Future Jazz", "Acid Jazz", "Balearic", "Chillwave", "Dub", "Illbient"] },
+    { id: "experimental", genres: ["Electronic"], styles: ["IDM", "Glitch", "Experimental", "Abstract", "Noise", "Industrial", "Rhythmic Noise", "Leftfield"] },
+    { id: "electro", genres: ["Electronic"], styles: ["Electro", "Electroclash", "Miami Bass", "Freestyle", "Ghettotech", "Bass Music"] },
+    { id: "wave", genres: ["Electronic"], styles: ["Synth-pop", "New Wave", "Darkwave", "EBM", "Synthwave", "Coldwave", "Minimal Wave", "Vaporwave"] },
+    { id: "bass", genres: ["Electronic"], styles: ["Dubstep", "UK Garage", "Speed Garage", "Bassline", "Grime", "Future Garage", "Footwork", "Juke", "UK Funky"] },
+    { id: "hard", genres: ["Electronic"], styles: ["Hardcore", "Gabber", "Happy Hardcore", "Hardstyle", "Jumpstyle", "Makina", "Speedcore", "Freetekno"] },
+    { id: "euro", genres: ["Electronic"], styles: ["Eurodance", "Italodance", "Euro House", "Hands Up", "Europop", "Dance-pop", "Eurobeat", "Donk"] },
+  ];
+  const KEEP_GENRES = ["Electronic"];/*END*/
   const SECT = SECTORS.map((s) => ({ id: s.id, genres: new Set(s.genres), styles: new Set(s.styles) }));
-  const GENRES = [...new Set(SECTORS.flatMap((s) => s.genres))];
+  const GENRES = [...new Set([...SECTORS.flatMap((s) => s.genres), ...KEEP_GENRES])];
   const YT = /(?:v=|youtu\.be\/|\/embed\/)([A-Za-z0-9_-]{11})/;
   const DISAMBIG = /\s\(\d+\)$/;
   const clean = (s) => (s || "").trim().replace(DISAMBIG, "");
@@ -68,7 +76,7 @@
     if (!GENRES.some((g) => xml.includes(`<genre>${g.replace("&", "&amp;")}</genre>`))) return;
     const genres = all(xml, "genre"), styles = all(xml, "style");
     const hit = SECT.filter((s) => genres.some((g) => s.genres.has(g)) && styles.some((x) => s.styles.has(x)));
-    if (!hit.length) return;
+    if (!hit.length && !genres.some((g) => KEEP_GENRES.includes(g))) return;
     const videos = [];
     for (const m of section(xml, "videos").matchAll(/<video\b([^>]*?)(\/>|>([\s\S]*?)<\/video>)/g)) {
       const y = YT.exec(attr(m[1], "src"));

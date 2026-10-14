@@ -16,6 +16,11 @@ def load_sectors(path=SECTORS_FILE):
     return json.loads(Path(path).read_text(encoding="utf-8"))["sectors"]
 
 
+def keep_genres(path=SECTORS_FILE):
+    """genres whose releases are kept in the raw file even when they match no galaxy"""
+    return json.loads(Path(path).read_text(encoding="utf-8")).get("keep_genres", [])
+
+
 def in_sector(rec, sector):
     return bool(set(rec.get("genres", ())) & set(sector["genres"])) and bool(set(rec["styles"]) & set(sector["styles"]))
 

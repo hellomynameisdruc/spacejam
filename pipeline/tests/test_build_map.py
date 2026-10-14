@@ -162,6 +162,7 @@ def test_browser_script_has_the_same_sectors():
         assert f'id: "{s["id"]}"' in body
         assert "genres: " + json.dumps(s["genres"]).replace('","', '", "') in body
         assert "styles: " + json.dumps(s["styles"]).replace('","', '", "') in body
+    assert "KEEP_GENRES = " + json.dumps(K.keep_genres()).replace('","', '", "') in body
 
 
 def test_sectors_become_galaxies():
