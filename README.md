@@ -52,11 +52,11 @@ House · Techno · Disco · Trance · Drum n Bass · Ambient · Downtempo · Exp
 
 - **Zoom** with the wheel or two fingers: galaxies → systems → orbits → signals.
 - **Open any object**: a dossier with its numbers, activity per year, neighbours and tracks.
-- **Play**: tracks play in the embedded YouTube player. *Play the orbit* tunes into a random track of a label.
+- **Play**: tracks play in the embedded YouTube player.
 - **Autopilot**: when a track ends, the ship flies on to the nearest track you haven't heard yet.
-- **Odysseys**: start one from a star or a planet, then pick where to go (any other system). It visits 10 planets in 5 systems, entering and leaving each through "gate" labels that face the next system, with 20+ fresh tracks and its own shareable link.
+- **Odysseys**: start one from a star, then pick where to go (any other system). It visits 10 planets in 5 systems, entering and leaving each through "gate" labels that face the next system, with 20+ fresh tracks and its own shareable link.
 - **Hitchhike the system**: on a star, thumb a ride round ten of its labels (from the big inner planets out to the edge), 42 tracks, a different ride every time.
-- **Orbit**: on a planet, an endless radio of that label: the player counts how many of its tracks you've heard.
+- **Solaris**: on a planet, park a station in its orbit: an endless radio of that label, and the player counts how many of its tracks you've heard.
 - **Wormhole**: a jump to a random point in the cosmos. The signal scope in the dossier rides the jump with you.
 - **Beacons**: mark the tracks you love. The **flight log** keeps your listening history. Both stay in your browser.
 - **Share**: the address bar always holds a link to the current track or odyssey.

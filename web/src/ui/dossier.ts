@@ -48,8 +48,8 @@ function sector() {
       <div><div class="ph-sub">HOW TO EXPLORE</div><ul class="howto">
         <li><b>Zoom</b> in: ${many ? "galaxies → " : ""}styles → labels → tracks → titles.</li>
         <li><b>Click</b> a star, planet or track to open its dossier.</li>
-        <li><b>Play the orbit</b> on a planet: a random track from that label.</li>
-        <li><b>Start an odyssey</b> from a star or a planet: 20+ tracks across five star systems.</li>
+        <li><b>Solaris</b> on a planet: park a station in its orbit and listen to that label, track after unheard track.</li>
+        <li><b>Start an odyssey</b> from a star: 20+ tracks across five star systems.</li>
         <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 42 tracks, a new ride every time.</li>
         <li><b>Wormhole</b> jumps to a random track anywhere on the map.</li>
         <li><b>Beacon</b> marks tracks you love; the BEACONS tab opens them as a YouTube playlist.</li></ul></div>
@@ -106,8 +106,7 @@ function planet(pi: number, o: Sel) {
         <div class="ident"><span class="code">PL-${pad(pi, 4)} // LABEL</span><h2 id="dosTitle"></h2><span class="stamp">${p.yr[0] || "????"}–${p.yr[1] || "????"}</span></div></div>
       <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", `<span title="${esc(planetType(pi))}">${PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : "")}</span>`)}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
       ${activity}
-      ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ PLAY THE ORBIT</button>` : ""}
-      <button class="plot crt" data-route="${pi}"><span>⟶ START THE ODYSSEY FROM HERE</span></button>
+      ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ SOLARIS</button>` : ""}
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`,
   };
@@ -172,7 +171,6 @@ export function paintDossierBeacon() {
 export function initDossier() {
   $("detail").addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
-    const pr = t.closest<HTMLElement>("[data-route]"); if (pr) { startPick(+pr.dataset.route!); return; }
     const ps = t.closest<HTMLElement>("[data-route-star]"); if (ps) { startPick(+ps.dataset.routeStar!, "star"); return; }
     const sy = t.closest<HTMLElement>("[data-system]"); if (sy) { playSystem(+sy.dataset.system!); return; }
     const nb = t.closest<HTMLElement>("[data-neb]"); if (nb) { flyToNebula(+nb.dataset.neb!); return; }

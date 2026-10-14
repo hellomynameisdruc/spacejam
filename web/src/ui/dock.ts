@@ -51,7 +51,7 @@ export function paintOdysseyTag() {
     $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;
   } else if (orbiting) {
     let heard = 0; for (let i = p!.t0; i < p!.t1; i++) if (state.played.has(ch!.yt[i])) heard++;
-    $("dockOdy").firstChild!.textContent = "ORBIT ";
+    $("dockOdy").firstChild!.textContent = "SOLARIS ";
     $("dockOdyN").textContent = `${pad(heard, 2)}/${pad(p!.t1 - p!.t0, 2)}`;
   }
   $("dockOdy").title = orbiting ? `Orbiting ${p!.name}: next plays another track of this label` : "";

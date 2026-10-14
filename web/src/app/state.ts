@@ -32,7 +32,7 @@ export const state = {
   routeIdx: -1,
   /** origin (a planet or a whole star) while the visitor picks an odyssey's destination */
   routePick: null as { kind: "planet" | "star"; i: number } | null,
-  /** planet whose orbit is playing (PLAY THE ORBIT): next keeps to its satellites */
+  /** planet whose orbit is playing (SOLARIS): next keeps to its satellites */
   orbit: null as number | null,
   /** the wormhole animation is running */
   warping: false,
