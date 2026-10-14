@@ -40,7 +40,7 @@ const SHIP = (() => {
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
   const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y);
-  const R = Math.max(orbitR(pl) * cam.s + 26, pl.r * cam.s + 46), a = (t / 16000) * Math.PI * 2;
+  const R = Math.max(orbitR(pl) * cam.s + 18, pl.r * cam.s + 34), a = (t / 16000) * Math.PI * 2;
   const x = c.x + Math.cos(a) * R, y = c.y + Math.sin(a) * R * 0.92;
   if (x < -90 || y < -90 || x > cam.W + 90 || y > cam.H + 90) return;
   const { bar } = pulseOf(pl.s, t), col = (al: number) => sc(pl.s, al);
@@ -53,7 +53,7 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(c.x - dx / dl * pr, c.y - dy / dl * pr); ctx.stroke();
 
   // the ship: roll on its axis, a fixed three-quarter tilt, nose along the orbit
-  const L = Math.max(46, Math.min(96, 30 + cam.s * 22)), roll = t / 2600, tilt = 0.55;
+  const L = Math.max(28, Math.min(56, 18 + cam.s * 13)), roll = t / 2600, tilt = 0.55;
   const head = a + Math.PI / 2, ch = Math.cos(head), shd = Math.sin(head);
   const cr = Math.cos(roll), sr = Math.sin(roll), ct = Math.cos(tilt), st = Math.sin(tilt);
   const P = SHIP.pts.map(([px, py, pz]) => {
@@ -62,7 +62,7 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
     return { sx: x + (x2 * ch - y1 * shd) * L, sy: y + (x2 * shd + y1 * ch) * L * 0.92, z: z2 };
   });
   ctx.lineCap = "round";
-  for (const [w, al] of [[3.2, 0.16], [1, 0.95]] as const) { // a soft phosphor glow, then the line
+  for (const [w, al] of [[2.6, 0.16], [1, 0.95]] as const) { // a soft phosphor glow, then the line
     ctx.lineWidth = w;
     for (const [i, j] of SHIP.edges) {
       const A = P[i], B = P[j], depth = (A.z + B.z) / 2; // edges at the back are dimmer
