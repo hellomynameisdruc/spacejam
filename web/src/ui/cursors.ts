@@ -84,11 +84,14 @@ const LOCK: Shape = {
   })),
   hot: [C, C],
 };
-// not allowed: a ring crossed out
+// not allowed: the lock-on brackets with a cross inside instead of the plus (drawn red)
 const DENY: Shape = {
   rows: outline(grid(N, N, (x, y) => {
-    const d = Math.hypot(x - C, y - C), ring = d >= 5.2 && d <= 6.4;
-    return ring || (Math.abs((x - C) - (y - C)) <= 0.5 && d < 5.6);
+    const cx = x === 1 || x === 13, cy = y === 1 || y === 13;
+    const bx = (x === 1 || x === 13) && (y <= 4 || y >= 10) && y >= 1 && y <= 13;
+    const by = (y === 1 || y === 13) && (x <= 4 || x >= 10) && x >= 1 && x <= 13;
+    const cross = Math.abs(x - C) <= 2 && Math.abs(y - C) <= 2 && (x - C === y - C || x - C === C - y);
+    return (cx && cy) || bx || by || cross;
   })),
   hot: [C, C],
 };
