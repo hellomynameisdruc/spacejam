@@ -386,3 +386,28 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .dock { width: 245px }
   .video { width: 223px; height: 223px }
 }
+
+/* Phones and small tablets: the player is a sheet along the bottom of the screen (video on the left,
+   controls on the right) instead of a window over the small map, so the map stays free to fly around
+   and the minimise key is always in reach. The page shrinks above it, and the dossier steps aside while it plays. */
+@media (max-width: 860px) {
+  .dock { position: fixed; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: auto; z-index: 40;
+    padding: 0 10px calc(8px + env(safe-area-inset-bottom, 0px)); border-width: 1px 0 0;
+    display: grid; grid-template-columns: 200px minmax(0, 1fr); column-gap: 10px; align-content: start;
+    grid-template-areas: "head head" "video np" "video seek" "video pbar" "video msg"; grid-template-rows: auto auto auto auto 1fr }
+  .dock[hidden] { display: none }
+  .dock::before, .dock::after { display: none }
+  .dock-head { grid-area: head; cursor: default; padding: 4px 0 }
+  .grip { visibility: hidden }
+  #dockMin { width: 36px; height: 26px; font-size: 14px }
+  .video { grid-area: video }
+  .dock-np { grid-area: np; padding-top: 0 }
+  .seek { grid-area: seek }
+  .pbar { grid-area: pbar }
+  .pbar .key.sq { height: 30px; font-size: 11px }
+  .pmsg { grid-area: msg }
+  body.docked .term { padding-bottom: calc(246px + env(safe-area-inset-bottom, 0px)) }
+  /* while it plays the map gets the room; the dossier is back as soon as the player is minimised */
+  body.docked .side { display: none }
+  body.docked .deck { grid-template-rows: minmax(0, 1fr) }
+}

@@ -27,7 +27,9 @@ let seeking = false;
 export const scrub = { t: -1e9, dir: 0, prev: 0 };
 const paintRange = (el: HTMLInputElement) => el.style.setProperty("--p", `${(+el.value - +el.min) / (+el.max - +el.min) * 100}%`);
 
-export function showDock() { dock.hidden = false; pill.hidden = true; }
+/** phones: the dock is a fixed sheet along the bottom, not a window to drag */
+const sheet = matchMedia("(max-width: 860px)");
+export function showDock() { dock.hidden = false; pill.hidden = true; document.body.classList.add("docked"); }
 
 /** the dock's beacon key reflects the track on air */
 export function paintBeaconKey() {
@@ -81,7 +83,7 @@ export function initDock() {
   $("pLike").onclick = () => toggleBeacon(state.nowPlaying);
   $("dockMin").onclick = () => {
     if (player.playing) player.toggle();
-    dock.hidden = true; pill.hidden = false;
+    dock.hidden = true; pill.hidden = false; document.body.classList.remove("docked");
     $("pillTitle").textContent = $("npTitle").textContent;
   };
   pill.onclick = () => { showDock(); if (!player.playing) player.toggle(); };
@@ -90,7 +92,7 @@ export function initDock() {
   let start: { x: number; y: number; l: number; t: number } | null = null;
   const head = $("dockHead"), vp = viewportEl();
   head.addEventListener("pointerdown", (e) => {
-    if ((e.target as HTMLElement).closest("button")) return;
+    if (sheet.matches || (e.target as HTMLElement).closest("button")) return;
     const r = dock.getBoundingClientRect(), v = vp.getBoundingClientRect();
     const z = uiZoom(vp);
     start = { x: e.clientX, y: e.clientY, l: (r.left - v.left) / z, t: (r.top - v.top) / z };
