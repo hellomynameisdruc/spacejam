@@ -1,86 +1,140 @@
-# Sound Cosmos
+<p align="center">
+  <a href="https://hellomynameisdruc.github.io/spacejam/"><img src="docs/media/banner.png" alt="Sound Cosmos — an observatory for electronic music" width="100%"></a>
+</p>
 
-**An observatory terminal for electronic music.** Genres are galaxies, styles are stars, labels are planets, tracks are satellites.
+<p align="center">
+  <a href="https://hellomynameisdruc.github.io/spacejam/"><img alt="Launch the observatory" src="https://img.shields.io/badge/%E2%96%B6%20LAUNCH-THE%20OBSERVATORY-b8a8ff?style=for-the-badge&labelColor=0b0716"></a>
+  <a href="https://github.com/hellomynameisdruc/spacejam/actions/workflows/deploy.yml"><img alt="Deploy" src="https://img.shields.io/github/actions/workflow/status/hellomynameisdruc/spacejam/deploy.yml?branch=main&style=for-the-badge&label=SIGNAL&labelColor=0b0716&color=78ffaa"></a>
+  <img alt="Data: Discogs CC0" src="https://img.shields.io/badge/DATA-DISCOGS%20CC0-ffb85c?style=for-the-badge&labelColor=0b0716">
+</p>
 
-Live: **https://hellomynameisdruc.github.io/spacejam/**
+<p align="center">
+  <b>Galaxies are genres · stars are styles · planets are labels · satellites are tracks.</b><br>
+  Fly through 1.6 million tracks of electronic music, from whole genres down to a single record, and listen as you go.
+</p>
+
+<p align="center">
+  <img src="docs/media/flight.gif" alt="Flying from the whole universe into the House galaxy and down to the Rush Hour planet" width="640">
+</p>
 
 ---
 
-## The map
+## The universe at a glance
 
-- **Galaxy** — a sector of electronic music: House, Techno, Disco, Trance, Drum n Bass, Ambient. A dithered cloud of its star systems; galaxies that share many releases sit side by side, and their border stars face each other.
-- **Star** — a Discogs style (Deep House, Garage House, Acid House…). Its size shows how many releases the style has, its glow shows how much of that came out in the last ten years, and it pulses at the tempo typical for the style.
-- **Planet** — a label, orbiting its main style. Bigger label, bigger planet. Five kinds:
-  gas giants (the biggest labels), ringed worlds (15+ years active), cratered worlds (went quiet before 2001), ice worlds (started after 2010) and terrestrial planets.
-- **Satellites** — the label's tracks, swarming around it on tilted orbits.
-- **Asteroid belt** — releases without a label or from very small labels, at the edge of a system.
-- **Dotted lines between stars** — how often two styles appear on the same release.
+| Galaxies | Stars | Planets | Satellites | Releases | Years |
+|:-:|:-:|:-:|:-:|:-:|:-:|
+| **6** | **113** | **15,773** | **1,675,933** | **893,570** | **1980–2026** |
+| genres | styles | labels | tracks | from Discogs | of music |
 
-Planets slowly orbit their stars; the camera follows whatever you select.
+House · Techno · Disco · Trance · Drum n Bass · Ambient
+
+## What is out there
+
+| | |
+|---|---|
+| 🌌 **Galaxy** | A family of genres: a dithered cloud of its star systems. Galaxies that share many releases sit side by side. |
+| ⭐ **Star** | A Discogs style (Deep House, Acid, Dub Techno…). Its size is how many releases the style has, its glow is how alive it is today, and it **pulses at the style's typical tempo**, shedding a shell every bar. |
+| 🪐 **Planet** | A label, orbiting its main style. Five kinds: **gas giants** (the biggest labels), **ringed worlds** (15+ years of releases), **cratered** (went quiet before 2001), **ice worlds** (started after 2010) and **terrestrial**. |
+| 🛰️ **Satellites** | The label's tracks, older ones closer in. Up to 250 per planet, spread evenly over the label's whole history. |
+| ☄️ **Asteroid belt** | Releases with no label or from very small ones, at the edge of each system. |
+
+## Three phosphors, one cosmos
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/media/universe.png" alt="The whole universe in violet phosphor"><br><sub><b>Violet</b> — the whole universe</sub></td>
+    <td width="33%"><img src="docs/media/star.png" alt="The Deep House star system in green phosphor"><br><sub><b>Green</b> — the Deep House system</sub></td>
+    <td width="33%"><img src="docs/media/planet.png" alt="The Rush Hour planet in amber phosphor"><br><sub><b>Amber</b> — the Rush Hour planet</sub></td>
+  </tr>
+</table>
 
 ## What you can do
 
-- **Zoom** with the wheel or two fingers: styles → labels → tracks → track titles.
-- **Click** a star, planet or track to open its dossier on the right.
-- **Play** — tracks play in the embedded YouTube player. *Play the orbit* picks a random track from a label.
-- **Autopilot** — when a track ends, the ship flies to the nearest track you haven't heard yet.
-- **Odysseys** — on any planet press *Plot an odyssey from here*, then pick another planet. Every odyssey visits 10 planets in 5 systems, two in each: the start system, three neighbouring systems on the way and the destination system (if the two are close, the odyssey detours through neighbours; if they share a system, it becomes a round trip). It enters and leaves each system through "gate" labels facing the previous and next systems, preferring labels that release both styles. Every odyssey has at least 20 tracks and its own shareable link; while one plays, the player shows ODYSSEY and the stop number next to ON AIR.
-- **Wormhole** — jump to a random point in the cosmos.
-- **Search** by galaxy, style, label or artist.
-- **Flight log** — your listening history (kept in your browser).
-- **Share** — the address bar holds a link to the current track (`#t3-120`) or odyssey (`#r81-0`).
-- Three phosphor colours: violet, green, amber.
+- **Zoom** with the wheel or two fingers: galaxies → systems → orbits → signals.
+- **Open any object**: a dossier with its numbers, activity per year, neighbours and tracks.
+- **Play**: tracks play in the embedded YouTube player. *Play the orbit* tunes into a random track of a label.
+- **Autopilot**: when a track ends, the ship flies on to the nearest track you haven't heard yet.
+- **Odysseys**: plot a route from one planet to another. It visits 10 planets in 5 systems, entering and leaving each through "gate" labels that face the next system, with 20+ tracks and its own shareable link.
+- **Wormhole**: a jump to a random point in the cosmos. The signal scope in the dossier rides the jump with you.
+- **Beacons**: mark the tracks you love. The **flight log** keeps your listening history. Both stay in your browser.
+- **Share**: the address bar always holds a link to the current track or odyssey.
 
-## Data
+<img align="right" src="docs/media/mobile.png" alt="Sound Cosmos on a phone" width="220">
 
-The catalogue comes from the monthly **Discogs data dump** (CC0 licence), where releases already carry YouTube links.
-Sound Cosmos only embeds the official YouTube player — **nothing is ever downloaded from YouTube.**
+### Keyboard
 
-Since 2026 Discogs serves dumps only from `data.discogs.com`, which blocks servers, so the dump is processed in a regular
-browser: `pipeline/browser_parse.js` streams the ~11 GB file on that page and saves `sectors.jsonl.gz` — every release of
-every sector (`pipeline/sectors.json`: the genres and core styles of each galaxy). `pipeline/catalog.py` merges editions,
-`pipeline/build_map.py` turns the catalogue into the map. A new dump appears on the 1st of every month.
+| Key | |
+|:-:|---|
+| <kbd>/</kbd> | search by galaxy, style, label or artist |
+| <kbd>Space</kbd> | pause / play |
+| <kbd>N</kbd> | next nearby track |
+| <kbd>L</kbd> | set a beacon |
+| <kbd>W</kbd> | wormhole |
+| <kbd>H</kbd> | back to the full sector |
+| <kbd>Esc</kbd> | back |
 
-## Hosting
+### On a phone
 
-The site is built with Vite + TypeScript (canvas rendering) and published to **GitHub Pages** by
-`.github/workflows/deploy.yml` on every push. The full map lives on the `data` branch; `main` keeps a small sample.
+The map works with one and two fingers. While music plays, the player becomes a sheet along the bottom of the screen and the map gets the rest.
 
-## Architecture
+<br clear="right">
 
-The site is plain TypeScript (no framework) drawing on two canvases: a **static layer** (grid, links,
-labels — repainted only when the camera settles, slid and scaled by CSS in between) and a **live layer**
-(everything that moves, redrawn every frame). Code is split by responsibility; modules only define things
-and `main.ts` starts them in order.
+## Where the data comes from
+
+The catalogue is the monthly **[Discogs data dump](https://data.discogs.com/)**, released under **CC0**, where releases already carry links to their videos.
+Sound Cosmos only embeds the official YouTube player. **Nothing is ever downloaded from YouTube**, and the player is always visible while it plays.
+
+<details>
+<summary><b>How the map is made</b></summary>
+
+<br>
+
+1. **Parse.** Discogs serves its dumps only to regular browsers, so the ~11 GB file is processed right in the browser: `pipeline/browser_parse.js` streams it on the Discogs page and saves `sectors.jsonl.gz`, which holds every release of every galaxy defined in `pipeline/sectors.json`.
+2. **Merge.** `pipeline/catalog.py` folds the editions of a release into one entry and keeps those with videos.
+3. **Build.** `pipeline/build_map.py` turns the catalogue into the map: stars and their links, galaxies packed so that neighbours face each other, planets on orbits, satellites, and asteroid belts. The build is deterministic.
+4. **Publish.** The full map lives on the `data` branch. Every push to `main` builds the site and deploys it to GitHub Pages.
+
+</details>
+
+<details>
+<summary><b>Under the hood</b></summary>
+
+<br>
+
+Plain TypeScript, no framework, built with Vite and drawn on two canvases:
+
+- The **static layer** holds the grid, nebulae and belts. It is repainted only when the camera settles, and is slid and scaled by CSS in between.
+- The **live layer** holds everything that moves, plus all names, and is redrawn every frame.
 
 ```
 web/src/
   core/      types, small helpers, DOM access
-  model/     pure logic, no DOM — galaxy (planet types, star classes, tempo), motion (orbits),
-             routes (planning, track picks). Unit-tested.
+  model/     pure logic: galaxy (planet types, star classes, tempo), motion (orbits), routes
   data/      fetching the map and each star's tracks
-  store/     the visitor's own data: beacons, flight log, prefs — behind a storage adapter
-             (browser today; a synced account store can replace it in one place)
-  app/       shared state and actions (select, play, next, plot a route, wormhole)
+  store/     the visitor's own data: beacons, flight log, prefs
+  app/       shared state and actions (select, play, next, plot an odyssey, wormhole)
   render/    camera, palette, layers, pulsars, planets, satellites, route line, picking
-  ui/        dossier, player dock, route panel, log & beacons, search, input, effects
-  main.ts    wiring and start-up
-web/test/    Vitest: galaxy, motion, routes, stores
-pipeline/
-  build_map.py   catalogue → map, as a chain of small steps (see build()); deterministic
-  tests/         pytest on fake releases
+  ui/        dossier, player dock, odyssey panel, log & beacons, search, input, effects
+web/test/    Vitest
+pipeline/    Python: parse → catalogue → map, with pytest
 ```
 
-Every push runs types, lint (ESLint, ruff) and tests for the site and the pipeline;
-the site is deployed only if they pass.
+Every push runs types, lint (ESLint, ruff) and tests for the site and the pipeline. The site is deployed only if they pass.
 
-## Next
+</details>
 
-- More sectors: techno, disco, jungle.
-- Saved and shared "flights" (playlists), accounts.
-- A custom domain.
+## Next on the flight plan
+
+- [ ] Accounts: beacons and flight log synced between devices, public beacon collections
+- [ ] Search by track title
+- [ ] Live-video checks, so dead satellites go dark
+- [ ] New galaxies: Electro, Synth-pop, Bass
+- [ ] A fresh map every month, straight from the new Discogs dump
+- [ ] Its own domain
 
 ---
 
-© 2026 hellomynameisdruc. All rights reserved. See [LICENSE](LICENSE).
-Catalogue data © Discogs contributors, released under CC0. Videos are streamed from YouTube and belong to their owners.
+<p align="center">
+  <sub>© 2026 <b>hellomynameisdruc</b>. All rights reserved. See <a href="LICENSE">LICENSE</a>.<br>
+  Catalogue data © Discogs contributors, released under CC0. Videos are streamed from YouTube and belong to their owners.</sub>
+</p>
