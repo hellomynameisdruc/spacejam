@@ -5,7 +5,7 @@ import { pad } from "../core/util";
 import { $ } from "../core/dom";
 import { beacons, chunk, flightLog, galaxy, motion, state, tracks } from "./state";
 import { orbitR } from "../model/galaxy";
-import { pickRouteTracks, planRoute } from "../model/routes";
+import { pickRouteTracks, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
 import { renderDossier } from "../ui/dossier";
 import { decodeDossier } from "../ui/glitch";
@@ -19,10 +19,17 @@ const replaceHash = (h: string) => { try { history.replaceState(null, "", h); } 
 
 // ---------- selection ----------
 export function select(o: Sel, go = true, autoplay = false) {
-  // while picking a route destination, a planet (or a track's planet) finishes the route
-  if (state.routePick !== null && o && o.kind !== "star") {
-    const pb = o.kind === "planet" ? o.p : chunk(o.s)!.p[o.i];
-    if (pb >= 0 && pb !== state.routePick) { const pa = state.routePick; endPick(); buildRoute(pa, pb); return; }
+  // while picking an odyssey's destination, a planet, a track's planet or a whole star finishes it;
+  // a star at either end is entered through its gate facing the other end
+  const rp = state.routePick;
+  if (rp && o) {
+    const P = galaxy.planets, fromStar = rp.kind === "star" ? rp.i : P[rp.i].s;
+    let pb = o.kind === "planet" ? o.p : o.kind === "track" ? chunk(o.s)!.p[o.i] : -1;
+    if (o.kind === "star") pb = starEnd(galaxy, o.s, fromStar, rp.kind === "planet" ? new Set([rp.i]) : new Set());
+    if (pb >= 0) {
+      const pa = rp.kind === "planet" ? rp.i : starEnd(galaxy, rp.i, P[pb].s, new Set([pb]));
+      if (pa >= 0 && pa !== pb) { endPick(); buildRoute(pa, pb); return; }
+    }
   }
   const { stars, planets } = galaxy, { W, H } = cam;
   state.sel = o; state.dirty = true;
@@ -113,14 +120,33 @@ export function fitRoute() {
   const k = Math.max(cam.minS(), Math.min((cam.W - pw) / w, cam.H / h) * 0.78);
   cam.fly((x0 + x1) / 2 - pw / 2 / k, (y0 + y1) / 2, k, 1600);
 }
-export function startPick(a: number) {
-  state.routePick = a; showPickHint(galaxy.planets[a].name);
+/** start an odyssey from a planet (default) or from a whole star system */
+export function startPick(i: number, kind: "planet" | "star" = "planet") {
+  state.routePick = { kind, i }; showPickHint((kind === "star" ? galaxy.stars[i] : galaxy.planets[i]).name);
   cam.fly(cam.x, cam.y, Math.min(cam.s, Math.max(LOD_PLANETS * 1.2, cam.s * 0.35)), 900);
 }
 export function endPick() { state.routePick = null; hidePickHint(); }
+/** a tour round one star system, played at once */
+export async function playSystem(st: number) {
+  if (galaxy.meta.sample) return;
+  const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
+  await tracks.load(st);
+  const t = pickRouteTracks(galaxy, plan, (s) => chunk(s)!);
+  state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
+  replaceHash(`#s${st}`);
+  renderRoutePanel(); state.dirty = true;
+  playRouteAt(0);
+}
+async function openSystemTour(st: number) {
+  const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
+  await tracks.load(st);
+  const t = pickRouteTracks(galaxy, plan, (s) => chunk(s)!);
+  state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
+  renderRoutePanel(); fitRoute(); state.dirty = true;
+}
 export function clearRoute() {
   state.route = null; state.routeIdx = -1; renderRoutePanel(); state.dirty = true;
-  if (location.hash.startsWith("#r")) replaceHash(location.pathname + location.search);
+  if (/^#[rs]/.test(location.hash)) replaceHash(location.pathname + location.search);
 }
 export function playRouteAt(k: number) {
   const route = state.route; if (!route || !route.flat[k]) return;
@@ -132,8 +158,10 @@ export function toggleRoutePlayback() {
   if (state.routeIdx >= 0) { state.routeIdx = -1; renderRoutePanel(); if (player.playing) player.toggle(); }
   else playRouteAt(0);
 }
-/** #r<a>-<b> in the address bar opens that route */
+/** #r<a>-<b> in the address bar opens that odyssey, #s<star> that system tour */
 export function routeFromHash() {
+  const sm = location.hash.match(/^#s(\d+)$/);
+  if (sm && galaxy.stars[+sm[1]] && state.route?.star !== +sm[1]) { openSystemTour(+sm[1]); return true; }
   const rm = location.hash.match(/^#r(\d+)-(\d+)$/), P = galaxy.planets;
   if (!rm) return false;
   const a = +rm[1], b = +rm[2], r = state.route;

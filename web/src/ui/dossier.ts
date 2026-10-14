@@ -5,7 +5,7 @@ import { $, reduce } from "../core/dom";
 import { beacons, chunk, galaxy, isNowPlaying, state, tracks } from "../app/state";
 import { PTYPE_INFO, spanOf } from "../model/galaxy";
 import { tempoLabel } from "../model/tempo";
-import { flyToNebula, nearestTracks, playOrbit, select, startPick, toggleBeacon, trackCode } from "../app/actions";
+import { flyToNebula, nearestTracks, playOrbit, playSystem, select, startPick, toggleBeacon, trackCode } from "../app/actions";
 import { sc } from "../render/palette";
 import { onFrame } from "../render/scene";
 import { drawPulsarHero, drawRadar, drawSphere, drawWave, fitCanvas, fitted } from "./scopes";
@@ -67,6 +67,8 @@ function star(si: number) {
       <div class="rows">${neb ? `<div class="row"><span>GALAXY</span><button class="link" data-neb="${g.nebulae.indexOf(neb)}">${esc(neb.name.toUpperCase())}</button></div>` : ""}${row("RELEASES", fmt(s.n))}${row("PLANETS / LABELS", fmt(pl.length))}${row("TRACKS", fmt(s.tracks))}${row("CLASS", `${g.sclass[si]} · ${g.starClassName(si)}`)}${row("LUMINOSITY", `${Math.round(g.recentShare[si] * 100)}% RELEASES IN LAST 10 YRS`)}${row("TYPICAL TEMPO", tempoLabel(g.tempo[si]))}${row("PEAK YEAR", String(g.peakYear[si]))}</div>
       <p class="note">Size shows how many releases the style has; glow shows how alive it is today. The star pulses at the tempo typical for its style (styles without a steady beat just breathe slowly) and sheds a shell once every bar. Tempo is the usual range for the style, not measured from the tracks.</p>
       ${s.yh?.length ? hist(s.yh, g.Y0, "ACTIVITY // RELEASES PER YEAR") : ""}
+      ${!g.meta.sample && pl.length ? `<button class="play" data-system="${si}">▶ PLAY THE SYSTEM</button>` : ""}
+      ${pl.length ? `<button class="plot crt" data-route-star="${si}"><span>⟶ PLOT AN ODYSSEY FROM HERE</span></button>` : ""}
       ${nb.length ? `<div class="bars"><div class="ph-sub">GRAVITATIONAL LINKS</div>${nb.map((n) => meter(g.stars[n.s].name.toUpperCase(), Math.min(1, n.w * 3), `${Math.round(n.w * 100)}%`, R({ kind: "star", s: n.s }), g.stars[n.s].color)).join("")}</div>` : ""}
       <div><div class="ph-sub">PLANETS IN ORBIT</div><div class="list">${pl.slice(0, 40).map((p, k) => `<button data-r="${R({ kind: "planet", p })}"><span class="n">${pad(k + 1, 3)}</span><span class="t">${esc(g.planets[p].name)}</span><span class="y">${fmt(g.planets[p].n)} REL</span></button>`).join("")}</div>
       ${pl.length > 40 ? `<div class="more">…and ${fmt(pl.length - 40)} more</div>` : ""}</div>`,
@@ -170,6 +172,8 @@ export function initDossier() {
   $("detail").addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
     const pr = t.closest<HTMLElement>("[data-route]"); if (pr) { startPick(+pr.dataset.route!); return; }
+    const ps = t.closest<HTMLElement>("[data-route-star]"); if (ps) { startPick(+ps.dataset.routeStar!, "star"); return; }
+    const sy = t.closest<HTMLElement>("[data-system]"); if (sy) { playSystem(+sy.dataset.system!); return; }
     const nb = t.closest<HTMLElement>("[data-neb]"); if (nb) { flyToNebula(+nb.dataset.neb!); return; }
     const po = t.closest<HTMLElement>("[data-orbit]"); if (po) { playOrbit(+po.dataset.orbit!); return; }
     if (t.closest("[data-like]")) { if (state.sel?.kind === "track") toggleBeacon(state.sel); return; }

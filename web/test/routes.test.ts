@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeChunk, makeGalaxy } from "./fixtures";
-import { MIN_ROUTE_TRACKS, pathOfLen, pickRouteTracks, planRoute, ROUTE_SYSTEMS, starPath, stopKind } from "../src/model/routes";
+import { MIN_ROUTE_TRACKS, pathOfLen, pickRouteTracks, planRoute, planSystemTour, ROUTE_SYSTEMS, starEnd, starPath, stopKind } from "../src/model/routes";
 
 const g = makeGalaxy(10, 8, 6);
 const chunks = g.stars.map((_, s) => makeChunk(g, s));
@@ -77,5 +77,26 @@ describe("pickRouteTracks", () => {
     expect(flat.length).toBeGreaterThanOrEqual(MIN_ROUTE_TRACKS);
     expect(new Set(flat.map((r) => chunks[r.s].yt[r.i])).size).toBe(flat.length);
     t.forEach((list, k) => { const p = g.planets[plan.stops[k]]; for (const r of list) { expect(r.s).toBe(p.s); expect(r.i).toBeGreaterThanOrEqual(p.t0); expect(r.i).toBeLessThan(p.t1); } });
+  });
+});
+
+describe("whole stars", () => {
+  it("a system tour visits distinct planets of one star, starting from the biggest", () => {
+    const r = planSystemTour(g, 3);
+    expect(r.star).toBe(3); expect(r.hops).toEqual([3]);
+    expect(r.stops[0]).toBe(first(3));
+    expect(r.stops.every((i) => g.planets[i].s === 3)).toBe(true);
+    expect(new Set(r.stops).size).toBe(r.stops.length);
+    expect(r.stops.length).toBe(Math.min(10, g.planetsByStar[3].length));
+    expect(planSystemTour(g, 3)).toEqual(r); // deterministic
+    const t = pickRouteTracks(g, r, (s) => chunks[s]);
+    expect(t.flat().length).toBeGreaterThanOrEqual(Math.min(MIN_ROUTE_TRACKS, r.stops.reduce((n, i) => n + g.planets[i].t1 - g.planets[i].t0, 0)));
+    expect(r.stops.map((_, k) => stopKind(g, r, k)).every((k) => k === "ORBIT")).toBe(true);
+  });
+  it("a star at the end of an odyssey stands in with one of its own planets", () => {
+    const pa = starEnd(g, 0, 5, new Set()), pb = starEnd(g, 5, 0, new Set([pa]));
+    expect(g.planets[pa].s).toBe(0); expect(g.planets[pb].s).toBe(5);
+    const r = planRoute(g, pa, pb);
+    expect(r.stops[0]).toBe(pa); expect(r.stops[r.stops.length - 1]).toBe(pb);
   });
 });

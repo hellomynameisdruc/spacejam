@@ -43,7 +43,10 @@ export function paintOdysseyTag() {
   const r = state.route, k = state.routeIdx, np = state.nowPlaying, cur = r && k >= 0 ? r.flat[k] : null;
   const on = !!(cur && np && cur.s === np.s && cur.i === np.i);
   $("dockOdy").hidden = !on;
-  if (on) $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;
+  if (on) {
+    $("dockOdy").firstChild!.textContent = r!.star !== undefined ? "TOUR " : "ODYSSEY ";
+    $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;
+  }
 }
 
 /** put a track on air */

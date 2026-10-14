@@ -7,8 +7,8 @@ import { clearRoute, endPick, fitRoute, playRouteAt, select, toggleRoutePlayback
 import { cam } from "../render/camera";
 import { paintOdysseyTag } from "./dock";
 
-export function showPickHint(planetName: string) {
-  $("routeHintText").innerHTML = `ODYSSEY FROM <b>${esc(planetName.toUpperCase())}</b> · CLICK A DESTINATION PLANET`;
+export function showPickHint(fromName: string) {
+  $("routeHintText").innerHTML = `ODYSSEY FROM <b>${esc(fromName.toUpperCase())}</b> · CLICK A DESTINATION PLANET OR STAR`;
   $("routeHint").hidden = false;
 }
 export function hidePickHint() { $("routeHint").hidden = true; }
@@ -20,8 +20,10 @@ export function renderRoutePanel() {
   const box = $("routeBox"), r = state.route; paintOdysseyTag(); if (!r) { box.hidden = true; return; }
   const { planets, stars } = galaxy, A = planets[r.a], B = planets[r.b];
   box.hidden = false; box.style.setProperty("--acc", stars[A.s].color);
-  $("routeTitle").innerHTML = `${esc(A.name.toUpperCase())} <i>→</i> ${esc(B.name.toUpperCase())}`;
-  $("routeMeta").textContent = `${r.stops.length} STOPS · ${r.flat.length} TRACKS · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
+  const tour = r.star !== undefined;
+  box.querySelector(".route-head .dock-k")!.textContent = tour ? "TOUR" : "ODYSSEY";
+  $("routeTitle").innerHTML = tour ? `${esc(stars[r.star!].name.toUpperCase())} <i>·</i> SYSTEM` : `${esc(A.name.toUpperCase())} <i>→</i> ${esc(B.name.toUpperCase())}`;
+  $("routeMeta").textContent = `${r.stops.length} ${tour ? "PLANETS" : "STOPS"} · ${r.flat.length} TRACKS · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
   let k = 0;
   $("routeList").innerHTML = r.stops.map((pi, si) => {
     const p = planets[pi];
@@ -31,7 +33,7 @@ export function renderRoutePanel() {
     }).join("");
     return `<li style="--c:${stars[p.s].color}"><div class="rs"><b>${pad(si + 1, 2)}</b><button class="rp" data-p="${pi}">${esc(p.name.toUpperCase())}</button><span>${stopKind(galaxy, r, si)} · ${esc(stars[p.s].name.toUpperCase())}</span></div>${tr}</li>`;
   }).join("");
-  $("routePlay").textContent = state.routeIdx >= 0 ? "■ STOP ODYSSEY" : "▶ PLAY ODYSSEY";
+  $("routePlay").textContent = state.routeIdx >= 0 ? (tour ? "■ STOP TOUR" : "■ STOP ODYSSEY") : (tour ? "▶ PLAY TOUR" : "▶ PLAY ODYSSEY");
   $("routePlay").hidden = !!galaxy.meta.sample;
 }
 

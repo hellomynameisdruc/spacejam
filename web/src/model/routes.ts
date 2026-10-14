@@ -13,7 +13,8 @@ import { type Galaxy, midYear, shareOf } from "./galaxy";
 export const ROUTE_SYSTEMS = 5;
 export const MIN_ROUTE_TRACKS = 20;
 
-export type RoutePlan = { a: number; b: number; stops: number[]; hops: number[] };
+/** `star` is set on a system tour: a loop round one star instead of a flight between two planets */
+export type RoutePlan = { a: number; b: number; stops: number[]; hops: number[]; star?: number };
 export type Route = RoutePlan & { tracks: TrackRef[][]; flat: TrackRef[] };
 
 /** strongest-link path between two styles (Dijkstra; strong links are short) */
@@ -100,6 +101,38 @@ function anyPlanet(g: Galaxy, st: number, used: Set<number>): number {
   return pool.reduce((x, y) => (g.planets[y].n > g.planets[x].n ? y : x));
 }
 
+/** the planet that stands for a whole star at one end of an odyssey: its gate toward the other end */
+export function starEnd(g: Galaxy, st: number, toward: number, used: Set<number>): number {
+  const pi = st !== toward ? gate(g, st, toward, used) : -1;
+  return pi >= 0 ? pi : anyPlanet(g, st, used);
+}
+
+export const TOUR_STOPS = 10;
+/**
+ * A tour of one star system: up to 10 labels round the star, starting from the biggest one and
+ * sweeping once round the orbits, mixing big inner planets with outer ones. Deterministic.
+ */
+export function planSystemTour(g: Galaxy, st: number): RoutePlan {
+  const S = g.stars[st], pool = poolOf(g, st, new Set());
+  if (!pool.length) return { a: -1, b: -1, stops: [], hops: [st], star: st };
+  const cand = pool.slice(0, Math.max(TOUR_STOPS * 3, 30)); // the biggest labels, by releases
+  const ang = (i: number) => Math.atan2(g.planets[i].y - S.y, g.planets[i].x - S.x);
+  const start = cand[0], a0 = ang(start), turn = (i: number) => ((ang(i) - a0) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  const n = Math.min(TOUR_STOPS, cand.length), stops = [start], used = new Set([start]);
+  for (let k = 1; k < n; k++) {
+    const want = (k / n) * Math.PI * 2;
+    let best = -1, bd = Infinity;
+    for (const i of cand) {
+      if (used.has(i)) continue;
+      const d = Math.abs(turn(i) - want) + (cand.indexOf(i) / cand.length) * 0.6; // near the angle, bigger first
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best < 0) break;
+    stops.push(best); used.add(best);
+  }
+  return { a: stops[0], b: stops[stops.length - 1], stops, hops: [st], star: st };
+}
+
 export function planRoute(g: Galaxy, a: number, b: number): RoutePlan {
   const A = g.planets[a], B = g.planets[b], used = new Set([a, b]);
   const take = (i: number) => { if (i >= 0) used.add(i); return i; };
@@ -156,7 +189,8 @@ export function pickRouteTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) =
 }
 
 /** label of a stop in the route list */
-export function stopKind(g: Galaxy, r: RoutePlan, k: number): "ORIGIN" | "DESTINATION" | "EXIT" | "ENTRY" | "WAYPOINT" {
+export function stopKind(g: Galaxy, r: RoutePlan, k: number): "ORIGIN" | "DESTINATION" | "EXIT" | "ENTRY" | "WAYPOINT" | "ORBIT" {
+  if (r.star !== undefined) return "ORBIT";
   const st = (j: number) => g.planets[r.stops[j]]?.s, s = st(k);
   return k === 0 ? "ORIGIN" : k === r.stops.length - 1 ? "DESTINATION" : st(k + 1) !== s ? "EXIT" : st(k - 1) !== s ? "ENTRY" : "WAYPOINT";
 }

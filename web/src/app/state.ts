@@ -30,8 +30,8 @@ export const state = {
   route: null as Route | null,
   /** index into route.flat of the track being played along the route, or -1 */
   routeIdx: -1,
-  /** origin planet while the visitor picks a route destination */
-  routePick: null as number | null,
+  /** origin (a planet or a whole star) while the visitor picks an odyssey's destination */
+  routePick: null as { kind: "planet" | "star"; i: number } | null,
   /** the wormhole animation is running */
   warping: false,
   /** YouTube ids heard this session (autopilot skips them) */
