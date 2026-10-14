@@ -84,6 +84,14 @@ const LOCK: Shape = {
   })),
   hot: [C, C],
 };
+// not allowed: a ring crossed out
+const DENY: Shape = {
+  rows: outline(grid(N, N, (x, y) => {
+    const d = Math.hypot(x - C, y - C), ring = d >= 5.2 && d <= 6.4;
+    return ring || (Math.abs((x - C) - (y - C)) <= 0.5 && d < 5.6);
+  })),
+  hot: [C, C],
+};
 // dragging: four-way move arrows
 const MOVE: Shape = {
   rows: outline(grid(N, N, (x, y) => {
@@ -126,6 +134,13 @@ export function applyCursors(fill: string, edge: string) {
   st.setProperty("--cur-move", `${svg(MOVE, fill, edge)}, grabbing`);
   st.setProperty("--cur-text", `${svg(TEXT, fill, edge)}, text`);
   st.setProperty("--cur-lock", `${svg(LOCK, fill, edge)}, pointer`);
+}
+
+/** Red "not here" cursor (e.g. an odyssey can't end in the system it starts from). */
+export function denyCursor() {
+  let c = lockCache.get("deny");
+  if (!c) { c = `${svg(DENY, "#ff4d6d", edgeColor)}, not-allowed`; lockCache.set("deny", c); }
+  return c;
 }
 
 /** Lock-on reticle tinted with the hovered object's system colour. */

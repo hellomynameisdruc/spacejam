@@ -2,12 +2,12 @@
 import type { Vec } from "../core/types";
 import { $, uiZoom } from "../core/dom";
 import { galaxy, sameSel, state } from "../app/state";
-import { endPick, goHome, next, select, toggleBeacon, warp, zoomBy } from "../app/actions";
+import { endPick, goHome, next, pickBlocked, select, toggleBeacon, warp, zoomBy } from "../app/actions";
 import { cam } from "../render/camera";
 import { sc } from "../render/palette";
 import { pick } from "../render/picker";
 import { sceneCanvas } from "../render/scene";
-import { lockCursor } from "./cursors";
+import { denyCursor, lockCursor } from "./cursors";
 import { player } from "./dock";
 import { closeSearch, searchInput } from "./search";
 
@@ -15,7 +15,7 @@ export function initInput() {
   const cv = sceneCanvas();
   const local = (e: PointerEvent | WheelEvent): Vec => { const r = cv.getBoundingClientRect(), z = uiZoom(cv); return { x: (e.clientX - r.left) / z, y: (e.clientY - r.top) / z }; };
   const ptrs = new Map<number, Vec>();
-  let dragged = 0, pinch0: { d: number; s: number } | null = null, hoverT = 0;
+  let dragged = 0, pinch0: { d: number; s: number } | null = null, hoverT = 0, wasBlocked = false;
 
   cv.addEventListener("pointerdown", (e) => {
     cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, local(e)); dragged = 0; cv.classList.add("drag");
@@ -26,10 +26,11 @@ export function initInput() {
     if (!ptrs.has(e.pointerId)) {
       // hover: at most every 40 ms; only star markers live on the static layer
       const now = performance.now(); if (now - hoverT < 40) return; hoverT = now;
-      const h = pick(L.x, L.y);
-      if (!sameSel(h, state.hover)) {
+      const h = pick(L.x, L.y), blocked = pickBlocked(h);
+      if (!sameSel(h, state.hover) || blocked !== wasBlocked) {
         if (h?.kind === "star" || state.hover?.kind === "star") state.dirty = true;
-        state.hover = h; cv.style.cursor = h ? lockCursor(sc(h.kind === "planet" ? galaxy.planets[h.p].s : h.s)) : "";
+        state.hover = h; wasBlocked = blocked;
+        cv.style.cursor = blocked ? denyCursor() : h ? lockCursor(sc(h.kind === "planet" ? galaxy.planets[h.p].s : h.s)) : "";
       }
       return;
     }

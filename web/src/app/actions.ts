@@ -10,7 +10,7 @@ import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/c
 import { renderDossier } from "../ui/dossier";
 import { decodeDossier } from "../ui/glitch";
 import { loadInDock, player } from "../ui/dock";
-import { hidePickHint, renderRoutePanel, routePanelWidth, showPickHint } from "../ui/routePanel";
+import { denyPick, hidePickHint, renderRoutePanel, routePanelWidth, showPickHint } from "../ui/routePanel";
 import { ticker } from "../ui/ticker";
 import { wormhole } from "../ui/wormhole";
 
@@ -18,7 +18,16 @@ export const trackCode = (s: number, i: number) => `TR-${pad(s, 2)}.${pad(i, 5)}
 const replaceHash = (h: string) => { try { history.replaceState(null, "", h); } catch { /* sandboxed */ } };
 
 // ---------- selection ----------
+/** the star system an object belongs to */
+const starOf = (o: NonNullable<Sel>) => (o.kind === "planet" ? galaxy.planets[o.p].s : o.s);
+/** while picking an odyssey's destination, the origin's own system is off limits */
+export function pickBlocked(o: Sel): boolean {
+  const rp = state.routePick; if (!rp || !o) return false;
+  return starOf(o) === (rp.kind === "star" ? rp.i : galaxy.planets[rp.i].s);
+}
+
 export function select(o: Sel, go = true, autoplay = false) {
+  if (pickBlocked(o)) { denyPick(galaxy.stars[starOf(o!)].name); return; }
   // while picking an odyssey's destination, a planet, a track's planet or a whole star finishes it;
   // a star at either end is entered through its gate facing the other end
   const rp = state.routePick;
@@ -128,7 +137,12 @@ export function fitRoute() {
 /** start an odyssey from a planet (default) or from a whole star system */
 export function startPick(i: number, kind: "planet" | "star" = "planet") {
   state.routePick = { kind, i }; showPickHint((kind === "star" ? galaxy.stars[i] : galaxy.planets[i]).name);
-  cam.fly(cam.x, cam.y, Math.min(cam.s, Math.max(LOD_PLANETS * 1.2, cam.s * 0.35)), 900);
+  // pull back far enough to see where to go: the home system with the nearest systems around it
+  const st = kind === "star" ? i : galaxy.planets[i].s, S = galaxy.stars[st];
+  const near = galaxy.stars.map((n, k) => ({ k, d: k === st ? Infinity : Math.hypot(n.x - S.x, n.y - S.y) + n.R })).sort((a, b) => a.d - b.d);
+  const r = Math.max(S.R * 2.2, near[Math.min(3, near.length - 1)]?.d ?? S.R * 3);
+  const k = Math.min(cam.s, Math.max(cam.minS(), Math.min(cam.W, cam.H) / (2 * r) * 0.92));
+  cam.setFollow(null); cam.fly(S.x, S.y, k, 1100);
 }
 export function endPick() { state.routePick = null; hidePickHint(); }
 /** a tour round one star system, played at once */

@@ -411,3 +411,4 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   body.docked .side { display: none }
   body.docked .deck { grid-template-rows: minmax(0, 1fr) }
 }
+.route-hint .deny { color: #ff4d6d; text-shadow: 0 0 6px rgb(255 77 109 / .6) }

@@ -8,10 +8,18 @@ import { cam } from "../render/camera";
 import { paintOdysseyTag } from "./dock";
 
 export function showPickHint(fromName: string) {
+  clearTimeout(denyT); denyT = 0;
   $("routeHintText").innerHTML = `ODYSSEY FROM <b>${esc(fromName.toUpperCase())}</b> · CLICK A DESTINATION PLANET OR STAR`;
   $("routeHint").hidden = false;
 }
 export function hidePickHint() { $("routeHint").hidden = true; }
+let denyT = 0, pickText = "";
+/** a click inside the origin's own system: say so in the hint for a moment */
+export function denyPick(starName: string) {
+  const el = $("routeHintText"); if (!denyT) pickText = el.innerHTML;
+  el.innerHTML = `<b class="deny">✕ ${esc(starName.toUpperCase())}</b> IS WHERE THE ODYSSEY STARTS · PICK ANOTHER SYSTEM`;
+  clearTimeout(denyT); denyT = window.setTimeout(() => { el.innerHTML = pickText; denyT = 0; }, 1800);
+}
 
 /** width the panel takes on wide screens, so the camera can keep the route clear of it */
 export function routePanelWidth() { const box = $("routeBox"); return cam.W > 700 && !box.hidden ? box.offsetWidth + 20 : 0; }
