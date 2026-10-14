@@ -473,13 +473,19 @@ def star_hues(stars, pos, gal, centres):
     if len(centres) == 1:
         cen = pos.mean(0)
         return [math.atan2(y - cen[1], x - cen[0]) / (2 * math.pi) + 0.08 for x, y in pos]
+    # galaxies take turns round the colour wheel in the order they sit round the map, evenly
+    # spaced, so neighbours never share a colour; a galaxy's stars stay within a third of the
+    # gap to the next one, so every star reads as its own galaxy's colour
     mid = np.mean([[c[0], c[1]] for c in centres.values()], axis=0)
-    ghue = {g: math.atan2(c[1] - mid[1], c[0] - mid[0]) / (2 * math.pi) + 0.08 for g, c in centres.items()}
+    ang = {g: math.atan2(c[1] - mid[1], c[0] - mid[0]) % (2 * math.pi) for g, c in centres.items()}
+    order = sorted(centres, key=lambda g: ang[g])
+    step = 1 / len(order)
+    ghue = {g: 0.08 + ang[order[0]] / (2 * math.pi) + k * step for k, g in enumerate(order)}
     out = []
     for s, (x, y) in zip(stars, pos, strict=True):
         cx, cy, _ = centres[gal[s]]
         frac = (math.atan2(y - cy, x - cx) / (2 * math.pi)) % 1
-        out.append(ghue[gal[s]] + 0.16 * (frac - 0.5))
+        out.append(ghue[gal[s]] + step / 3 * (frac - 0.5))
     return out, ghue
 
 
