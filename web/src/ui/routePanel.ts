@@ -30,7 +30,7 @@ export function renderRoutePanel() {
   const { planets, stars } = galaxy, A = planets[r.a], B = planets[r.b];
   box.hidden = false; box.style.setProperty("--acc", stars[A.s].color);
   const tour = r.star !== undefined, ly = r.years;
-  box.querySelector(".route-head .dock-k")!.textContent = ly ? "LIGHT YEARS" : tour ? "HITCHHIKE" : "ODYSSEY";
+  box.querySelector(".route-head .dock-k")!.textContent = ly ? "TIME WARP" : tour ? "HITCHHIKE" : "ODYSSEY";
   $("routeTitle").innerHTML = ly ? esc(A.name.toUpperCase()) : tour ? `${esc(stars[r.star!].name.toUpperCase())} <i>·</i> SYSTEM` : `${esc(A.name.toUpperCase())} <i>→</i> ${esc(B.name.toUpperCase())}`;
   $("routeMeta").textContent = ly ? `${ly[0]} → ${ly[1]} · ${r.flat.length} TRACKS · ${ly[1] - ly[0] + 1} YEARS · ${stars[A.s].name.toUpperCase()} SYSTEM` : `${r.stops.length} ${tour ? "PLANETS" : "STOPS"} · ${r.loading ? "TUNING IN…" : `${r.flat.length} TRACKS`} · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
   let k = 0;
@@ -42,7 +42,7 @@ export function renderRoutePanel() {
     }).join("");
     return `<li style="--c:${stars[p.s].color}"><div class="rs"><b>${pad(si + 1, 2)}</b><button class="rp" data-p="${pi}">${esc(p.name.toUpperCase())}</button><span>${stopKind(galaxy, r, si)} · ${esc(stars[p.s].name.toUpperCase())}</span></div>${tr}</li>`;
   }).join("");
-  $("routePlay").textContent = state.routeIdx >= 0 ? (ly ? "■ STOP THE CLOCK" : tour ? "■ STOP HITCHHIKING" : "■ STOP ODYSSEY") : (ly ? "▶ LIGHT YEARS" : tour ? "▶ HITCHHIKE" : "▶ PLAY ODYSSEY");
+  $("routePlay").textContent = state.routeIdx >= 0 ? (ly ? "■ STOP THE CLOCK" : tour ? "■ STOP HITCHHIKING" : "■ STOP ODYSSEY") : (ly ? "▶ TIME WARP" : tour ? "▶ HITCHHIKE" : "▶ PLAY ODYSSEY");
   $("routePlay").hidden = !!galaxy.meta.sample; ($("routePlay") as HTMLButtonElement).disabled = !!r.loading;
 }
 

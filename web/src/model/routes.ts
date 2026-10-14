@@ -134,7 +134,7 @@ export function planSystemTour(g: Galaxy, st: number, rnd: () => number = Math.r
 
 export const LIGHT_YEARS_MIN = 8, LIGHT_YEARS_MAX = 30;
 /**
- * LIGHT YEARS: a label's history in order, from its first dated release to its last. With 8+ active
+ * TIME WARP: a label's history in order, from its first dated release to its last. With 8+ active
  * years it's one track per year (evenly thinned out past 30); a short-lived label gets 8–12 tracks spread
  * evenly through its catalogue instead. Undated tracks are left out; null when fewer than 3 are dated.
  */

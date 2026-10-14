@@ -47,7 +47,7 @@ export function paintOdysseyTag() {
   const orbiting = !!(p && ch && np!.s === p.s && ch.p[np!.i] === pi);
   $("dockOdy").hidden = !on && !orbiting;
   if (on) {
-    if (r!.years) { $("dockOdy").firstChild!.textContent = "LIGHT YEAR "; $("dockOdyN").textContent = String(chunk(np!.s)?.yr[np!.i] ?? ""); }
+    if (r!.years) { $("dockOdy").firstChild!.textContent = "TIME WARP "; $("dockOdyN").textContent = String(chunk(np!.s)?.yr[np!.i] ?? ""); }
     else {
       $("dockOdy").firstChild!.textContent = r!.star !== undefined ? "HITCHHIKE " : "ODYSSEY ";
       $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;

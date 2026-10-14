@@ -48,7 +48,7 @@ function sector() {
       <div><div class="ph-sub">HOW TO EXPLORE</div><ul class="howto">
         <li><b>Zoom</b> in: ${many ? "galaxies → " : ""}styles → labels → tracks → titles.</li>
         <li><b>Click</b> a star, planet or track to open its dossier.</li>
-        <li><b>Light years</b> on a planet: the label's story in order, one track a year from its first release to its last.</li>
+        <li><b>Time warp</b> on a planet: the label's story in order, one track a year from its first release to its last.</li>
         <li><b>Solaris</b> on a planet: park a station in its orbit and listen to that label, track after unheard track.</li>
         <li><b>Start an odyssey</b> from a star: 20+ tracks across five star systems.</li>
         <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 42 tracks, a new ride every time.</li>
@@ -109,7 +109,7 @@ function planet(pi: number, o: Sel) {
       <div class="rows"><div class="row"><span>ORBIT</span><button class="link" data-r="${R({ kind: "star", s: p.s })}">${esc(s.name.toUpperCase())}</button></div>${row("TYPE", `<span title="${esc(planetType(pi))}">${PTYPE_INFO[ty][0] + (ty === "giant" && g.ringed[pi] ? " · RINGED" : "")}</span>`)}${row("SIZE RANK", `#${rank} OF ${fmt(sys.length)}`)}${row("POSITION", `${ordinal(g.orbitNo[pi]).toUpperCase()} FROM THE STAR`)}${row("RELEASES", fmt(p.n))}${row("TRACKS", fmt(n))}${row("ACTIVE", p.ay ? `${p.ay} OF ${spanOf(p) + 1} YEARS` : `${spanOf(p) + (p.yr[0] ? 1 : 0)} YEARS`)}</div>
       ${activity}
       ${ch && n && !g.meta.sample ? `<button class="play" data-orbit="${pi}">▶ SOLARIS</button>` : ""}
-      ${ly ? `<button class="plot crt" data-years="${pi}"><span>⟶ LIGHT YEARS · ${ly[0]}–${ly[1]}</span></button>` : ""}
+      ${ly ? `<button class="plot crt" data-years="${pi}"><span>⟶ TIME WARP · ${ly[0]}–${ly[1]}</span></button>` : ""}
       <div><div class="ph-sub">SATELLITES</div><div class="list">${ch ? Array.from({ length: shown }, (_, k) => trackItem(p.s, p.t0 + k, k + 1)).join("") : `<p class="note">LOADING…</p>`}</div>
       ${n > shown ? `<div class="more">…and ${fmt(n - shown)} more. Zoom in on the planet to see them all.</div>` : ""}</div>`,
   };

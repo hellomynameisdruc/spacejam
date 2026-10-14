@@ -155,7 +155,7 @@ export function startPick(i: number, kind: "planet" | "star" = "planet") {
   cam.setFollow(null); cam.fly(S.x, S.y, k, 1100);
 }
 export function endPick() { state.routePick = null; hidePickHint(); }
-/** LIGHT YEARS: a label's history from first release to last, played at once */
+/** TIME WARP: a label's history from first release to last, played at once */
 export async function playLightYears(pi: number) {
   if (galaxy.meta.sample) return;
   const s = galaxy.planets[pi].s, ch = await tracks.load(s);
