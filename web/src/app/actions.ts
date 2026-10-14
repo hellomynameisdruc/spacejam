@@ -116,12 +116,17 @@ export function toggleBeacon(r: TrackRef | null) { beacons.toggle(r, r ? galaxy.
 
 // ---------- routes ----------
 export async function buildRoute(a: number, b: number) {
-  const plan = planRoute(galaxy, a, b);
-  await Promise.all([...new Set(plan.stops.map((i) => galaxy.planets[i].s))].map((s) => tracks.load(s)));
-  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
-  state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
+  // the course itself is instant; show it and fly out at once, then tune in the stops' tracks
+  // (their systems' track files may still be on the way)
+  const plan = planRoute(galaxy, a, b), pending = { ...plan, tracks: plan.stops.map(() => []), flat: [], loading: true };
+  state.route = pending; state.routeIdx = -1;
   replaceHash(`#r${a}-${b}`);
   renderRoutePanel(); fitRoute(); state.dirty = true;
+  await Promise.all([...new Set(plan.stops.map((i) => galaxy.planets[i].s))].map((s) => tracks.load(s)));
+  if (state.route !== pending) return; // replaced or closed meanwhile
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
+  state.route = { ...plan, tracks: t, flat: t.flat() };
+  renderRoutePanel();
 }
 /** frame the whole route, clear of the route panel */
 export function fitRoute() {

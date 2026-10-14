@@ -31,7 +31,7 @@ export function renderRoutePanel() {
   const tour = r.star !== undefined;
   box.querySelector(".route-head .dock-k")!.textContent = tour ? "TOUR" : "ODYSSEY";
   $("routeTitle").innerHTML = tour ? `${esc(stars[r.star!].name.toUpperCase())} <i>·</i> SYSTEM` : `${esc(A.name.toUpperCase())} <i>→</i> ${esc(B.name.toUpperCase())}`;
-  $("routeMeta").textContent = `${r.stops.length} ${tour ? "PLANETS" : "STOPS"} · ${r.flat.length} TRACKS · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
+  $("routeMeta").textContent = `${r.stops.length} ${tour ? "PLANETS" : "STOPS"} · ${r.loading ? "TUNING IN…" : `${r.flat.length} TRACKS`} · ${r.hops.length > 1 ? r.hops.map((s) => stars[s].name.toUpperCase()).join(" › ") : stars[A.s].name.toUpperCase() + " SYSTEM"}`;
   let k = 0;
   $("routeList").innerHTML = r.stops.map((pi, si) => {
     const p = planets[pi];
@@ -42,7 +42,7 @@ export function renderRoutePanel() {
     return `<li style="--c:${stars[p.s].color}"><div class="rs"><b>${pad(si + 1, 2)}</b><button class="rp" data-p="${pi}">${esc(p.name.toUpperCase())}</button><span>${stopKind(galaxy, r, si)} · ${esc(stars[p.s].name.toUpperCase())}</span></div>${tr}</li>`;
   }).join("");
   $("routePlay").textContent = state.routeIdx >= 0 ? (tour ? "■ STOP TOUR" : "■ STOP ODYSSEY") : (tour ? "▶ PLAY TOUR" : "▶ PLAY ODYSSEY");
-  $("routePlay").hidden = !!galaxy.meta.sample;
+  $("routePlay").hidden = !!galaxy.meta.sample; ($("routePlay") as HTMLButtonElement).disabled = !!r.loading;
 }
 
 export function initRoutePanel() {

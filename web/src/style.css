@@ -348,7 +348,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 .pbar .key.sq.hot { color: var(--inv-ink, var(--bg)) }
 .pbar .key.sq.like-k.on { color: var(--acc); border-color: var(--acc) }
 
-/* PLOT AN ODYSSEY: a little tube TV — scanlines, a bright band rolling down, the odd horizontal jolt */
+/* START THE ODYSSEY: a little tube TV — scanlines, a bright band rolling down, the odd horizontal jolt */
 .crt { position: relative; overflow: hidden; isolation: isolate }
 .crt > span { position: relative; z-index: 2; display: inline-block; animation: crtjolt 5.5s steps(1) infinite }
 .crt::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;

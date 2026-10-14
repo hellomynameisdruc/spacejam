@@ -53,9 +53,12 @@ function drawLive(t: number) {
   let k = cam.s / painted.s, ox = (cam.x - painted.x) * cam.s, oy = (cam.y - painted.y) * cam.s;
   // Where belt tracks are drawn (orbit level and closer) repaint a few times a second so they stay
   // with their planets; further out, and during flights, only when zooming rests or drifts far.
-  const stale = k !== 1 && (farView() || cam.flying || cam.s < LOD_TRACKS
-    ? now - lastScaleT > 160 || k < 0.62 || k > 1.6
-    : now - painted.at > 110 || now - lastScaleT > 140 || k < 0.84 || k > 1.2);
+  // Mid-flight the picture only needs to hold together: stretch it further and repaint less.
+  const stale = k !== 1 && (cam.flying
+    ? k < 0.5 || k > 2 || now - painted.at > 450
+    : farView() || cam.s < LOD_TRACKS
+      ? now - lastScaleT > 160 || k < 0.62 || k > 1.6
+      : now - painted.at > 110 || now - lastScaleT > 140 || k < 0.84 || k > 1.2);
   if (stale || Math.abs(ox) > MARGIN - 4 || Math.abs(oy) > MARGIN - 4) { paintStatic(); k = 1; ox = oy = 0; }
   let shift = "";
   if (k !== 1) {

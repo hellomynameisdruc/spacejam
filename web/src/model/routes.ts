@@ -14,7 +14,7 @@ export const MIN_ROUTE_TRACKS = 20;
 
 /** `star` is set on a system tour: a loop round one star instead of a flight between two planets */
 export type RoutePlan = { a: number; b: number; stops: number[]; hops: number[]; star?: number };
-export type Route = RoutePlan & { tracks: TrackRef[][]; flat: TrackRef[] };
+export type Route = RoutePlan & { tracks: TrackRef[][]; flat: TrackRef[]; loading?: boolean };
 
 /** strongest-link path between two styles (Dijkstra; strong links are short) */
 export function starPath(g: Galaxy, a: number, b: number): number[] {

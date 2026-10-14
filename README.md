@@ -54,7 +54,9 @@ House · Techno · Disco · Trance · Drum n Bass · Ambient · Downtempo · Exp
 - **Open any object**: a dossier with its numbers, activity per year, neighbours and tracks.
 - **Play**: tracks play in the embedded YouTube player. *Play the orbit* tunes into a random track of a label.
 - **Autopilot**: when a track ends, the ship flies on to the nearest track you haven't heard yet.
-- **Odysseys**: plot a route from one planet to another. It visits 10 planets in 5 systems, entering and leaving each through "gate" labels that face the next system, with 20+ tracks and its own shareable link.
+- **Odysseys**: start one from a star or a planet, then pick where to go (any other system). It visits 10 planets in 5 systems, entering and leaving each through "gate" labels that face the next system, with 20+ fresh tracks and its own shareable link.
+- **Grand tour**: on a star, 20 tracks from ten of its labels, from the big inner planets out to the edge, different every time.
+- **Orbit**: on a planet, an endless radio of that label: the player counts how many of its tracks you've heard.
 - **Wormhole**: a jump to a random point in the cosmos. The signal scope in the dossier rides the jump with you.
 - **Beacons**: mark the tracks you love. The **flight log** keeps your listening history. Both stay in your browser.
 - **Share**: the address bar always holds a link to the current track or odyssey.
