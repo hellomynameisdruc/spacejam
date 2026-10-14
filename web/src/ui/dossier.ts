@@ -148,6 +148,9 @@ export function renderDossier() {
   document.querySelector<HTMLElement>(".dossier")!.style.setProperty("--acc", accSi >= 0 ? galaxy.stars[accSi].color : "");
   const v = !o ? sector() : o.kind === "star" ? star(o.s) : o.kind === "planet" ? planet(o.p, o) : track(o);
   d.innerHTML = v.html; d.scrollTop = 0;
+  // all meters of a dossier share one label column, as wide as its longest label
+  const labs = d.querySelectorAll<HTMLElement>(".bar-r > span:first-child");
+  if (labs.length) { d.style.setProperty("--lbl", "max-content"); const w = Math.max(...[...labs].map((e) => e.scrollWidth)); d.style.setProperty("--lbl", w > 20 ? `${Math.min(w + 2, 170)}px` : ""); }
   scramble($("dosId"), v.code); scramble(document.getElementById("dosTitle"), v.title);
   const img = d.querySelector<HTMLImageElement>(".thumb img");
   if (img) img.onerror = () => {

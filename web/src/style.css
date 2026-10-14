@@ -138,7 +138,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .link:hover { text-decoration-color: var(--ink) }
 
 .bars { display: flex; flex-direction: column; gap: 4px }
-.bar-r { display: grid; grid-template-columns: 148px minmax(0, 1fr) 58px; gap: 8px; align-items: center; font-size: 11px }
+.bar-r { display: grid; grid-template-columns: var(--lbl, 148px) minmax(0, 1fr) 58px; gap: 8px; align-items: center; font-size: 11px }
 .bar-r > span:first-child { font-family: var(--f-dot); letter-spacing: .08em; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .bar-r > span:last-child { text-align: right; font-variant-numeric: tabular-nums }
 .meter { height: 9px; border: 1px solid var(--line); padding: 1px; display: flex }
