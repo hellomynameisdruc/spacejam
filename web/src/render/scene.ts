@@ -9,6 +9,7 @@ import { labels } from "./labels";
 import { drawPulsar, pulseOf, starSize } from "./pulsar";
 import { drawPlanets, tickSprites } from "./planets";
 import { drawSatellites } from "./satellites";
+import { drawStation } from "./station";
 import { drawRoute } from "./routeLine";
 import { drawMarker } from "./markers";
 import { drawNames, drawStatic, farView, painted, readout } from "./staticLayer";
@@ -88,6 +89,7 @@ function drawLive(t: number) {
   }
   if (state.hover && !sameSel(state.hover, state.sel)) drawMarker(state.hover, false);
   drawMarker(state.sel, true);
+  drawStation(ctx, t); // over the markers: the station is the point of SOLARIS
   labels.g = lc;
 }
 
