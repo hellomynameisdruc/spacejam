@@ -48,7 +48,9 @@ export function drawRadar(g: CanvasRenderingContext2D, w: number, h: number, t: 
   g.beginPath(); g.moveTo(cx - r, cy); g.lineTo(cx + r, cy); g.moveTo(cx, cy - r); g.lineTo(cx, cy + r); g.stroke();
   const a = (t / 1600) % (Math.PI * 2);
   for (let k = 0; k < 24; k++) { g.strokeStyle = ph(0.5 * (1 - k / 24)); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a - k * 0.03) * r, cy + Math.sin(a - k * 0.03) * r); g.stroke(); }
-  const s = Math.max(b.w, b.h) / 2 / r;
+  // scaled by the farthest star from the centre, so every star stays inside the circle
+  const far = Math.max(1, ...galaxy.stars.map((st) => Math.hypot(st.x - b.x, st.y - b.y)));
+  const s = far / (r * 0.94);
   galaxy.stars.forEach((st, si) => { const x = cx + (st.x - b.x) / s, y = cy + (st.y - b.y) / s; g.fillStyle = sc(si, 1); g.shadowColor = sc(si, 1); g.shadowBlur = 5; g.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3); g.shadowBlur = 0; });
 }
 
