@@ -26,7 +26,7 @@ export async function renderLog() {
   const found = await Promise.all(items.map(locate));
   const ok = items.flatMap((r, k) => (found[k] ? [{ ...found[k]!, t: r.t }] : []));
   el.innerHTML = ok.length
-    ? ok.map((r) => { const d = new Date(r.t); return `<button data-s="${r.s}" data-i="${r.i}"><time>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</time><span>▸ ${esc(chunk(r.s)!.t[r.i])} · ${esc(stars[r.s].name.toUpperCase())}</span></button>`; }).join("")
+    ? ok.map((r) => { const d = new Date(r.t); return `<button data-s="${r.s}" data-i="${r.i}"><time>${pad(d.getHours(), 2)}:${pad(d.getMinutes(), 2)}</time><span title="${esc(`${chunk(r.s)!.an[chunk(r.s)!.a[r.i]]} — ${chunk(r.s)!.t[r.i]}`)}">▸ ${esc(chunk(r.s)!.t[r.i])} · ${esc(stars[r.s].name.toUpperCase())}</span></button>`; }).join("")
     : `<p class="note">NO ENTRIES YET. SIGNALS YOU PLAY WILL SHOW UP HERE.</p>`;
 }
 
@@ -43,7 +43,7 @@ export async function renderBeacons() {
   el.innerHTML = links + `<p class="note ythint">Opens on YouTube; use “Save” there to keep it in your library.</p>` +
     beacons.all.map((b, k) => {
       const r = starOf[k] < stars.length ? beacons.ref(b, starOf[k]) : null;
-      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span>▸ ${esc(b.a ?? "")} — ${esc(b.t ?? "")}${r ? ` · ${esc(stars[r.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(b.y)}" aria-label="Remove beacon">×</button></div>`;
+      return `<div class="lk"><button ${r ? `data-s="${r.s}" data-i="${r.i}"` : "disabled"}><time>${pad(k + 1, 2)}</time><span title="${esc(`${b.a ?? ""} — ${b.t ?? ""}`)}">▸ ${esc(b.a ?? "")} — ${esc(b.t ?? "")}${r ? ` · ${esc(stars[r.s].name.toUpperCase())}` : ""}</span></button><button class="unlike" data-y="${esc(b.y)}" aria-label="Remove beacon">×</button></div>`;
     }).join("");
 }
 

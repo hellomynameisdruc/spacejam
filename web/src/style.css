@@ -308,7 +308,10 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; background: rgb(0 0 0 / .84); backdrop-filter: blur(6px);
   border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 30%, transparent) }
 .route-head { display: flex; align-items: center; gap: 6px; padding-top: 6px; min-width: 0 }
-.route-t { flex: 1; min-width: 0; font-family: var(--f-dot); font-size: 12px; letter-spacing: .06em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+/* the title wraps (up to three lines) instead of cutting long label names short */
+.route-t { flex: 1; min-width: 0; font-family: var(--f-dot); font-size: 12px; letter-spacing: .06em; line-height: 1.35; color: var(--ink);
+  overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3 }
+.route-head { align-items: flex-start }
 .route-t i { font-style: normal; color: var(--acc) }
 .route-meta { font-size: 10px; color: var(--dim); letter-spacing: .04em; line-height: 1.45 }
 .route-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; display: grid; gap: 6px; scrollbar-width: thin }
