@@ -54,6 +54,8 @@ export function select(o: Sel, go = true, autoplay = false) {
 export function playTrack(ref: TrackRef) {
   if (galaxy.meta.sample) return;
   const ch = chunk(ref.s)!;
+  // a track off the orbiting planet ends the orbit
+  if (state.orbit !== null && ch.p[ref.i] !== state.orbit) state.orbit = null;
   state.nowPlaying = ref; state.played.add(ch.yt[ref.i]);
   const h = state.history, last = h[h.length - 1];
   if (!last || last.i !== ref.i || last.s !== ref.s) h.push(ref);
@@ -83,6 +85,7 @@ export function next() {
       state.routeIdx = -1; renderRoutePanel(); $("routeMeta").textContent = "ODYSSEY COMPLETE · AUTOPILOT RESUMES";
     } else { state.routeIdx = -1; renderRoutePanel(); }
   }
+  if (state.orbit !== null) { playOrbit(state.orbit); return; }
   const n = nearestTracks(np, 1, state.played)[0]; if (n) select({ kind: "track", ...n }, true, true);
 }
 export function prev() {
@@ -96,6 +99,8 @@ export function playOrbit(pi: number) {
   const all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k);
   const fresh = all.filter((i) => !state.played.has(ch.yt[i]) && !(np && np.s === p.s && np.i === i));
   const pool = fresh.length ? fresh : all, i = pool[Math.floor(Math.random() * pool.length)];
+  if (state.routeIdx >= 0) { state.routeIdx = -1; renderRoutePanel(); }
+  state.orbit = pi;
   select({ kind: "track", s: p.s, i }, true, true);
 }
 export function toggleBeacon(r: TrackRef | null) { beacons.toggle(r, r ? galaxy.stars[r.s]?.name : undefined); }
@@ -150,7 +155,7 @@ export function clearRoute() {
 }
 export function playRouteAt(k: number) {
   const route = state.route; if (!route || !route.flat[k]) return;
-  state.routeIdx = k; renderRoutePanel();
+  state.routeIdx = k; state.orbit = null; renderRoutePanel();
   select({ kind: "track", ...route.flat[k] }, true, true);
   $("routeList").querySelector(".rt.on")?.scrollIntoView({ block: "nearest" });
 }

@@ -42,11 +42,19 @@ export function paintBeaconKey() {
 export function paintOdysseyTag() {
   const r = state.route, k = state.routeIdx, np = state.nowPlaying, cur = r && k >= 0 ? r.flat[k] : null;
   const on = !!(cur && np && cur.s === np.s && cur.i === np.i);
-  $("dockOdy").hidden = !on;
+  // or an orbit: how many of the planet's satellites have been heard so far
+  const pi = state.orbit, p = !on && pi !== null && np ? galaxy.planets[pi] : null, ch = p && chunk(p.s);
+  const orbiting = !!(p && ch && np!.s === p.s && ch.p[np!.i] === pi);
+  $("dockOdy").hidden = !on && !orbiting;
   if (on) {
     $("dockOdy").firstChild!.textContent = r!.star !== undefined ? "TOUR " : "ODYSSEY ";
     $("dockOdyN").textContent = `${pad(k + 1, 2)}/${pad(r!.flat.length, 2)}`;
+  } else if (orbiting) {
+    let heard = 0; for (let i = p!.t0; i < p!.t1; i++) if (state.played.has(ch!.yt[i])) heard++;
+    $("dockOdy").firstChild!.textContent = "ORBIT ";
+    $("dockOdyN").textContent = `${pad(heard, 2)}/${pad(p!.t1 - p!.t0, 2)}`;
   }
+  $("dockOdy").title = orbiting ? `Orbiting ${p!.name}: next plays another track of this label` : "";
 }
 
 /** put a track on air */
