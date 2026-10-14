@@ -9,11 +9,11 @@ import { cam, LOD_PLANETS } from "./camera";
 import { pulseOf } from "./pulsar";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const GW = 44, GH = 28; // the craft's grid, in cells
+const GW = 44, GH = 40, OY = 6; // the craft's grid, in cells; drawing coordinates sit OY cells down
 type Grid = { tone: Float32Array; light: [number, number, string][] };
 const grid: Grid = { tone: new Float32Array(GW * GH), light: [] };
 // tone > 0: lit share of the cell's dither (0…1); -1: a dark cell (shadow, window, panel seam)
-const put = (x: number, y: number, v: number) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < GW && y < GH) grid.tone[y * GW + x] = v; };
+const put = (x: number, y: number, v: number) => { x = Math.round(x); y = Math.round(y) + OY; if (x >= 0 && y >= 0 && x < GW && y < GH) grid.tone[y * GW + x] = v; };
 const rect = (x0: number, y0: number, x1: number, y1: number, f: (x: number, y: number) => number) => {
   for (let y = Math.round(y0); y <= Math.round(y1); y++) for (let x = Math.round(x0); x <= Math.round(x1); x++) put(x, y, f(x, y));
 };
@@ -35,18 +35,18 @@ const lit = (u: number, v: number, base = 1) => base * Math.max(0.18, Math.min(1
  */
 function probe(t: number) {
   const swing = Math.sin(t / 9000) * 0.45, rx = 3.2 + 4 * Math.cos(swing); // the dish turns on its mount
-  const tilt = Math.cos(t / 11000), pw = Math.max(0.6, 2.6 * Math.abs(tilt)), back = tilt < 0;
+  const tilt = Math.cos(t / 11000), pw = Math.max(0.8, 4 * Math.abs(tilt)), back = tilt < 0;
   // solar wings above and below the bus, cell seams every third row; the back side is dull
   const wing = (y0: number, y1: number) => rect(19.5 - pw, y0, 19.5 + pw, y1, (x, y) => ((y - y0) % 3 === 2 ? -1 : back ? 0.3 : lit((x - 19) / 6, (y - 14) / 14, 0.95)));
-  line(19.5, 9, 19.5, 7, 0.7); line(19.5, 19, 19.5, 21, 0.7); // wing masts
-  wing(0, 6); wing(22, 27);
+  line(19.5, 9, 19.5, 6, 0.7); line(19.5, 19, 19.5, 22, 0.7); // wing masts
+  wing(-6, 5); wing(23, 33);
   line(23, 14, 42, 7, 0.75); rect(40, 5, 43, 8, (x, y) => lit((x - 41) / 2, (y - 6) / 2)); // boom and its sensor
   line(17, 18, 10, 26, 0.6); rect(8, 24, 11, 27, (x, y) => lit((x - 9) / 2, (y - 25) / 2, 0.85)); // power arm
   rect(16, 10, 23, 18, (x, y) => ((x + y) % 3 === 0 ? -1 : lit((x - 19) / 4, (y - 14) / 4, 0.8))); // bus, foil panels
   // the dish, its edge softened by coverage so the swing reads smoothly in the dither
   ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.75)) * edge; });
   line(11, 14, 3 - 3 * Math.cos(swing), 14, 0.9); // feed horn
-  grid.light.push([42, 6, Math.floor(t / 900) % 2 ? "#ff4d6d" : ""]);
+  grid.light.push([42, 6 + OY, Math.floor(t / 900) % 2 ? "#ff4d6d" : ""]);
 }
 
 let canvas: HTMLCanvasElement | null = null;
