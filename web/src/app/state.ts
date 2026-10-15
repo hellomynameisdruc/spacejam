@@ -10,6 +10,7 @@ import { browserKV } from "../store/storage";
 import { Beacons } from "../store/beacons";
 import { FlightLog } from "../store/flightLog";
 import { Prefs } from "../store/prefs";
+import { DeadSignals } from "../store/deadSignals";
 
 const map = await loadMap();
 setDataVersion(map.meta.rev ?? map.meta.build);
@@ -20,6 +21,7 @@ export const motion = new Motion(galaxy, chunk, reduce);
 export const beacons = new Beacons(browserKV, chunk);
 export const flightLog = new FlightLog(browserKV);
 export const prefs = new Prefs(browserKV);
+export const dead = new DeadSignals(browserKV);
 
 export const state = {
   sel: null as Sel,

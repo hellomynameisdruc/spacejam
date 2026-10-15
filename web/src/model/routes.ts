@@ -133,14 +133,18 @@ export function planSystemTour(g: Galaxy, st: number, rnd: () => number = Math.r
 }
 
 export const LIGHT_YEARS_MIN = 8, LIGHT_YEARS_MAX = 30;
+/** anything that can tell whether a YouTube id is in it (a Set, the dead-signal store…) */
+export type Has = { has(y: string): boolean };
+const NONE: Has = { has: () => false };
+
 /**
  * TIME WARP: a label's history in order, from its first dated release to its last. With 8+ active
  * years it's one track per year (evenly thinned out past 30); a short-lived label gets 8–12 tracks spread
  * evenly through its catalogue instead. Undated tracks are left out; null when fewer than 3 are dated.
  */
-export function planLightYears(g: Galaxy, pi: number, ch: Chunk, heard: Set<string>, rnd: () => number = Math.random): Route | null {
+export function planLightYears(g: Galaxy, pi: number, ch: Chunk, heard: Has, rnd: () => number = Math.random, dead: Has = NONE): Route | null {
   const p = g.planets[pi], seen = new Set<string>(), dated: number[] = [];
-  for (let i = p.t0; i < p.t1; i++) if (ch.yr[i] && !seen.has(ch.yt[i])) { seen.add(ch.yt[i]); dated.push(i); }
+  for (let i = p.t0; i < p.t1; i++) if (ch.yr[i] && !seen.has(ch.yt[i]) && !dead.has(ch.yt[i])) { seen.add(ch.yt[i]); dated.push(i); }
   if (dated.length < 3) return null;
   dated.sort((x, y) => ch.yr[x] - ch.yr[y] || x - y);
   const byYear = new Map<number, number[]>();
@@ -165,7 +169,7 @@ export const HITCHHIKE_TRACKS = 42;
  * Random tracks for each stop of an odyssey or a hitchhike, ones not heard yet first: `total`
  * tracks shared out as evenly as the stops allow (a small label passes its share on to the others).
  */
-export function pickStopTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) => Chunk, heard: Set<string>, rnd: () => number = Math.random, total = MIN_ROUTE_TRACKS): TrackRef[][] {
+export function pickStopTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) => Chunk, heard: Has, rnd: () => number = Math.random, total = MIN_ROUTE_TRACKS, dead: Has = NONE): TrackRef[][] {
   const seen = new Set<string>(), avail = plan.stops.map((pi) => g.planets[pi].t1 - g.planets[pi].t0);
   const cnt = avail.map(() => 0);
   for (let left = total, grew = true; left > 0 && grew;) {
@@ -174,7 +178,7 @@ export function pickStopTracks(g: Galaxy, plan: RoutePlan, chunk: (s: number) =>
   }
   return plan.stops.map((pi, k) => {
     const per = cnt[k];
-    const p = g.planets[pi], ch = chunk(p.s), all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k);
+    const p = g.planets[pi], ch = chunk(p.s), all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k).filter((i) => !dead.has(ch.yt[i]));
     const fresh = all.filter((i) => !heard.has(ch.yt[i])), out: TrackRef[] = [];
     for (const src of [fresh, all]) {
       const left = src.filter((i) => !seen.has(ch.yt[i]));

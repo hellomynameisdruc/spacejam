@@ -3,7 +3,7 @@
 import type { Sel, TrackRef } from "../core/types";
 import { pad } from "../core/util";
 import { $ } from "../core/dom";
-import { beacons, chunk, flightLog, galaxy, motion, state, tracks } from "./state";
+import { beacons, chunk, dead, flightLog, galaxy, motion, state, tracks } from "./state";
 import { orbitR } from "../model/galaxy";
 import { HITCHHIKE_TRACKS, pickStopTracks, planLightYears, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
@@ -77,7 +77,7 @@ export function nearestTracks(ref: TrackRef, k: number, skip?: Set<string>): Tra
   const ch = chunk(ref.s); if (!ch) return [];
   const x = ch.x[ref.i], y = ch.y[ref.i], best: { i: number; d: number }[] = [];
   for (let i = 0; i < ch.x.length; i++) {
-    if (i === ref.i || skip?.has(ch.yt[i])) continue;
+    if (i === ref.i || skip?.has(ch.yt[i]) || dead.has(ch.yt[i])) continue;
     const d = (ch.x[i] - x) ** 2 + (ch.y[i] - y) ** 2;
     if (best.length < k || d < best[best.length - 1].d) { best.push({ i, d }); best.sort((a, b) => a.d - b.d); if (best.length > k) best.pop(); }
   }
@@ -110,7 +110,8 @@ export function prev() {
 export function playOrbit(pi: number) {
   const p = galaxy.planets[pi], ch = chunk(p.s); if (!ch || p.t1 <= p.t0) return;
   const np = state.nowPlaying;
-  const all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k);
+  const all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k).filter((i) => !dead.has(ch.yt[i]));
+  if (!all.length) { state.orbit = null; return; } // every signal here has gone dark
   const fresh = all.filter((i) => !state.played.has(ch.yt[i]) && !(np && np.s === p.s && np.i === i));
   const pool = fresh.length ? fresh : all, i = pool[Math.floor(Math.random() * pool.length)];
   if (state.routeIdx >= 0) { state.routeIdx = -1; renderRoutePanel(); }
@@ -130,7 +131,7 @@ export async function buildRoute(a: number, b: number) {
   renderRoutePanel(); fitRoute(); state.dirty = true;
   await Promise.all([...new Set(plan.stops.map((i) => galaxy.planets[i].s))].map((s) => tracks.load(s)));
   if (state.route !== pending) return; // replaced or closed meanwhile
-  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, undefined, dead);
   state.route = { ...plan, tracks: t, flat: t.flat() };
   renderRoutePanel();
 }
@@ -160,7 +161,7 @@ export function endPick() { state.routePick = null; hidePickHint(); }
 export async function playLightYears(pi: number) {
   if (galaxy.meta.sample) return;
   const s = galaxy.planets[pi].s, ch = await tracks.load(s);
-  const r = planLightYears(galaxy, pi, ch, state.played); if (!r) return;
+  const r = planLightYears(galaxy, pi, ch, state.played, Math.random, dead); if (!r) return;
   state.route = r; state.routeIdx = -1; renderRoutePanel(); state.dirty = true;
   playRouteAt(0);
 }
@@ -170,7 +171,7 @@ export async function playSystem(st: number) {
   if (galaxy.meta.sample) return;
   const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
   await tracks.load(st);
-  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS, dead);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   replaceHash(`#s${st}`);
   renderRoutePanel(); state.dirty = true;
@@ -179,7 +180,7 @@ export async function playSystem(st: number) {
 async function openSystemTour(st: number) {
   const plan = planSystemTour(galaxy, st); if (!plan.stops.length) return;
   await tracks.load(st);
-  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS);
+  const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS, dead);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   renderRoutePanel(); fitRoute(); state.dirty = true;
 }
@@ -217,7 +218,9 @@ export async function warp() {
   const { stars } = galaxy;
   let r = Math.random() * galaxy.totalTracks, s = 0;
   while (s < stars.length - 1 && r > stars[s].tracks) { r -= stars[s].tracks; s++; }
-  const ch = await tracks.load(s), i = Math.floor(Math.random() * ch.yt.length);
+  const ch = await tracks.load(s);
+  let i = Math.floor(Math.random() * ch.yt.length);
+  for (let k = 0; k < 20 && dead.has(ch.yt[i]); k++) i = Math.floor(Math.random() * ch.yt.length); // not into a dead signal
   const sel = state.sel, from = !sel ? nearestStarToCam() : sel.kind === "planet" ? galaxy.planets[sel.p].s : sel.s;
   const autoplay = !!state.nowPlaying;
   wormhole(from, s, `${trackCode(s, i)} · ${stars[s].name.toUpperCase()}`, () => {

@@ -79,6 +79,12 @@ describe("pickStopTracks", () => {
     expect(new Set(flat.map((r) => chunks[r.s].yt[r.i])).size).toBe(flat.length);
     t.forEach((list, k) => { const p = g.planets[plan.stops[k]]; for (const r of list) { expect(r.s).toBe(p.s); expect(r.i).toBeGreaterThanOrEqual(p.t0); expect(r.i).toBeLessThan(p.t1); } });
   });
+  it("never picks a dead signal", () => {
+    const plan = planRoute(g, first(0), first(4)), all = pickStopTracks(g, plan, (s) => chunks[s], new Set(), lcg(3)).flat();
+    const dead = new Set(all.slice(0, 5).map((r) => chunks[r.s].yt[r.i]));
+    const t = pickStopTracks(g, plan, (s) => chunks[s], new Set(), lcg(3), MIN_ROUTE_TRACKS, dead).flat();
+    expect(t.some((r) => dead.has(chunks[r.s].yt[r.i]))).toBe(false);
+  });
 });
 
 describe("whole stars", () => {

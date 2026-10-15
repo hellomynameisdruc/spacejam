@@ -4,7 +4,7 @@ import type { TrackRef } from "../core/types";
 import { mmss, pad } from "../core/util";
 import { $, uiZoom } from "../core/dom";
 import { Player } from "./youtubePlayer";
-import { beacons, chunk, galaxy, motion, prefs, state } from "../app/state";
+import { beacons, chunk, dead, galaxy, motion, prefs, state } from "../app/state";
 import { next, prev, select, toggleBeacon } from "../app/actions";
 import { onFrame, viewportEl } from "../render/scene";
 import { cam, LOD_TRACKS } from "../render/camera";
@@ -86,8 +86,12 @@ export function initDock() {
     onEnded: () => { if ($<HTMLInputElement>("autopilot").checked) next(); },
     onError: (code) => {
       const m = $("pMsg"); m.hidden = false;
-      m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. JUMPING TO A NEARBY SIGNAL…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
-      setTimeout(next, 1500);
+      // removed, private (100) or not allowed on other sites (101, 150): that signal is dead for good,
+      // so remember it and never steer here again. Other errors may pass, so those are only skipped.
+      const gone = code === 100 || code === 101 || code === 150, np = state.nowPlaying, ch = np && chunk(np.s);
+      if (gone && np && ch) { dead.add(ch.yt[np.i]); state.dirty = true; }
+      m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. SIGNAL MARKED DARK, JUMPING ON…" : gone ? "! SIGNAL LOST: VIDEO REMOVED. MARKED DARK, JUMPING ON…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
+      setTimeout(next, gone ? 900 : 1500);
     },
     onPlayingChange: (p) => { $("live").classList.toggle("on", p); $("pToggle").innerHTML = p ? ICON.pause : ICON.play; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
   });

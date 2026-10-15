@@ -1,6 +1,6 @@
 // Satellites (tracks) swarming around their planets, with beacons blinking around marked ones.
 import { reduce } from "../core/dom";
-import { beacons, chunk, galaxy, motion } from "../app/state";
+import { beacons, chunk, dead, galaxy, motion } from "../app/state";
 import { orbitR } from "../model/galaxy";
 import { mixW, sc } from "./palette";
 import { cam, LOD_TITLES, LOD_TRACKS } from "./camera";
@@ -16,7 +16,7 @@ export function drawSatellites(ctx: CanvasRenderingContext2D, t: number) {
   galaxy.stars.forEach((st, si) => {
     if (!inLive(st.x, st.y, st.R)) return;
     const ch = chunk(si), o = ch && motion.orbitOf(si); if (!ch || !o) return;
-    const back = new Path2D(), front = new Path2D(), marked = new Path2D();
+    const back = new Path2D(), front = new Path2D(), marked = new Path2D(), dark = new Path2D();
     for (const pi of galaxy.planetsByStar[si]) {
       const pl = galaxy.planets[pi], c = motion.planetPos(pi, t), cx = c.x, cy = c.y, rr = pl.r * pl.r;
       if (!inLive(cx, cy, orbitR(pl)) || !motion.ensurePlanet(pi)) continue;
@@ -28,6 +28,8 @@ export function drawSatellites(ctx: CanvasRenderingContext2D, t: number) {
         if (z < 0 && dx * dx + dy * dy < rr) continue; // behind the planet
         const sx = (cx + dx) * k + ox, sy = (cy + dy) * k + oy;
         if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) continue;
+        // a dead signal (its video is gone) is only a dim outline of a dot, and has no title
+        if (dead.size && dead.has(ch.yt[i])) { dark.rect(Math.round(sx - half) + 0.5, Math.round(sy - half) + 0.5, Math.max(1, sz - 1), Math.max(1, sz - 1)); continue; }
         (z >= 0 ? front : back).rect(Math.round(sx - half), Math.round(sy - half), sz, sz);
         if (beacons.size && beacons.hasId(ch.yt[i])) {
           const r = sz / 2 + 4.5, cx2 = Math.round(sx) + 0.5, cy2 = Math.round(sy) + 0.5;
@@ -38,6 +40,7 @@ export function drawSatellites(ctx: CanvasRenderingContext2D, t: number) {
     }
     ctx.fillStyle = sc(si, 0.35); ctx.fill(back);
     ctx.fillStyle = sc(si, 0.95); ctx.fill(front);
+    ctx.strokeStyle = sc(si, 0.22); ctx.lineWidth = 1; ctx.stroke(dark);
     ctx.strokeStyle = mixW(si, 0.55, reduce ? 0.95 : 0.55 + 0.45 * Math.abs(Math.sin(t / 420))); ctx.lineWidth = 1; ctx.stroke(marked);
   });
 }

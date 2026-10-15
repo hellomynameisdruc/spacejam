@@ -4,6 +4,7 @@ import { memoryKV } from "../src/store/storage";
 import { Beacons, YT_BATCH } from "../src/store/beacons";
 import { FlightLog } from "../src/store/flightLog";
 import { Prefs } from "../src/store/prefs";
+import { DEAD_MAX, DeadSignals } from "../src/store/deadSignals";
 
 const chunk: Chunk = { yt: ["aaa", "bbb", "ccc"], t: ["A", "B", "C"], a: [0, 0, 0], yr: [2000, 2001, 2002], p: [-1, -1, -1], x: [0, 0, 0], y: [0, 0, 0], an: ["DJ"] };
 
@@ -82,5 +83,16 @@ describe("surviving a map rebuild", () => {
     const moved = { ...chunk, yt: ["ccc", "aaa", "bbb"] };
     const b2 = new Beacons(kv, (s) => (s === 5 ? moved : null));
     expect(b2.ref(b2.all[0], 5)).toEqual({ s: 5, i: 0 });
+  });
+});
+
+describe("DeadSignals", () => {
+  it("remembers dead videos across reloads, newest kept", () => {
+    const kv = memoryKV(); const d = new DeadSignals(kv);
+    let n = 0; d.changed.on(() => n++);
+    d.add("aaa"); d.add("aaa"); d.add("bbb");
+    expect(n).toBe(2); expect(new DeadSignals(kv).has("bbb")).toBe(true);
+    for (let k = 0; k < DEAD_MAX; k++) d.add("v" + k);
+    expect(d.size).toBe(DEAD_MAX); expect(d.has("aaa")).toBe(false); expect(d.has("v" + (DEAD_MAX - 1))).toBe(true);
   });
 });
