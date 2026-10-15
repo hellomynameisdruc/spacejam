@@ -4,9 +4,10 @@ import type { TrackRef } from "../core/types";
 import { mmss, pad } from "../core/util";
 import { $, uiZoom } from "../core/dom";
 import { Player } from "./youtubePlayer";
-import { beacons, chunk, galaxy, prefs, state } from "../app/state";
-import { next, prev, toggleBeacon } from "../app/actions";
-import { viewportEl } from "../render/scene";
+import { beacons, chunk, galaxy, motion, prefs, state } from "../app/state";
+import { next, prev, select, toggleBeacon } from "../app/actions";
+import { onFrame, viewportEl } from "../render/scene";
+import { cam, LOD_TRACKS } from "../render/camera";
 import { ticker } from "./ticker";
 
 // Player keys use one family of pixel icons (14×14 grid), so they match in size and weight
@@ -95,6 +96,13 @@ export function initDock() {
   $("pPrev").onclick = prev;
   $("pToggle").onclick = () => player.toggle();
   $("pLike").onclick = () => toggleBeacon(state.nowPlaying);
+  // fly back to whatever is on air (handy after zooming far out); it glows while the track is off screen
+  $("dockFind").onclick = () => { const np = state.nowPlaying; if (np) select({ kind: "track", ...np }); };
+  onFrame(() => {
+    const np = state.nowPlaying, b = $("dockFind"); if (!np || !chunk(np.s)) { b.classList.remove("far"); return; }
+    const q = motion.trackPos(np.s, np.i), p = cam.toScreen(q.x, q.y);
+    b.classList.toggle("far", cam.s < LOD_TRACKS || p.x < 0 || p.y < 0 || p.x > cam.W || p.y > cam.H);
+  });
   $("dockMin").onclick = () => {
     if (player.playing) player.toggle();
     dock.hidden = true; pill.hidden = false; document.body.classList.remove("docked");

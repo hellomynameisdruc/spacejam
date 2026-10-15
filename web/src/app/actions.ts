@@ -114,6 +114,7 @@ export function playOrbit(pi: number) {
   const fresh = all.filter((i) => !state.played.has(ch.yt[i]) && !(np && np.s === p.s && np.i === i));
   const pool = fresh.length ? fresh : all, i = pool[Math.floor(Math.random() * pool.length)];
   if (state.routeIdx >= 0) { state.routeIdx = -1; renderRoutePanel(); }
+  if (state.orbit !== pi) state.orbitSince = Date.now(); // a new station starts its clock
   state.orbit = pi;
   select({ kind: "track", s: p.s, i }, true, true);
 }

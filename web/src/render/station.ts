@@ -125,4 +125,8 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   ctx.beginPath(); ctx.moveTo(x + (left ? -1 : 1) * w * 0.3, y - h * 0.3); ctx.lineTo(lx, ly); ctx.lineTo(lx + (left ? -46 : 46), ly); ctx.stroke();
   ctx.fillStyle = col(0.9); ctx.font = `9px ${FONT_LBL}`; ctx.textAlign = left ? "right" : "left";
   ctx.fillText("SOLARIS STATION · LISTENING", lx + (left ? -2 : 2), ly - 3);
+  // time on station, like a mission clock: T+00:12:34
+  const secs = Math.max(0, Math.floor((Date.now() - state.orbitSince) / 1000)), two = (n: number) => String(n).padStart(2, "0");
+  ctx.fillStyle = col(0.65);
+  ctx.fillText(`T+${two(Math.floor(secs / 3600))}:${two(Math.floor(secs / 60) % 60)}:${two(secs % 60)} ON STATION`, lx + (left ? -2 : 2), ly + 10);
 }

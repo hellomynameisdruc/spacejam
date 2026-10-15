@@ -403,7 +403,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .dock::before, .dock::after { display: none }
   .dock-head { grid-area: head; cursor: default; padding: 4px 0 }
   .grip { visibility: hidden }
-  #dockMin { width: 36px; height: 26px; font-size: 14px }
+  #dockMin, #dockFind { width: 36px; height: 26px; font-size: 14px }
   .video { grid-area: video }
   .dock-np { grid-area: np; padding-top: 0 }
   .seek { grid-area: seek }
@@ -424,3 +424,9 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 /* the player's header stays on one line: ON AIR and the mode tag never wrap */
 .dock-head .dock-k, .dock-ody { white-space: nowrap }
 .dock-ody { letter-spacing: .06em; min-width: 0; overflow: hidden; text-overflow: clip }
+/* the player's "fly back" key lights up when the track on air is out of sight */
+#dockFind { font-size: 11px; padding: 0 0 2px }
+#dockFind.far { color: var(--acc); border-color: var(--acc); box-shadow: 0 0 8px color-mix(in srgb, var(--acc) 60%, transparent); animation: blink 1.6s steps(1) infinite }
+/* room for the mode tag: the whole header is the drag handle, so the grip mark steps aside */
+.dock-head .grip { display: none }
+#dockFind { margin-left: auto }

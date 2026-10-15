@@ -34,6 +34,8 @@ export const state = {
   routePick: null as { kind: "planet" | "star"; i: number } | null,
   /** planet whose orbit is playing (SOLARIS): next keeps to its satellites */
   orbit: null as number | null,
+  /** when the station took up that orbit (Date.now()), for its time-on-station read-out */
+  orbitSince: 0,
   /** the wormhole animation is running */
   warping: false,
   /** YouTube ids heard this session (autopilot skips them) */
