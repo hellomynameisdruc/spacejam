@@ -18,7 +18,7 @@ let denyT = 0, pickText = "";
 export function denyPick(starName: string) {
   const el = $("routeHintText"); if (!denyT) pickText = el.innerHTML;
   // HAL 9000 keeps the pod bay doors shut
-  el.innerHTML = `<b class="deny">✕ I'M SORRY, DAVE. I'M AFRAID I CAN'T DO THAT.</b> ${esc(starName.toUpperCase())} IS WHERE THE ODYSSEY STARTS`;
+  el.innerHTML = `<b class="deny">✕ I'M SORRY. I'M AFRAID I CAN'T DO THAT.</b> ${esc(starName.toUpperCase())} IS WHERE THE ODYSSEY STARTS`;
   clearTimeout(denyT); denyT = window.setTimeout(() => { el.innerHTML = pickText; denyT = 0; }, 2800);
 }
 
