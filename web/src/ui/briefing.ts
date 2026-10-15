@@ -1,12 +1,10 @@
 // The pre-flight safety briefing: how to use the observatory, drawn like the safety card in an
 // airliner's seat pocket. Shown on the first visit and whenever the ? key or button is pressed.
-// While it is open the music pauses: nothing is ever drawn over a playing video.
-import { $ } from "../core/dom";
+// The music keeps playing: the player stays on top of the card, so nothing is ever drawn over the video.
+import { $, uiZoom } from "../core/dom";
 import { browserKV } from "../store/storage";
-import { player } from "./dock";
 
 const SEEN = "kosmos-briefed";
-let resume = false;
 
 // pictograms: pixel drawings in the phosphor colour (60 × 34 cells)
 const pic = (body: string) => `<svg viewBox="0 0 60 34" aria-hidden="true" shape-rendering="crispEdges">${body}</svg>`;
@@ -84,15 +82,20 @@ function build() {
 export function openBriefing() {
   const el = $("brief"); if (!el.hidden) return;
   if (!el.firstChild) build();
-  // pause the music while the card is over the screen; it picks up again when the card is put away
-  resume = player.playing; if (resume) player.toggle();
+  document.body.classList.add("briefing"); // the player rises above the card
+  // on a wide screen, keep the card clear of the player instead of under it
+  el.style.paddingRight = "";
+  const dock = document.getElementById("playerBox");
+  if (dock && !dock.hidden && innerWidth > 860) {
+    el.hidden = false; const r = dock.getBoundingClientRect(), z = uiZoom(el), room = (innerWidth - r.left) / z + 12;
+    if (r.left / z > 640) el.style.paddingRight = `${room}px`;
+  }
   el.hidden = false; el.scrollTop = 0; el.querySelector<HTMLElement>(".brief-foot .key")?.focus({ preventScroll: true });
 }
 export function closeBriefing() {
   const el = $("brief"); if (el.hidden) return;
   el.hidden = true; browserKV.set(SEEN, "1");
-  if (resume && !player.playing) player.toggle();
-  resume = false;
+  document.body.classList.remove("briefing");
 }
 export const briefingOpen = () => !$("brief").hidden;
 

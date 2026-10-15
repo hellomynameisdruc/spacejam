@@ -454,3 +454,6 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 .brief-note { flex: 1; font-size: 11px; color: var(--dim); min-width: 160px }
 @media (max-width: 860px) { .brief-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) } .brief-dp { font-size: 20px } }
 @media (max-width: 560px) { .brief { place-items: start center; padding: 10px } .brief-grid { grid-template-columns: 1fr } .brief-grid svg { max-height: 90px } }
+/* while the briefing is open the player stays above it and keeps playing, never covered */
+body.briefing .dock { z-index: 61 }
+@media (max-width: 860px) { body.briefing.docked .brief { padding-bottom: calc(250px + env(safe-area-inset-bottom, 0px)) } }
