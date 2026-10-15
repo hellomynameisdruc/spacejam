@@ -29,6 +29,7 @@
       <div class="brand"><span class="inv">SOUND COSMOS</span><span class="sub">OBSERVATORY // SECTOR <b id="sector">HOUSE</b></span></div>
       <div class="ticker" aria-hidden="true"><div class="ticker-in" id="ticker"></div></div>
       <div class="sys">
+        <button type="button" class="help" id="help" aria-label="Safety briefing: how to use the observatory" title="Safety briefing: how it works (?)">?</button>
         <div class="phos" role="group" aria-label="Phosphor colour">
           <button type="button" data-ph="violet" aria-label="Violet phosphor"></button>
           <button type="button" data-ph="green" aria-label="Green phosphor"></button>
@@ -66,7 +67,7 @@
                 <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
                 <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
                 <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
-                <button type="button" class="key sq like-k" id="pLike" aria-label="Set beacon" aria-pressed="false" title="Set a beacon on this signal (L)">◇</button>
+                <button type="button" class="key sq like-k" id="pLike" aria-label="Set beacon" aria-pressed="false" title="Beacon = like: save this track to your BEACONS (L)">♥</button>
               </div>
               <div class="mix">
                 <span class="vk" aria-hidden="true">VOL</span>
@@ -125,10 +126,12 @@
         <input id="q" type="search" placeholder="search: style, label or artist" autocomplete="off" spellcheck="false">
         <div class="results" id="results" hidden></div>
       </div>
-      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>L</kbd>BEACON <kbd>ESC</kbd>BACK</div>
+      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>L</kbd>♥ BEACON <kbd>?</kbd>HELP <kbd>ESC</kbd>BACK</div>
       <span class="copy">HELLOMYNAMEISDRUC © 2026</span>
     </footer>
   </div>
+
+  <div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Pre-flight safety briefing" hidden></div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

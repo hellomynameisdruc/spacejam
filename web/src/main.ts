@@ -27,6 +27,7 @@ import { initSearch } from "./ui/search";
 import { initInput } from "./ui/input";
 import { initWormhole } from "./ui/wormhole";
 import { initTheme } from "./ui/theme";
+import { initBriefing } from "./ui/briefing";
 
 initScene();
 initDock();
@@ -47,6 +48,7 @@ $("sector").textContent = galaxy.meta.sector.toUpperCase();
 if (galaxy.meta.sample) { const b = $("sampleBanner"); b.hidden = false; b.onclick = () => { b.hidden = true; }; }
 renderDossier(); renderLog(); renderBeacons(); paintBeaconKey(); ticker();
 startLoop();
+initBriefing();
 document.fonts?.ready.then(() => { state.dirty = true; });
 
 // deep links: #test-<videoId> plays one video, #r<a>-<b> opens a route, #t<star>-<track> a track

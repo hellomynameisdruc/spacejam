@@ -17,8 +17,9 @@ export const ICON = {
   next: svgI(`<path fill="currentColor" d="M1 2h1v10H1zM2 3h1v8H2zM3 4h1v6H3zM4 5h1v4H4zM5 6h1v2H5zM7 2h1v10H7zM8 3h1v8H8zM9 4h1v6H9zM10 5h1v4h-1zM11 6h1v2h-1z" transform="translate(1 0)"/>`),
   pause: svgI(`<path fill="currentColor" d="M3 2h3v10H3zM8 2h3v10H8z"/>`),
   play: svgI(`<path fill="currentColor" d="M3 2h1v10H3zM4 3h2v8H4zM6 4h2v6H6zM8 5h2v4H8zM10 6h2v2h-2z"/>`),
-  beacon: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h1v1H5zM8 2h1v1H8zM4 3h1v1H4zM9 3h1v1H9zM3 4h1v1H3zM10 4h1v1h-1zM2 5h1v1H2zM11 5h1v1h-1zM1 6h1v2H1zM12 6h1v2h-1zM2 8h1v1H2zM11 8h1v1h-1zM3 9h1v1H3zM10 9h1v1h-1zM4 10h1v1H4zM9 10h1v1H9zM5 11h1v1H5zM8 11h1v1H8zM6 12h2v1H6zM6 6h2v2H6z"/>`),
-  beaconOn: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h4v1H5zM4 3h6v1H4zM3 4h8v1H3zM2 5h10v1H2zM1 6h12v2H1zM2 8h10v1H2zM3 9h8v1H3zM4 10h6v1H4zM5 11h4v1H5zM6 12h2v1H6z"/><path fill="var(--bg, #000)" d="M6 6h2v2H6z"/>`),
+  // the beacon: a diamond (how marked tracks look on the map) with a heart in it, so it reads as a like
+  beacon: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h1v1H5zM8 2h1v1H8zM4 3h1v1H4zM9 3h1v1H9zM3 4h1v1H3zM10 4h1v1h-1zM2 5h1v1H2zM11 5h1v1h-1zM1 6h1v2H1zM12 6h1v2h-1zM2 8h1v1H2zM11 8h1v1h-1zM3 9h1v1H3zM10 9h1v1h-1zM4 10h1v1H4zM9 10h1v1H9zM5 11h1v1H5zM8 11h1v1H8zM6 12h2v1H6z"/><path fill="currentColor" opacity=".75" d="M4 5h2v1H4zM8 5h2v1H8zM3 6h8v2H3zM4 8h6v1H4zM5 9h4v1H5zM6 10h2v1H6z"/>`),
+  beaconOn: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h4v1H5zM4 3h6v1H4zM3 4h8v1H3zM2 5h10v1H2zM1 6h12v2H1zM2 8h10v1H2zM3 9h8v1H3zM4 10h6v1H4zM5 11h4v1H5zM6 12h2v1H6z"/><path fill="var(--bg, #000)" d="M4 5h2v1H4zM8 5h2v1H8zM3 6h8v2H3zM4 8h6v1H4zM5 9h4v1H5zM6 10h2v1H6z"/>`),
 };
 
 export let player: Player;
@@ -36,7 +37,7 @@ export function showDock() { dock.hidden = false; pill.hidden = true; document.b
 export function paintBeaconKey() {
   const on = beacons.has(state.nowPlaying), b = $("pLike");
   b.innerHTML = on ? ICON.beaconOn : ICON.beacon; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
-  b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon");
+  b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon"); b.title = on ? "Beacon on: this track is in your BEACONS. Click to remove (L)" : "Beacon = like: save this track to your BEACONS (L)";
 }
 
 /** "ODYSSEY 07/24" next to ON AIR while the track on air is a stop of the playing odyssey */
