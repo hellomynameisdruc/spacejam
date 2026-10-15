@@ -37,7 +37,7 @@ export function showDock() { dock.hidden = false; pill.hidden = true; document.b
 export function paintBeaconKey() {
   const on = beacons.has(state.nowPlaying), b = $("pLike");
   b.innerHTML = on ? ICON.beaconOn : ICON.beacon; b.setAttribute("aria-pressed", String(on)); b.classList.toggle("on", on);
-  b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon"); b.title = on ? "Beacon on: this track is in your BEACONS. Click to remove (L)" : "Beacon = like: save this track to your BEACONS (L)";
+  b.setAttribute("aria-label", on ? "Remove beacon" : "Set beacon"); b.title = on ? "Beacon on: this track is in your BEACONS. Click to remove (L)" : "Set a beacon: save this track to your BEACONS (L)";
 }
 
 /** "ODYSSEY 07/24" next to ON AIR while the track on air is a stop of the playing odyssey */

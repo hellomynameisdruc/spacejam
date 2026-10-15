@@ -1,7 +1,7 @@
 // What's under the pointer: a planet's body wins over passing satellites; then satellites/belt tracks;
 // then stars.
 import type { Sel } from "../core/types";
-import { chunk, galaxy, motion } from "../app/state";
+import { baseChunk, galaxy, motion } from "../app/state";
 import { orbitR } from "../model/galaxy";
 import { cam, LOD_PLANETS, LOD_TRACKS } from "./camera";
 import { eachTrack } from "./beltGrid";
@@ -27,7 +27,7 @@ export function pick(sx: number, sy: number): Sel {
   if (cam.s >= LOD_TRACKS) {
     const w = cam.toWorld(sx, sy), rad = 10 / cam.s;
     stars.forEach((st, s) => {
-      const ch = chunk(s); if (!ch || Math.hypot(w.x - st.x, w.y - st.y) > st.R + rad) return;
+      const ch = baseChunk(s); if (!ch || Math.hypot(w.x - st.x, w.y - st.y) > st.R + rad) return;
       eachTrack(s, w.x - rad, w.y - rad, w.x + rad, w.y + rad, (i) => { if (ch.p[i] < 0) consider({ kind: "track", s, i }, ch.x[i], ch.y[i], 10); });
       if (!motion.orbitOf(s)) return;
       for (const pi of planetsByStar[s]) {

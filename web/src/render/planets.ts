@@ -1,6 +1,6 @@
 // Planets: how each type looks, cached sprites, and drawing them at their moving positions.
 import { hash } from "../core/util";
-import { chunk, galaxy, motion, state } from "../app/state";
+import { baseChunk, galaxy, motion, state } from "../app/state";
 import { BG, planetDither, sc } from "./palette";
 import { cam, LOD_PLANETS } from "./camera";
 import { inView, inLive } from "./view";
@@ -95,8 +95,8 @@ export function tickSprites() {
 function focusPlanets() {
   const out = new Set<number>(), sel = state.sel, np = state.nowPlaying;
   if (sel?.kind === "planet") out.add(sel.p);
-  if (sel?.kind === "track") { const p = chunk(sel.s)?.p[sel.i] ?? -1; if (p >= 0) out.add(p); }
-  if (np) { const p = chunk(np.s)?.p[np.i] ?? -1; if (p >= 0) out.add(p); }
+  if (sel?.kind === "track") { const p = baseChunk(sel.s)?.p[sel.i] ?? -1; if (p >= 0) out.add(p); }
+  if (np) { const p = baseChunk(np.s)?.p[np.i] ?? -1; if (p >= 0) out.add(p); }
   if (state.orbit !== null) out.add(state.orbit);
   return out;
 }

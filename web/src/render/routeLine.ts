@@ -1,7 +1,7 @@
 // The plotted route on the map: gradient dashes between stops, a travelling pulse, numbered stops.
 import { pad } from "../core/util";
 import { reduce } from "../core/dom";
-import { chunk, galaxy, motion, state } from "../app/state";
+import { baseChunk, galaxy, motion, state } from "../app/state";
 import { BG, FONT_LBL, glowS, sc } from "./palette";
 import { cam } from "./camera";
 
@@ -30,7 +30,7 @@ export function drawRoute(ctx: CanvasRenderingContext2D, t: number) {
   const cur = state.routeIdx >= 0 ? route.flat[state.routeIdx] : null;
   pts.forEach((p, k) => {
     const pi = route.stops[k], si = planets[pi].s, r = Math.max(7, planets[pi].r * cam.s + 6);
-    const active = !!cur && chunk(cur.s)?.p[cur.i] === pi;
+    const active = !!cur && baseChunk(cur.s)?.p[cur.i] === pi;
     ctx.strokeStyle = sc(si, active ? 1 : 0.85); ctx.lineWidth = active ? 2 : 1;
     ctx.strokeRect(Math.round(p.x - r) + 0.5, Math.round(p.y - r) + 0.5, Math.round(r * 2), Math.round(r * 2));
     const tag = pad(k + 1, 2), tw = 18;

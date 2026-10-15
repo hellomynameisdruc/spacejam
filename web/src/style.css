@@ -460,3 +460,5 @@ body.briefing .dock { z-index: 61 }
 /* the player's own frame and controls dim behind the briefing; the video itself is never covered or filtered */
 body.briefing .dock > :not(.video) { opacity: .3; transition: opacity .3s }
 body.briefing .dock { border-color: var(--faint); box-shadow: none }
+.plot.like { display: flex; align-items: center; justify-content: center; gap: 8px }
+.plot.like .ico { flex: none }

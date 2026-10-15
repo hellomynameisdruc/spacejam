@@ -126,7 +126,28 @@ def test_write_outputs(tmp_path):
     (tmp_path / "tracks" / "99.json").write_text("{}")  # stale file from an older build
     B.write_outputs(tmp_path, m, chunks, artists)
     assert json.loads((tmp_path / "map.json").read_text())["meta"] == m["meta"]
-    assert sorted(p.name for p in (tmp_path / "tracks").iterdir()) == sorted(f"{i}.json" for i in range(len(chunks)))
+    for sub in ("tracks", "titles"):
+        assert sorted(p.name for p in (tmp_path / sub).iterdir()) == sorted(f"{i}.json" for i in range(len(chunks)))
+    # the packed files hold everything the site needs: ids, years, belt positions, titles, artists
+    for i, ch in enumerate(chunks):
+        base = json.loads((tmp_path / "tracks" / f"{i}.json").read_text())
+        text = json.loads((tmp_path / "titles" / f"{i}.json").read_text())
+        n = len(ch["yt"])
+        assert base["n"] == n and len(base["yt"]) == 11 * n and base["yr"] == ch["yr"]
+        belt = [k for k in range(n) if ch["p"][k] < 0]
+        assert base["bx"] == [ch["x"][k] for k in belt] and base["by"] == [ch["y"][k] for k in belt]
+        assert text["t"].split("\n") == ch["t"] and text["an"].split("\n") == ch["an"] and text["a"] == ch["a"]
+
+
+def test_planet_satellites_follow_from_track_numbers():
+    """The site puts a planet's satellites back from their numbers alone (see web/src/data/loader.ts)."""
+    m, chunks, _ = B.build(catalogue(), min_style=20, min_label=3)
+    for p in m["planets"]:
+        ch = chunks[p["s"]]
+        for k, i in enumerate(range(p["t0"], p["t1"])):
+            rr, a = p["r"] + 4 + 1.5 * math.sqrt(k + 0.5), k * B.GOLDEN
+            assert math.isclose(p["x"] + rr * math.cos(a), ch["x"][i], abs_tol=0.2)
+            assert math.isclose(p["y"] + rr * math.sin(a), ch["y"][i], abs_tol=0.2)
 
 
 # ---------- sectors ----------

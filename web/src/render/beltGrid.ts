@@ -1,6 +1,6 @@
 // Spatial grid over each system's asteroid-belt tracks (planet satellites move, and are found through
 // their planet instead): finds the belt points inside an area quickly.
-import { chunk, galaxy } from "../app/state";
+import { baseChunk, galaxy } from "../app/state";
 
 const CELL = 48;
 type Grid = Map<number, number[]>;
@@ -9,7 +9,7 @@ const gkey = (cx: number, cy: number) => (cx + 32768) * 65536 + (cy + 32768);
 
 function gridOf(si: number): Grid | null {
   if (grids[si]) return grids[si];
-  const ch = chunk(si); if (!ch) return null;
+  const ch = baseChunk(si); if (!ch) return null;
   const g: Grid = new Map();
   for (let i = 0; i < ch.x.length; i++) { if (ch.p[i] >= 0) continue; const k = gkey(Math.floor(ch.x[i] / CELL), Math.floor(ch.y[i] / CELL)); let a = g.get(k); if (!a) g.set(k, (a = [])); a.push(i); }
   return (grids[si] = g);

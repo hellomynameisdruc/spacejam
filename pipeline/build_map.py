@@ -7,7 +7,7 @@
 
 Distances between stars depend on how often two styles appear on the same release.
 Sectors (pipeline/sectors.json) become galaxies: groups of stars on the same map.
-Writes the site's files into web/public/data/ (map.json, tracks/<star>.json, artists.json).
+Writes the site's files into web/public/data/ (map.json, tracks/<star>.json, titles/<star>.json, artists.json).
 
 The build is a chain of small steps (see build()); each one is a plain function over plain data,
 so they can be tested on a handful of fake releases (tests/test_build_map.py).
@@ -454,15 +454,32 @@ def assemble(stars, pos, systems, style_n, star_core, year_hist, weight, hues):
     return stars_out, planets_out, links, chunks, sorted(search_artists.values())
 
 
+def pack_chunk(ch):
+    """A star's tracks as two files for the site: what the map needs to draw the satellites, and the
+    words (titles and artists), which the site fetches right after. Satellite positions around a
+    planet follow from its track numbers, so only the asteroid belt's coordinates are stored; the
+    planet of every track follows from the planets' track ranges in map.json."""
+    belt = [i for i, p in enumerate(ch["p"]) if p < 0]
+    flat = lambda xs: "\n".join(str(x).replace("\n", " ") for x in xs)
+    base = {"v": 2, "n": len(ch["yt"]), "yt": "".join(ch["yt"]), "yr": ch["yr"],
+            "bx": [ch["x"][i] for i in belt], "by": [ch["y"][i] for i in belt]}
+    text = {"t": flat(ch["t"]), "an": flat(ch["an"]), "a": ch["a"]}
+    assert all(len(y) == 11 for y in ch["yt"]), "YouTube ids are 11 characters"
+    return base, text
+
+
 def write_outputs(out_dir, map_json, chunks, artists):
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "tracks").mkdir(exist_ok=True)
-    for f in (out_dir / "tracks").glob("*.json"):
-        f.unlink()
+    for sub in ("tracks", "titles"):
+        (out_dir / sub).mkdir(exist_ok=True)
+        for f in (out_dir / sub).glob("*.json"):
+            f.unlink()
     dump = lambda obj, path: json.dump(obj, open(path, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     dump(map_json, out_dir / "map.json")
     for i, ch in enumerate(chunks):
-        dump(ch, out_dir / "tracks" / f"{i}.json")
+        base, text = pack_chunk(ch)
+        dump(base, out_dir / "tracks" / f"{i}.json")
+        dump(text, out_dir / "titles" / f"{i}.json")
     dump(artists, out_dir / "artists.json")
 
 

@@ -27,6 +27,8 @@ export function pickBlocked(o: Sel): boolean {
 }
 
 export function select(o: Sel, go = true, autoplay = false) {
+  // a satellite clicked a moment after it appeared: wait for its title and artist
+  if (o?.kind === "track" && !chunk(o.s)) { tracks.load(o.s).then(() => select(o, go, autoplay)); return; }
   if (pickBlocked(o)) { denyPick(galaxy.stars[starOf(o!)].name); return; }
   // while picking an odyssey's destination, a planet, a track's planet or a whole star finishes it;
   // a star at either end is entered through its gate facing the other end
@@ -108,7 +110,8 @@ export function prev() {
 }
 /** a random satellite of the planet, preferring ones not heard yet this session */
 export function playOrbit(pi: number) {
-  const p = galaxy.planets[pi], ch = chunk(p.s); if (!ch || p.t1 <= p.t0) return;
+  const p = galaxy.planets[pi], ch = chunk(p.s); if (p.t1 <= p.t0) return;
+  if (!ch) { tracks.load(p.s).then(() => playOrbit(pi)); return; }
   const np = state.nowPlaying;
   const all = Array.from({ length: p.t1 - p.t0 }, (_, k) => p.t0 + k).filter((i) => !dead.has(ch.yt[i]));
   if (!all.length) { state.orbit = null; return; } // every signal here has gone dark

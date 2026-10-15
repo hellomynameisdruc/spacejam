@@ -15,9 +15,12 @@ import { DeadSignals } from "../store/deadSignals";
 const map = await loadMap();
 setDataVersion(map.meta.rev ?? map.meta.build);
 export const galaxy = new Galaxy(map);
-export const tracks = new TrackStore(galaxy.stars.length, () => { state.dirty = true; });
+export const tracks = new TrackStore(galaxy.stars.length, galaxy.planets, () => { state.dirty = true; });
+/** a star's tracks with titles and artists (null until all of it has arrived) */
 export const chunk = (s: number) => tracks.get(s);
-export const motion = new Motion(galaxy, chunk, reduce);
+/** a star's tracks as far as drawing them goes: ids, years, positions (titles may still be on the way) */
+export const baseChunk = (s: number) => tracks.base(s);
+export const motion = new Motion(galaxy, baseChunk, reduce);
 export const beacons = new Beacons(browserKV, chunk);
 export const flightLog = new FlightLog(browserKV);
 export const prefs = new Prefs(browserKV);

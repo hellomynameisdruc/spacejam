@@ -1,6 +1,6 @@
 // Satellites (tracks) swarming around their planets, with beacons blinking around marked ones.
 import { reduce } from "../core/dom";
-import { beacons, chunk, dead, galaxy, motion } from "../app/state";
+import { baseChunk, beacons, chunk, dead, galaxy, motion } from "../app/state";
 import { orbitR } from "../model/galaxy";
 import { mixW, sc } from "./palette";
 import { cam, LOD_TITLES, LOD_TRACKS } from "./camera";
@@ -15,7 +15,8 @@ export function drawSatellites(ctx: CanvasRenderingContext2D, t: number) {
   let nT = 0;
   galaxy.stars.forEach((st, si) => {
     if (!inLive(st.x, st.y, st.R)) return;
-    const ch = chunk(si), o = ch && motion.orbitOf(si); if (!ch || !o) return;
+    const ch = baseChunk(si), o = ch && motion.orbitOf(si); if (!ch || !o) return;
+    const named = titles && !!chunk(si); // titles may arrive a moment after the satellites
     const back = new Path2D(), front = new Path2D(), marked = new Path2D(), dark = new Path2D();
     for (const pi of galaxy.planetsByStar[si]) {
       const pl = galaxy.planets[pi], c = motion.planetPos(pi, t), cx = c.x, cy = c.y, rr = pl.r * pl.r;
@@ -35,7 +36,7 @@ export function drawSatellites(ctx: CanvasRenderingContext2D, t: number) {
           const r = sz / 2 + 4.5, cx2 = Math.round(sx) + 0.5, cy2 = Math.round(sy) + 0.5;
           marked.moveTo(cx2, cy2 - r); marked.lineTo(cx2 + r, cy2); marked.lineTo(cx2, cy2 + r); marked.lineTo(cx2 - r, cy2); marked.closePath();
         }
-        if (titles && z > 0 && nT < 160 && labels.label(ch.t[i], sx + 6, sy + 4, 11, sc(si, 0.75), "left")) nT++;
+        if (named && z > 0 && nT < 160 && labels.label(ch.t[i], sx + 6, sy + 4, 11, sc(si, 0.75), "left")) nT++;
       }
     }
     ctx.fillStyle = sc(si, 0.35); ctx.fill(back);

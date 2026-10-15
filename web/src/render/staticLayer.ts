@@ -2,7 +2,7 @@
 // camera settles somewhere new; in between it slides/scales. Names are drawn live (drawNames).
 import { $ } from "../core/dom";
 import { clipSeg, lcg } from "../core/util";
-import { chunk, galaxy, tracks } from "../app/state";
+import { baseChunk, chunk, galaxy, tracks } from "../app/state";
 import { BG, glowS, nc, nebulaS, ph, sc } from "./palette";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS } from "./camera";
 import { inView, MARGIN, updateStaticView, view } from "./view";
@@ -141,7 +141,8 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
     const sz = Math.max(1, Math.min(3, Math.round(cam.s * 0.9)));
     stars.forEach((s, si) => {
       if (!inView(s.x, s.y, s.R)) return;
-      const ch = chunk(si); if (!ch) { tracks.load(si); return; }
+      const ch = baseChunk(si); if (!ch) { tracks.load(si); return; }
+      const named = cam.s >= LOD_TITLES && !!chunk(si);
       lc.fillStyle = sc(si, 0.9);
       eachTrack(si, V0.x, V0.y, V1.x, V1.y, (i) => {
         if (ch.p[i] >= 0) return;
@@ -149,7 +150,7 @@ export function drawStatic(lc: CanvasRenderingContext2D) {
         if (x < V0.x || x > V1.x || y < V0.y || y > V1.y) return;
         const p = cam.toScreen(x, y);
         lc.fillRect(Math.round(p.x - sz / 2), Math.round(p.y - sz / 2), sz, sz);
-        if (cam.s >= LOD_TITLES && beltTitles.length < 240) beltTitles.push({ x, y, t: ch.t[i], si });
+        if (named && beltTitles.length < 240) beltTitles.push({ x, y, t: ch.t[i], si });
       });
     });
   }

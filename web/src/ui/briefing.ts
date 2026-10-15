@@ -48,7 +48,7 @@ const PANELS: { t: string; p: string; d: string }[] = [
     t: "BEACONS = LIKES",
     p: pic(`${BEACON(6, 3, 2)}${r(36, 9, 18, 1)}${r(36, 15, 14, 1, 0.7)}${r(36, 21, 16, 1, 0.5)}${r(36, 27, 11, 1, 0.3)}
       ${r(33, 9, 1, 1)}${r(33, 15, 1, 1, 0.7)}${r(33, 21, 1, 1, 0.5)}${r(33, 27, 1, 1, 0.3)}`),
-    d: "Love a track? Press ♥ (or L) to set a beacon. The BEACONS tab keeps them all and plays them as a YouTube playlist.",
+    d: "Love a track? Press the beacon key (or L) to set a beacon. The BEACONS tab keeps them all and plays them as a YouTube playlist.",
   },
   {
     t: "MISSIONS AVAILABLE",

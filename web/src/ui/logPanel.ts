@@ -34,7 +34,7 @@ export async function renderBeacons() {
   const el = $("liked"), stars = galaxy.stars;
   $("likedN").textContent = String(beacons.size);
   if (el.hidden) return;
-  if (!beacons.size) { el.innerHTML = `<p class="note">NO BEACONS YET. A BEACON IS A LIKE: PRESS ♥ OR <kbd>L</kbd> ON A TRACK YOU LOVE.</p>`; return; }
+  if (!beacons.size) { el.innerHTML = `<p class="note">NO BEACONS YET. SET ONE ON A TRACK YOU LOVE: THE BEACON KEY OR <kbd>L</kbd>.</p>`; return; }
   // each beacon's star: by name if it has one (survives rebuilds), else the saved number
   const starOf = beacons.all.map((b) => { const n = galaxy.starIndex(b.st); return n >= 0 ? n : b.s; });
   await Promise.allSettled([...new Set(starOf)].filter((s) => s < stars.length).map((s) => tracks.load(s)));

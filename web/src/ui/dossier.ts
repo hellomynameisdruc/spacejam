@@ -9,7 +9,7 @@ import { flyToNebula, nearestTracks, playLightYears, playOrbit, playSystem, sele
 import { sc } from "../render/palette";
 import { onFrame } from "../render/scene";
 import { drawPulsarHero, drawRadar, drawSphere, drawWave, fitCanvas, fitted } from "./scopes";
-import { player, scrub } from "./dock";
+import { ICON, player, scrub } from "./dock";
 import { scramble } from "./glitch";
 
 let dosAnim: ((t: number) => void) | null = null;
@@ -28,7 +28,8 @@ const hist = (cnt: number[], y0: number, title: string) => {
   const mx = Math.max(1, ...cnt), y1 = y0 + cnt.length - 1;
   return `<div class="hist"><div class="ph-sub">${title}</div><div class="cols">${cnt.map((c, k) => `<i style="height:${(c / mx * 100).toFixed(1)}%" title="${y0 + k}: ${c}"></i>`).join("")}</div><div class="axis"><span>${y0}</span><span>${y0 + Math.round((y1 - y0) / 2)}</span><span>${y1}</span></div></div>`;
 };
-export const beaconLabel = (on: boolean) => (on ? "♥ BEACON ON · SAVED" : "♡ SET BEACON · LIKE");
+/** the same beacon mark as on the player's key */
+export const beaconLabel = (on: boolean) => (on ? `${ICON.beaconOn}<span>BEACON ON</span>` : `${ICON.beacon}<span>SET BEACON</span>`);
 
 function sector() {
   const { stars, planets, meta, ptype } = galaxy;
@@ -53,7 +54,7 @@ function sector() {
         <li><b>Start an odyssey</b> from a star: 20+ tracks across five star systems.</li>
         <li><b>Hitchhike the system</b> on a star: thumb a ride round ten of its labels, 42 tracks, a new ride every time.</li>
         <li><b>Wormhole</b> jumps to a random track anywhere on the map.</li>
-        <li><b>Beacon ♥</b> is a like: it saves the track to the BEACONS tab, which plays them as a YouTube playlist.</li>
+        <li><b>Beacon</b> is a like: it saves the track to the BEACONS tab, which plays them as a YouTube playlist.</li>
         <li><b>?</b> opens the safety briefing: the whole observatory on one card.</li></ul></div>
       <div class="bars"><div class="ph-sub">PLANET TYPES</div>${(Object.keys(PTYPE_INFO) as PType[]).map((k) => { const c = ptype.filter((x) => x === k).length; return meter(PTYPE_INFO[k][0], c / Math.max(1, planets.length), fmt(c)); }).join("")}<p class="note">Giants are the biggest labels, ringed worlds are long-runners (15+ years), cratered ones went quiet before 2001, ice worlds started after 2010.</p></div>
       <div class="bars"><div class="ph-sub">STAR SYSTEMS // BY TRACK COUNT</div>${top.map(({ s, i }) => meter(s.name.toUpperCase(), s.tracks / mx, fmt(s.tracks), R({ kind: "star", s: i }), s.color)).join("")}</div>`,
@@ -169,7 +170,7 @@ export function renderDossier() {
 /** refresh just the beacon button of a track dossier */
 export function paintDossierBeacon() {
   const b = document.querySelector<HTMLElement>("#detail [data-like]"), sel = state.sel;
-  if (b && sel?.kind === "track") { const on = beacons.has(sel); b.textContent = beaconLabel(on); b.classList.toggle("on", on); }
+  if (b && sel?.kind === "track") { const on = beacons.has(sel); b.innerHTML = beaconLabel(on); b.classList.toggle("on", on); }
 }
 
 export function initDossier() {
