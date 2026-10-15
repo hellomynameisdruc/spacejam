@@ -1,7 +1,7 @@
 // The floating player dock: the visible YouTube monitor, transport keys, seek/volume, minimise to a
 // pill (minimising pauses — audio never plays from a hidden player), dragging by the header.
 import type { TrackRef } from "../core/types";
-import { mmss, pad } from "../core/util";
+import { lampLit, mmss, pad } from "../core/util";
 import { $, uiZoom } from "../core/dom";
 import { Player } from "./youtubePlayer";
 import { beacons, chunk, dead, galaxy, motion, prefs, state } from "../app/state";
@@ -94,7 +94,7 @@ export function initDock() {
       m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. SIGNAL MARKED DARK, JUMPING ON…" : gone ? "! SIGNAL LOST: VIDEO REMOVED. MARKED DARK, JUMPING ON…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
       setTimeout(next, gone ? 900 : 1500);
     },
-    onPlayingChange: (p) => { $("live").classList.toggle("on", p); $("pToggle").innerHTML = p ? ICON.pause : ICON.play; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
+    onPlayingChange: (p) => { $("live").classList.toggle("on", p); state.onAir = p; $("pToggle").innerHTML = p ? ICON.pause : ICON.play; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },
   });
 
   $("pNext").onclick = next;
@@ -103,6 +103,9 @@ export function initDock() {
   $("pLike").onclick = () => toggleBeacon(state.nowPlaying);
   // fly back to whatever is on air (handy after zooming far out); it glows while the track is off screen
   $("dockFind").onclick = () => { const np = state.nowPlaying; if (np) select({ kind: "track", ...np }); };
+  // the ON AIR lamp blinks on the same clock as the station's beacon
+  const live = $("live");
+  onFrame((t) => { const lit = !state.onAir || lampLit(t); if (live.classList.contains("dim") === lit) live.classList.toggle("dim", !lit); });
   onFrame(() => {
     const np = state.nowPlaying, b = $("dockFind"); if (!np || !chunk(np.s)) { b.classList.remove("far"); return; }
     const q = motion.trackPos(np.s, np.i), p = cam.toScreen(q.x, q.y);

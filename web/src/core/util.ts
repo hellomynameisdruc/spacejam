@@ -19,3 +19,6 @@ export function clipSeg(ax: number, ay: number, bx: number, by: number, x0: numb
   }
   return [t0, t1];
 }
+
+/** the ON AIR lamp's blink, shared by the player and the Solaris station: lit in the first half of each 1.1 s */
+export const lampLit = (t: number) => Math.floor(t / 550) % 2 === 0;

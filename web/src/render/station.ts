@@ -8,6 +8,7 @@ import { orbitR } from "../model/galaxy";
 import { cam, LOD_PLANETS, LOD_TRACKS } from "./camera";
 import { pulseOf } from "./pulsar";
 import { uiZoom } from "../core/dom";
+import { lampLit } from "../core/util";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const GW = 44, GH = 52, OY = 12; // the craft's grid, in cells; drawing coordinates sit OY cells down
@@ -58,7 +59,7 @@ function probe(t: number, deploy = 1) {
   if (reach > 0) { line(19.5, 10, 19.5, 6, 0.7); line(19.5, 18, 19.5, 22, 0.7); wing(5 - reach, 5); wing(23, 23 + reach); } // masts, wings
   rect(16, 10, 23, 18, (x, y) => lit((x - 19) / 4, (y - 14) / 4, 0.8)); // bus
   ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.7)) * edge; }); // dish
-  grid.light.push([22, 9 + OY, Math.floor(t / 900) % 2 ? beacon : ""]); // beacon lamp on the bus
+  grid.light.push([22, 9 + OY, state.onAir && lampLit(t) ? beacon : ""]); // beacon lamp on the bus, in step with ON AIR
 }
 
 let canvas: HTMLCanvasElement | null = null;
@@ -101,7 +102,7 @@ function drawMark(ctx: CanvasRenderingContext2D, si: number, cx: number, cy: num
   const a = (t / 42000) * Math.PI * 2, R = pr + 7, x = Math.round(cx + Math.cos(a) * R), y = Math.round(cy + Math.sin(a) * R);
   ctx.fillStyle = sc(si, 0.95);
   ctx.fillRect(x - 2, y - 2, 2, 4); ctx.fillRect(x, y - 1, 2, 2); ctx.fillRect(x + 2, y - 3, 1, 6); // dish, bus, wings
-  if (Math.floor(t / 900) % 2) { ctx.fillStyle = beaconFor(si); ctx.fillRect(x + 4, y - 1, 2, 2); }
+  if (state.onAir && lampLit(t)) { ctx.fillStyle = beaconFor(si); ctx.fillRect(x + 4, y - 1, 2, 2); }
 }
 
 /** the arrival: the probe comes in from beyond the screen, brakes and slots into its orbit */

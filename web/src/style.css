@@ -193,7 +193,8 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .dock-ody { font-family: var(--f-dot); font-size: 10px; letter-spacing: .14em; color: var(--acc); padding: 0 5px; border: 1px solid var(--acc);
   box-shadow: 0 0 6px color-mix(in srgb, var(--acc) 45%, transparent); animation: flicker 4s infinite }
 .dock-ody b { font-weight: normal; color: var(--ink) }
-.live.on { color: #ff4d6d; text-shadow: 0 0 6px #ff4d6d; animation: blink 1.1s steps(1) infinite }
+.live.on { color: #ff4d6d; text-shadow: 0 0 6px #ff4d6d }
+.live.on.dim { opacity: .2 } /* blinks from the frame loop, in step with the station's beacon */
 .video { width: 200px; height: 200px; background: #000; position: relative; z-index: 60 }
 .video iframe, .video > div { width: 100%; height: 100%; display: block; border: 0 }
 .dock-np { display: flex; flex-direction: column; gap: 2px; padding-top: 7px; min-width: 0 }
