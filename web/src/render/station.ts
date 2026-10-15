@@ -107,7 +107,9 @@ function drawMark(ctx: CanvasRenderingContext2D, si: number, cx: number, cy: num
 /** the arrival: the probe comes in from beyond the screen, brakes and slots into its orbit */
 const ARRIVE = 4200, SETTLE = 900;
 const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-let arriving = { key: -1, at: 0, dx: -1, dy: 0 };
+let arriving = { key: -1, at: 0, dx: -1, dy: 0, L: 0, k: 0 };
+/** where the last station was (world coordinates), so the next one flies in from that side */
+let lastAt: { key: number; x: number; y: number } | null = null;
 /** which way to come in from: away from the player dock, so the flight isn't hidden behind it */
 function entryDir(T: { x: number; y: number }, tn: { x: number; y: number }) {
   const dock = document.getElementById("playerBox"), sky = document.getElementById("sky");
@@ -125,11 +127,18 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeOut = (p: number) => 1 - Math.pow(1 - p, 4); // fast in, a long retro-burn
 /** where the probe is at arrival progress p (0…1), around a target T moving along the orbit */
 function arrivalPos(p: number, T: { x: number; y: number }, tn: { x: number; y: number }) {
-  const L = Math.hypot(cam.W, cam.H) * 0.85, u = easeOut(clamp01(p)), v = 1 - u;
-  // a gentle curve in, bending a little the way the orbit runs, braking all the way to its slot
-  const P0 = { x: T.x + arriving.dx * L, y: T.y + arriving.dy * L }, side = arriving.dx * tn.y - arriving.dy * tn.x > 0 ? 1 : -1;
-  const P1 = { x: T.x + arriving.dx * L * 0.35 - arriving.dy * L * 0.1 * side, y: T.y + arriving.dy * L * 0.35 + arriving.dx * L * 0.1 * side };
-  return { x: v * v * P0.x + 2 * v * u * P1.x + u * u * T.x, y: v * v * P0.y + 2 * v * u * P1.y + u * u * T.y };
+  const { L, k } = arriving, u = easeOut(clamp01(p)), v = 1 - u;
+  // straight in at first, then it swings round and joins its orbit along the orbit's own direction:
+  // an orbit insertion rather than a stop
+  const P0 = { x: T.x + arriving.dx * L, y: T.y + arriving.dy * L }, P1 = { x: T.x + arriving.dx * L * 0.45, y: T.y + arriving.dy * L * 0.45 };
+  const P2 = { x: T.x - tn.x * k, y: T.y - tn.y * k };
+  const a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
+  return { x: a * P0.x + b * P1.x + c * P2.x + d * T.x, y: a * P0.y + b * P1.y + c * P2.y + d * T.y };
+}
+/** how far from T along (dx, dy) the screen ends, plus a margin */
+function offscreen(T: { x: number; y: number }, dx: number, dy: number) {
+  const tx = dx > 0 ? (cam.W - T.x) / dx : dx < 0 ? -T.x / dx : Infinity, ty = dy > 0 ? (cam.H - T.y) / dy : dy < 0 ? -T.y / dy : Infinity;
+  return Math.min(tx, ty) + 80;
 }
 const hash = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
 
@@ -137,7 +146,11 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
   const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y);
   // from further out the probe is just a small blinking mark beside its planet
-  if (cam.s < LOD_TRACKS) { drawMark(ctx, pl.s, c.x, c.y, Math.max(3, pl.r * cam.s), t); return; }
+  if (cam.s < LOD_TRACKS) {
+    drawMark(ctx, pl.s, c.x, c.y, Math.max(3, pl.r * cam.s), t);
+    if (arriving.key === state.orbitSince) lastAt = { key: arriving.key, x: q.x, y: q.y };
+    return;
+  }
   const R = Math.max(orbitR(pl) * cam.s + 22, pl.r * cam.s + 40), a = (t / 42000) * Math.PI * 2; // one slow lap in ~40 s
   const ox = c.x + Math.cos(a) * R, oy = c.y + Math.sin(a) * R * 0.92;
   const { bar } = pulseOf(pl.s, t), col = (al: number) => sc(pl.s, al);
@@ -145,15 +158,25 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   // a new station: wait for the camera to settle, then fly it in (unless it was long ago or motion is off)
   if (arriving.key !== state.orbitSince) {
     if (cam.flying) return;
-    arriving = { key: state.orbitSince, at: still || Date.now() - state.orbitSince > 15000 ? t - ARRIVE - SETTLE : t, dx: -1, dy: 0 };
+    arriving = { key: state.orbitSince, at: still || Date.now() - state.orbitSince > 15000 ? t - ARRIVE - SETTLE : t, dx: -1, dy: 0, L: 0, k: 0 };
   }
   const p = (t - arriving.at) / ARRIVE, after = clamp01((t - arriving.at - ARRIVE) / SETTLE); // flight, then settling in
-  const tl = Math.hypot(Math.sin(a), Math.cos(a) * 0.92) || 1, tn = { x: -Math.sin(a) / tl, y: (Math.cos(a) * 0.92) / tl };
-  // in flight it aims at where its slot on the orbit will be when it gets there, so it never doubles back
-  const aEnd = ((arriving.at + ARRIVE) / 42000) * Math.PI * 2;
+  // in flight it aims at where its slot on the orbit will be when it gets there, joining it along the orbit
+  const aEnd = ((arriving.at + ARRIVE) / 42000) * Math.PI * 2, ta = p < 1 ? aEnd : a;
+  const tl = Math.hypot(Math.sin(ta), Math.cos(ta) * 0.92) || 1, tn = { x: -Math.sin(ta) / tl, y: (Math.cos(ta) * 0.92) / tl };
   const T = p < 1 ? { x: c.x + Math.cos(aEnd) * R, y: c.y + Math.sin(aEnd) * R * 0.92 } : { x: ox, y: oy };
-  if (arriving.dx === -1 && arriving.dy === 0) Object.assign(arriving, entryDir(T, tn));
+  if (arriving.L === 0) {
+    const full = Math.hypot(cam.W, cam.H) * 0.85;
+    arriving.k = Math.min(R * 1.6, full * 0.3);
+    // coming from the last station: from its side, and from right where it was if that is on screen
+    const prev = lastAt && lastAt.key !== arriving.key ? cam.toScreen(lastAt.x, lastAt.y) : null, pd = prev ? Math.hypot(prev.x - T.x, prev.y - T.y) : 0;
+    if (prev && pd > 60) Object.assign(arriving, { dx: (prev.x - T.x) / pd, dy: (prev.y - T.y) / pd, L: Math.min(pd, full) });
+    else Object.assign(arriving, entryDir(T, tn), { L: full });
+    // a far start always begins beyond the screen edge
+    if (arriving.L === full) arriving.L = Math.max(full, offscreen(T, arriving.dx, arriving.dy));
+  }
   const at = p < 1 ? arrivalPos(p, T, tn) : T, x = at.x, y = at.y;
+  { const w = cam.toWorld(x, y); lastAt = { key: arriving.key, x: w.x, y: w.y }; }
   if (p >= 1 && (x < -90 || y < -90 || x > cam.W + 90 || y > cam.H + 90)) return;
   if (p < 1) drawFlight(ctx, pl.s, p, T, tn, t);
   ctx.save(); ctx.globalAlpha = after; // the orbit, the link and the call-out come up once it is in place
