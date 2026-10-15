@@ -31,8 +31,22 @@ const lit = (u: number, v: number, base = 1) => base * Math.max(0.18, Math.min(1
 /**
  * The probe, drawn into the grid for time t (ms), facing left (its dish toward the planet): a big
  * dish that slowly swings, a small bus with two big wings of solar cells that tilt to the light and
- * a sensor boom with a blinking tip. Kept simple, so it reads like the planets, not like a drawing.
+ * a beacon on top that blinks. Kept simple, so it reads like the planets, not like a drawing.
  */
+/**
+ * The beacon lamp's colour: red, unless the system's own colour is close to red (magenta, pink,
+ * red, orange, yellow) — then green, so the lamp always stands out from the probe around it.
+ */
+function beaconFor(si: number) {
+  const [r, g, b] = SC[si], mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  if (mx - mn < 30) return "#ff4d6d";
+  let h = mx === r ? ((g - b) / (mx - mn)) * 60 : mx === g ? (2 + (b - r) / (mx - mn)) * 60 : (4 + (r - g) / (mx - mn)) * 60;
+  if (h < 0) h += 360;
+  const fromRed = Math.min(Math.abs(h - 350), 360 - Math.abs(h - 350)); // how far the system's hue is from the red lamp
+  return fromRed < 70 ? "#5dff8f" : "#ff4d6d";
+}
+let beacon = "#ff4d6d";
+
 function probe(t: number) {
   const swing = Math.sin(t / 9000) * 0.45, rx = 3.2 + 4 * Math.cos(swing); // the dish turns on its mount
   const tilt = Math.cos(t / 11000), pw = Math.max(1, 5.5 * Math.abs(tilt)), back = tilt < 0;
@@ -40,10 +54,9 @@ function probe(t: number) {
   const wing = (y0: number, y1: number) => rect(19.5 - pw, y0, 19.5 + pw, y1, (x, y) => ((y - y0) % 4 === 3 ? -1 : back ? 0.3 : lit((x - 19) / 8, (y - 14) / 20, 0.95)));
   line(19.5, 10, 19.5, 6, 0.7); line(19.5, 18, 19.5, 22, 0.7); // wing masts
   wing(-11, 5); wing(23, 39);
-  line(23, 14, 38, 9, 0.7); // sensor boom
   rect(16, 10, 23, 18, (x, y) => lit((x - 19) / 4, (y - 14) / 4, 0.8)); // bus
   ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.7)) * edge; }); // dish
-  grid.light.push([38, 9 + OY, Math.floor(t / 900) % 2 ? "#ff4d6d" : ""]);
+  grid.light.push([22, 9 + OY, Math.floor(t / 900) % 2 ? beacon : ""]); // beacon lamp on the bus
 }
 
 let canvas: HTMLCanvasElement | null = null;
@@ -86,7 +99,7 @@ function drawMark(ctx: CanvasRenderingContext2D, si: number, cx: number, cy: num
   const a = (t / 42000) * Math.PI * 2, R = pr + 7, x = Math.round(cx + Math.cos(a) * R), y = Math.round(cy + Math.sin(a) * R);
   ctx.fillStyle = sc(si, 0.95);
   ctx.fillRect(x - 2, y - 2, 2, 4); ctx.fillRect(x, y - 1, 2, 2); ctx.fillRect(x + 2, y - 3, 1, 6); // dish, bus, wings
-  if (Math.floor(t / 900) % 2) { ctx.fillStyle = "#ff4d6d"; ctx.fillRect(x + 4, y - 1, 2, 2); }
+  if (Math.floor(t / 900) % 2) { ctx.fillStyle = beaconFor(si); ctx.fillRect(x + 4, y - 1, 2, 2); }
 }
 
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
@@ -113,7 +126,7 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
 
   // the craft: re-shaded every frame, its front toward the planet
   grid.tone.fill(0); grid.light.length = 0;
-  probe(t);
+  beacon = beaconFor(pl.s); probe(t);
   // the dish (the model's left side) keeps facing the planet all the way round
   const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, Math.atan2(c.y - y, c.x - x) - Math.PI);
   const scale = Math.min(0.85, 0.5 + (cam.s - LOD_TRACKS) * 0.08), w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
