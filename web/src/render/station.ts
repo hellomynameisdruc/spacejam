@@ -107,7 +107,7 @@ function drawMark(ctx: CanvasRenderingContext2D, si: number, cx: number, cy: num
 /** the arrival: the probe comes in from beyond the screen, brakes and slots into its orbit */
 const ARRIVE = 4200, SETTLE = 900;
 const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-let arriving = { key: -1, at: 0, dx: -1, dy: 0, L: 0, k: 0 };
+let arriving = { key: -1, at: 0, dur: ARRIVE, dx: -1, dy: 0, L: 0, k: 0, hop: false, wx: 0, wy: 0 };
 /** where the last station was (world coordinates), so the next one flies in from that side */
 let lastAt: { key: number; x: number; y: number } | null = null;
 /** which way to come in from: away from the player dock, so the flight isn't hidden behind it */
@@ -127,12 +127,17 @@ const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 const easeOut = (p: number) => 1 - Math.pow(1 - p, 4); // fast in, a long retro-burn
 /** where the probe is at arrival progress p (0…1), around a target T moving along the orbit */
 function arrivalPos(p: number, T: { x: number; y: number }, tn: { x: number; y: number }) {
-  const { L, k } = arriving, u = easeOut(clamp01(p)), v = 1 - u;
+  const { L, k } = arriving, u = easeOut(clamp01(p)), v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
+  if (arriving.hop) {
+    // a hop to a planet in sight: straight from where the station was (pinned to the map, so it holds
+    // still while the camera moves), then round into the new orbit
+    const P0 = cam.toScreen(arriving.wx, arriving.wy), P1 = { x: P0.x + (T.x - P0.x) * 0.4, y: P0.y + (T.y - P0.y) * 0.4 }, P2 = { x: T.x - tn.x * k, y: T.y - tn.y * k };
+    return { x: a * P0.x + b * P1.x + c * P2.x + d * T.x, y: a * P0.y + b * P1.y + c * P2.y + d * T.y };
+  }
   // straight in at first, then it swings round and joins its orbit along the orbit's own direction:
   // an orbit insertion rather than a stop
   const P0 = { x: T.x + arriving.dx * L, y: T.y + arriving.dy * L }, P1 = { x: T.x + arriving.dx * L * 0.45, y: T.y + arriving.dy * L * 0.45 };
   const P2 = { x: T.x - tn.x * k, y: T.y - tn.y * k };
-  const a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
   return { x: a * P0.x + b * P1.x + c * P2.x + d * T.x, y: a * P0.y + b * P1.y + c * P2.y + d * T.y };
 }
 /** how far from T along (dx, dy) the screen ends, plus a margin */
@@ -155,22 +160,27 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const ox = c.x + Math.cos(a) * R, oy = c.y + Math.sin(a) * R * 0.92;
   const { bar } = pulseOf(pl.s, t), col = (al: number) => sc(pl.s, al);
 
-  // a new station: wait for the camera to settle, then fly it in (unless it was long ago or motion is off)
+  // a new station. If the last one is in sight, it simply hops over, right away; otherwise wait for
+  // the camera to settle and fly it in from afar (unless it was long ago or motion is off)
   if (arriving.key !== state.orbitSince) {
-    if (cam.flying) return;
-    arriving = { key: state.orbitSince, at: still || Date.now() - state.orbitSince > 15000 ? t - ARRIVE - SETTLE : t, dx: -1, dy: 0, L: 0, k: 0 };
+    const prev = lastAt && lastAt.key !== state.orbitSince ? lastAt : null, ps = prev && cam.toScreen(prev.x, prev.y);
+    const hop = !!ps && ps.x > 0 && ps.y > 0 && ps.x < cam.W && ps.y < cam.H;
+    if (!hop && cam.flying) return;
+    const dur = hop ? 2800 : ARRIVE, skip = still || Date.now() - state.orbitSince > 15000;
+    arriving = { key: state.orbitSince, at: skip ? t - dur - SETTLE : t, dur, dx: -1, dy: 0, L: 0, k: 0, hop: hop && !skip, wx: prev?.x ?? 0, wy: prev?.y ?? 0 };
   }
-  const p = (t - arriving.at) / ARRIVE, after = clamp01((t - arriving.at - ARRIVE) / SETTLE); // flight, then settling in
+  const dur = arriving.dur, p = (t - arriving.at) / dur, after = clamp01((t - arriving.at - dur) / SETTLE); // flight, then settling in
   // in flight it aims at where its slot on the orbit will be when it gets there, joining it along the orbit
-  const aEnd = ((arriving.at + ARRIVE) / 42000) * Math.PI * 2, ta = p < 1 ? aEnd : a;
+  const aEnd = ((arriving.at + dur) / 42000) * Math.PI * 2, ta = p < 1 ? aEnd : a;
   const tl = Math.hypot(Math.sin(ta), Math.cos(ta) * 0.92) || 1, tn = { x: -Math.sin(ta) / tl, y: (Math.cos(ta) * 0.92) / tl };
   const T = p < 1 ? { x: c.x + Math.cos(aEnd) * R, y: c.y + Math.sin(aEnd) * R * 0.92 } : { x: ox, y: oy };
   if (arriving.L === 0) {
     const full = Math.hypot(cam.W, cam.H) * 0.85;
-    arriving.k = Math.min(R * 1.6, full * 0.3);
+    arriving.k = arriving.hop ? Math.min(R * 0.9, full * 0.2) : Math.min(R * 1.6, full * 0.3);
     // coming from the last station: from its side, and from right where it was if that is on screen
     const prev = lastAt && lastAt.key !== arriving.key ? cam.toScreen(lastAt.x, lastAt.y) : null, pd = prev ? Math.hypot(prev.x - T.x, prev.y - T.y) : 0;
-    if (prev && pd > 60) Object.assign(arriving, { dx: (prev.x - T.x) / pd, dy: (prev.y - T.y) / pd, L: Math.min(pd, full) });
+    if (arriving.hop) arriving.L = 1;
+    else if (prev && pd > 60) Object.assign(arriving, { dx: (prev.x - T.x) / pd, dy: (prev.y - T.y) / pd, L: Math.min(pd, full) });
     else Object.assign(arriving, entryDir(T, tn), { L: full });
     // a far start always begins beyond the screen edge
     if (arriving.L === full) arriving.L = Math.max(full, offscreen(T, arriving.dx, arriving.dy));
@@ -205,7 +215,7 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
     const d = Math.atan2(Math.sin(face - travel), Math.cos(face - travel)); theta = travel + d * k * k * (3 - 2 * k);
   }
   const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, theta);
-  const grow = p < 1 ? 0.55 + 0.45 * easeOut(clamp01(p)) : 1; // it comes from far away: a touch smaller at first
+  const grow = p < 1 && !arriving.hop ? 0.55 + 0.45 * easeOut(clamp01(p)) : 1; // it comes from far away: a touch smaller at first
   const scale = Math.min(0.85, 0.5 + (cam.s - LOD_TRACKS) * 0.08) * grow, w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h / 2), w, h); ctx.restore();
   // orbit insertion: a pulse rings out as the engines cut
@@ -250,7 +260,7 @@ function drawFlight(ctx: CanvasRenderingContext2D, si: number, p: number, T: { x
     ctx.fillStyle = sc(si, 0.95 * f); ctx.fillRect(Math.round(q.x + nx * j - s2 / 2), Math.round(q.y + ny * j - s2 / 2), s2, s2);
   }
   // streaks of starlight sliding past while it is still fast
-  if (fast > 0.1) for (let k = 0; k < 14; k++) {
+  if (fast > 0.1 && !arriving.hop) for (let k = 0; k < 14; k++) {
     const off = (hash(k + 3.7) - 0.5) * 300, along = 160 - ((hash(k + 9.1) * 320 + t * 1.4) % 320), len = (30 + 160 * hash(k + 1.3)) * fast;
     const sx = here.x + nx * off + vx * along, sy = here.y + ny * off + vy * along;
     ctx.strokeStyle = sc(si, 0.55 * fast * (1 - Math.abs(off) / 200)); ctx.lineWidth = 1;
