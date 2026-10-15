@@ -457,3 +457,6 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 /* while the briefing is open the player stays above it and keeps playing, never covered */
 body.briefing .dock { z-index: 61 }
 @media (max-width: 860px) { body.briefing.docked .brief { padding-bottom: calc(250px + env(safe-area-inset-bottom, 0px)) } }
+/* the player's own frame and controls dim behind the briefing; the video itself is never covered or filtered */
+body.briefing .dock > :not(.video) { opacity: .3; transition: opacity .3s }
+body.briefing .dock { border-color: var(--faint); box-shadow: none }
