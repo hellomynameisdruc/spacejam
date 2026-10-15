@@ -23,7 +23,9 @@ export function drawPlanetBody(G: CanvasRenderingContext2D, i: number, x: number
   if (ringed) { G.strokeStyle = sc(si, 0.5); G.lineWidth = Math.max(1, r * 0.12); G.beginPath(); G.ellipse(x, y, rx, ry, tilt, Math.PI, Math.PI * 2); G.stroke(); }
   G.save(); G.beginPath(); G.arc(x, y, r, 0, 7); G.clip();
   G.fillStyle = BG; G.fillRect(x - r, y - r, r * 2, r * 2);
-  G.globalAlpha = ty === "young" ? 0.35 : 1; G.fillStyle = planetDither(G, si); G.fillRect(x - r, y - r, r * 2, r * 2); G.globalAlpha = 1;
+  // the dither pattern is pinned to the planet (not the canvas), so it travels with it instead of crawling
+  G.globalAlpha = ty === "young" ? 0.35 : 1; G.fillStyle = planetDither(G, si);
+  G.translate(Math.round(x - r), Math.round(y - r)); G.fillRect(0, 0, r * 2, r * 2); G.translate(-Math.round(x - r), -Math.round(y - r)); G.globalAlpha = 1;
   if (ty === "giant") {
     const nb = 5;
     for (let k = 0; k < nb; k++) {
@@ -33,20 +35,21 @@ export function drawPlanetBody(G: CanvasRenderingContext2D, i: number, x: number
   }
   // marks on the turning sphere: only the near side shows, squeezed toward the limb
   const marks = surfaceMarks(h).map((m) => {
-    const lon = m.lon + spin, c = Math.cos(lon);
-    return { show: c > 0.05, x: x + Math.sin(lon) * Math.cos(m.lat) * r * 0.92, y: y + Math.sin(m.lat) * r * 0.92, rx: m.size * r * c, ry: m.size * r };
-  }).filter((m) => m.show);
+    const lon = m.lon + spin, c = Math.cos(lon), f = Math.max(0, Math.min(1, c / 0.4));
+    return { fade: f * f * (3 - 2 * f), x: x + Math.sin(lon) * Math.cos(m.lat) * r * 0.92, y: y + Math.sin(m.lat) * r * 0.92, rx: m.size * r * Math.max(0, c), ry: m.size * r };
+  }).filter((m) => m.fade > 0.01);
   if (ty === "ancient") {
     G.globalAlpha = 0.55; G.fillStyle = BG; G.fillRect(x - r, y - r, r * 2, r * 2); G.globalAlpha = 1;
     G.strokeStyle = sc(si, 0.85); G.lineWidth = 1;
-    for (const m of marks) { G.beginPath(); G.ellipse(m.x, m.y, Math.max(0.5, m.rx), m.ry, 0, 0, 7); G.stroke(); } // craters
+    for (const m of marks) { G.globalAlpha = m.fade; G.beginPath(); G.ellipse(m.x, m.y, Math.max(0.5, m.rx), m.ry, 0, 0, 7); G.stroke(); } // craters
+    G.globalAlpha = 1;
   } else {
     G.fillStyle = sc(si, 0.95); G.beginPath(); G.arc(x - r * 0.35, y - r * 0.35, r * (ty === "young" ? 0.45 : 0.62), 0, 7); G.fill();
     G.globalAlpha = 0.55; G.fillStyle = BG; G.beginPath(); G.arc(x + r * 0.05, y + r * 0.05, r * 0.72, 0, 7); G.fill(); G.globalAlpha = 1;
     // storms and spots drifting with the turn (on gas giants: a couple of big storms)
     for (const [k, m] of marks.entries()) {
       if (ty !== "giant" && k > 2) break;
-      G.globalAlpha = ty === "giant" ? 0.75 : 0.5; G.fillStyle = k % 2 ? BG : sc(si, 0.95);
+      G.globalAlpha = (ty === "giant" ? 0.75 : 0.5) * m.fade; G.fillStyle = k % 2 ? BG : sc(si, 0.95);
       G.beginPath(); G.ellipse(m.x, m.y, Math.max(0.5, m.rx * (ty === "giant" ? 1.3 : 0.8)), m.ry * (ty === "giant" ? 0.55 : 0.8), 0, 0, 7); G.fill();
     }
     G.globalAlpha = 1;
@@ -101,10 +104,12 @@ function focusPlanets() {
  * How far a planet has turned: a label still releasing turns once in ~25 s, one that went quiet
  * turns slower the longer ago that was, down to once in ~2.5 minutes.
  */
+const spinFrom = new Map<number, number>(); // when each planet came into focus: its turn starts from the still picture
 function spinOf(i: number, t: number) {
+  let t0 = spinFrom.get(i); if (t0 === undefined) { t0 = t; spinFrom.set(i, t); }
   const p = galaxy.planets[i], last = galaxy.meta.years?.[1] ?? 2026, gap = Math.max(0, last - (p.yr[1] || last - 20));
   const period = Math.min(150, 25 + gap * 7) * 1000;
-  return (t / period) * Math.PI * 2 + (hash(p.name) % 628) / 100;
+  return ((t - t0) / period) * Math.PI * 2;
 }
 
 export function drawPlanets(ctx: CanvasRenderingContext2D, t: number) {
@@ -116,6 +121,7 @@ export function drawPlanets(ctx: CanvasRenderingContext2D, t: number) {
     for (const i of planetsByStar[si]) { const q = motion.planetPos(i, t); if (inLive(q.x, q.y, planets[i].r * 3)) vis.push(i); }
   });
   const focus = focusPlanets();
+  for (const k of spinFrom.keys()) if (!focus.has(k)) spinFrom.delete(k);
   for (const i of vis) {
     const pl = planets[i], q = motion.planetPos(i, t), p = cam.toScreen(q.x, q.y), r = Math.max(1.5, pl.r * cam.s);
     if (r < 3) { ctx.fillStyle = sc(pl.s, 0.95); ctx.fillRect(Math.round(p.x - 1), Math.round(p.y - 1), 2, 2); continue; }
