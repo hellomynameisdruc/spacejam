@@ -43,6 +43,8 @@ export const state = {
   orbitSince: 0,
   /** the wormhole animation is running */
   warping: false,
+  /** the wormhole covers the whole map: nothing behind it needs drawing */
+  warpCovers: false,
   /** the player is playing: the ON AIR lamp and the station's beacon blink together */
   onAir: false,
   /** YouTube ids heard this session (autopilot skips them) */

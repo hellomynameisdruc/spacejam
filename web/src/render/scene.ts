@@ -16,7 +16,7 @@ import { drawNames, drawStatic, farView, painted, readout } from "./staticLayer"
 
 let vp: HTMLElement, cv: HTMLCanvasElement, ctx: CanvasRenderingContext2D;
 let layer: HTMLCanvasElement, lc: CanvasRenderingContext2D;
-let layerShift = "", lastScale = 0, lastScaleT = 0, frameNo = 0;
+let layerShift = "", lastScale = 0, lastScaleT = 0, frameNo = 0, layerRes = 0;
 const perFrame: ((t: number) => void)[] = [];
 
 export const sceneCanvas = () => cv;
@@ -29,8 +29,8 @@ function resize() {
   const r = vp.getBoundingClientRect(), z = uiZoom(vp), dpr = Math.min(2, devicePixelRatio || 1) * z;
   cam.W = Math.max(1, r.width / z); cam.H = Math.max(1, r.height / z); cam.DPR = dpr;
   cv.width = cam.W * dpr; cv.height = cam.H * dpr;
-  layer.width = (cam.W + 2 * MARGIN) * dpr; layer.height = (cam.H + 2 * MARGIN) * dpr;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); lc.setTransform(dpr, 0, 0, dpr, MARGIN * dpr, MARGIN * dpr); ctx.imageSmoothingEnabled = false;
+  layerRes = 0; setLayerRes(dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
   state.dirty = true;
 }
 
@@ -42,7 +42,15 @@ export function initScene() {
   const b = galaxy.bounds; cam.x = b.x; cam.y = b.y; cam.s = cam.homeScale();
 }
 
-function paintStatic() {
+/** the background's pixel density: full when resting, plain 1× while the camera moves (it is only seen
+ *  stretched then, and painting a retina-size layer mid-zoom is what made zooming stutter) */
+function setLayerRes(r: number) {
+  if (r === layerRes) return;
+  layerRes = r; layer.width = Math.round((cam.W + 2 * MARGIN) * r); layer.height = Math.round((cam.H + 2 * MARGIN) * r);
+  lc.setTransform(r, 0, 0, r, MARGIN * r, MARGIN * r);
+}
+function paintStatic(moving = false) {
+  setLayerRes(moving ? Math.min(1, cam.DPR) : cam.DPR);
   drawStatic(lc);
   if (layerShift) { layer.style.transform = ""; layerShift = ""; }
 }
@@ -60,7 +68,9 @@ function drawLive(t: number) {
     : farView() || cam.s < LOD_TRACKS
       ? now - lastScaleT > 160 || k < 0.62 || k > 1.6
       : now - painted.at > 110 || now - lastScaleT > 140 || k < 0.84 || k > 1.2);
-  if (stale || Math.abs(ox) > MARGIN - 4 || Math.abs(oy) > MARGIN - 4) { paintStatic(); k = 1; ox = oy = 0; }
+  const moving = cam.flying || now - lastScaleT < 200;
+  if (stale || Math.abs(ox) > MARGIN - 4 || Math.abs(oy) > MARGIN - 4) { paintStatic(moving); k = 1; ox = oy = 0; }
+  else if (!moving && layerRes < cam.DPR) { paintStatic(); k = 1; ox = oy = 0; } // settled: sharp again
   let shift = "";
   if (k !== 1) {
     const tx = (W / 2 + MARGIN) * (1 - k) + (painted.x - cam.x) * cam.s, ty = (H / 2 + MARGIN) * (1 - k) + (painted.y - cam.y) * cam.s;
@@ -98,8 +108,11 @@ function frame(now: number) {
   // a flight doesn't repaint the background every frame (the costliest thing we draw): drawLive slides
   // and stretches the last picture and repaints it only now and then, and once the flight lands
   cam.update(now);
-  if (state.dirty) { state.dirty = false; paintStatic(); }
-  drawLive(now);
+  // behind a wormhole in full flow there is nothing to see: spend the frame on the tunnel
+  if (!state.warpCovers) {
+    if (state.dirty) { state.dirty = false; paintStatic(); }
+    drawLive(now);
+  }
   for (const f of perFrame) f(now);
   requestAnimationFrame(frame);
 }

@@ -19,7 +19,8 @@ export function initWormhole() {
 export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () => void) {
   if (reduce) { onPeak(); return; }
   state.warping = true;
-  const dpr = cam.DPR, w = cam.W, h = cam.H;
+  // a tunnel of streaks needs no retina sharpness, and painting it full-size every frame made it judder
+  const dpr = Math.min(cam.DPR, 1.25), w = cam.W, h = cam.H;
   wf.width = w * dpr; wf.height = h * dpr; wg.setTransform(dpr, 0, 0, dpr, 0, 0); wf.style.display = "block";
   const A = SC[fromSi], B = SC[toSi];
   const mix = (k: number, a: number) => { k = Math.max(0, Math.min(1, k)); return `rgba(${(A[0] + (B[0] - A[0]) * k) | 0},${(A[1] + (B[1] - A[1]) * k) | 0},${(A[2] + (B[2] - A[2]) * k) | 0},${a})`; };
@@ -33,6 +34,8 @@ export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () 
     const k = Math.min(1, (now - t0) / T), dt = Math.min(50, now - last) / 16.7; last = now;
     warpFx.k = k; warpFx.col = (a = 1) => mix(k * 1.3, a);
     const fadeIn = Math.min(1, k / 0.16), fadeOut = k > 0.84 ? 1 - (k - 0.84) / 0.16 : 1, vis = Math.min(fadeIn, fadeOut);
+    // fully covered (dark tunnel, then the white-out): the map behind it can rest; it redraws at the peak
+    state.warpCovers = vis >= 1 && k < 0.8;
     const speed = Math.sin(Math.PI * Math.min(1, k * 1.12));
     const vx = w / 2 + Math.sin(k * 9) * w * 0.035 * speed, vy = h / 2 + Math.cos(k * 7) * h * 0.035 * speed;
     wg.globalCompositeOperation = "source-over"; wg.clearRect(0, 0, w, h);
@@ -41,13 +44,16 @@ export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () 
     // зоряні штрихи
     const v = 0.004 + 0.05 * speed;
     wg.lineWidth = 1.4;
+    // streaks in a few depth bands, one path each (a colour per streak cost a draw call per streak)
+    const BANDS = 6, paths = Array.from({ length: BANDS }, () => new Path2D());
     for (const p of parts) {
       const z1 = p.z; p.z -= v * p.sp * dt;
       if (p.z <= 0.02) { p.z = 1; p.a = Math.random() * 6.283; continue; }
       const r0 = R * 0.05 / z1, r1 = R * 0.05 / p.z, ca = Math.cos(p.a), sa = Math.sin(p.a);
-      wg.strokeStyle = mix(k * 1.3 - p.z * 0.3, (1 - p.z) * 0.95 * vis);
-      wg.beginPath(); wg.moveTo(vx + ca * r0, vy + sa * r0); wg.lineTo(vx + ca * r1, vy + sa * r1); wg.stroke();
+      const path = paths[Math.min(BANDS - 1, Math.floor(p.z * BANDS))];
+      path.moveTo(vx + ca * r0, vy + sa * r0); path.lineTo(vx + ca * r1, vy + sa * r1);
     }
+    paths.forEach((path, b) => { const z = (b + 0.5) / BANDS; wg.strokeStyle = mix(k * 1.3 - z * 0.3, (1 - z) * 0.95 * vis); wg.stroke(path); });
     // тунель кілець
     const tunnel = Math.max(0, Math.min(1, (k - 0.1) / 0.18)) * vis;
     if (tunnel > 0) {
@@ -92,7 +98,7 @@ export function wormhole(fromSi: number, toSi: number, dest: string, onPeak: () 
     }
     if (!peaked && k >= 0.8) { peaked = true; onPeak(); }
     if (k < 1) requestAnimationFrame(step);
-    else { wf.style.display = "none"; state.warping = false; warpFx.k = -1; }
+    else { wf.style.display = "none"; state.warping = false; state.warpCovers = false; warpFx.k = -1; }
   };
   requestAnimationFrame(step);
 }

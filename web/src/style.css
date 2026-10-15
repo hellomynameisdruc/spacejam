@@ -177,8 +177,8 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 /* ---------- плеєр ---------- */
 /* Floating player over the map: the YouTube video stays visible (200x200, nothing drawn over it);
    it sits above the odyssey panel and hints, so it can always be grabbed back */
-.dock { position: absolute; right: 10px; bottom: 10px; z-index: 7; width: 222px; padding: 0 10px 8px; background: rgb(0 0 0 / .82);
-  border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); backdrop-filter: blur(6px);
+.dock { position: absolute; right: 10px; bottom: 10px; z-index: 7; width: 222px; padding: 0 10px 8px; background: rgb(0 0 0 / .9);
+  border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent);
   box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 30%, transparent) }
 .dock::before, .dock::after { content: ""; position: absolute; width: 9px; height: 9px; border: 1px solid var(--acc) }
 .dock::before { left: -4px; top: -4px; border-right: 0; border-bottom: 0 }
@@ -306,7 +306,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 .route-hint span { min-width: 0 }
 @keyframes hintblink { 50% { border-color: transparent } }
 .route { position: absolute; left: 10px; top: 10px; z-index: 5; width: min(300px, calc(100% - 20px)); max-height: calc(100% - 20px);
-  display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; background: rgb(0 0 0 / .84); backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; background: rgb(0 0 0 / .84);
   border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 30%, transparent) }
 .route-head { display: flex; align-items: center; gap: 6px; padding-top: 6px; min-width: 0 }
 /* the title wraps (up to three lines) instead of cutting long label names short */
