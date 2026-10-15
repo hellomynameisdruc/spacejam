@@ -216,20 +216,23 @@ export function routeFromHash() {
 export function goHome() { select(null); const b = galaxy.bounds; cam.fly(b.x, b.y, cam.homeScale()); }
 function nearestStarToCam() { let b = 0, bd = Infinity; galaxy.stars.forEach((s, i) => { const d = (s.x - cam.x) ** 2 + (s.y - cam.y) ** 2; if (d < bd) { bd = d; b = i; } }); return b; }
 /** jump to a random track, weighted by system size */
-export async function warp() {
+export function warp() {
   if (state.warping) return;
   const { stars } = galaxy;
   let r = Math.random() * galaxy.totalTracks, s = 0;
   while (s < stars.length - 1 && r > stars[s].tracks) { r -= stars[s].tracks; s++; }
-  const ch = await tracks.load(s);
-  let i = Math.floor(Math.random() * ch.yt.length);
-  for (let k = 0; k < 20 && dead.has(ch.yt[i]); k++) i = Math.floor(Math.random() * ch.yt.length); // not into a dead signal
+  // the jump starts at once; the destination's tracks download while the tunnel runs
+  const n = stars[s].tracks, loaded = tracks.load(s);
+  let i = Math.floor(Math.random() * n);
   const sel = state.sel, from = !sel ? nearestStarToCam() : sel.kind === "planet" ? galaxy.planets[sel.p].s : sel.s;
   const autoplay = !!state.nowPlaying;
   wormhole(from, s, `${trackCode(s, i)} · ${stars[s].name.toUpperCase()}`, () => {
-    const pi = ch.p[i], q = pi >= 0 ? motion.planetPos(pi) : { x: ch.x[i], y: ch.y[i] };
-    cam.stop(); cam.x = q.x; cam.y = q.y; cam.s = cam.clampS(LOD_TITLES * 1.3);
-    select({ kind: "track", s, i }, false, autoplay);
+    loaded.then((ch) => {
+      for (let k = 0; k < 20 && dead.has(ch.yt[i]); k++) i = Math.floor(Math.random() * ch.yt.length); // not into a dead signal
+      const pi = ch.p[i], q = pi >= 0 ? motion.planetPos(pi) : { x: ch.x[i], y: ch.y[i] };
+      cam.stop(); cam.x = q.x; cam.y = q.y; cam.s = cam.clampS(LOD_TITLES * 1.3);
+      select({ kind: "track", s, i }, false, autoplay);
+    });
   });
 }
 /** fly to a galaxy (sector) so it fills the view */
