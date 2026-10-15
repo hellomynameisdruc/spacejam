@@ -7,6 +7,7 @@ import { galaxy, motion, state } from "../app/state";
 import { orbitR } from "../model/galaxy";
 import { cam, LOD_PLANETS, LOD_TRACKS } from "./camera";
 import { pulseOf } from "./pulsar";
+import { uiZoom } from "../core/dom";
 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const GW = 44, GH = 52, OY = 12; // the craft's grid, in cells; drawing coordinates sit OY cells down
@@ -47,13 +48,14 @@ function beaconFor(si: number) {
 }
 let beacon = "#ff4d6d";
 
-function probe(t: number) {
+function probe(t: number, deploy = 1) {
   const swing = Math.sin(t / 9000) * 0.45, rx = 3.2 + 4 * Math.cos(swing); // the dish turns on its mount
   const tilt = Math.cos(t / 11000), pw = Math.max(1, 5.5 * Math.abs(tilt)), back = tilt < 0;
-  // two big solar wings above and below the bus, a seam every fourth row; the back side is dull
+  // two big solar wings above and below the bus, a seam every fourth row; the back side is dull.
+  // Folded against the bus in flight, they unfold row by row once the probe is in orbit.
   const wing = (y0: number, y1: number) => rect(19.5 - pw, y0, 19.5 + pw, y1, (x, y) => ((y - y0) % 4 === 3 ? -1 : back ? 0.3 : lit((x - 19) / 8, (y - 14) / 20, 0.95)));
-  line(19.5, 10, 19.5, 6, 0.7); line(19.5, 18, 19.5, 22, 0.7); // wing masts
-  wing(-11, 5); wing(23, 39);
+  const reach = Math.round(16 * deploy);
+  if (reach > 0) { line(19.5, 10, 19.5, 6, 0.7); line(19.5, 18, 19.5, 22, 0.7); wing(5 - reach, 5); wing(23, 23 + reach); } // masts, wings
   rect(16, 10, 23, 18, (x, y) => lit((x - 19) / 4, (y - 14) / 4, 0.8)); // bus
   ellipse(11, 14, rx, 10, (u, v) => { const d = u * u + v * v, edge = Math.min(1, (1 - d) / 0.22 + 0.25); return (d > 0.78 ? 0.95 : lit(-u, v, 0.7)) * edge; }); // dish
   grid.light.push([22, 9 + OY, Math.floor(t / 900) % 2 ? beacon : ""]); // beacon lamp on the bus
@@ -102,15 +104,59 @@ function drawMark(ctx: CanvasRenderingContext2D, si: number, cx: number, cy: num
   if (Math.floor(t / 900) % 2) { ctx.fillStyle = beaconFor(si); ctx.fillRect(x + 4, y - 1, 2, 2); }
 }
 
+/** the arrival: the probe comes in from beyond the screen, brakes and slots into its orbit */
+const ARRIVE = 4200, SETTLE = 900;
+const still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+let arriving = { key: -1, at: 0, dx: -1, dy: 0 };
+/** which way to come in from: away from the player dock, so the flight isn't hidden behind it */
+function entryDir(T: { x: number; y: number }, tn: { x: number; y: number }) {
+  const dock = document.getElementById("playerBox"), sky = document.getElementById("sky");
+  let dx = -tn.x, dy = -tn.y; // by default, from behind along the orbit
+  if (dock && sky && !dock.hidden) {
+    const r = dock.getBoundingClientRect(), k = sky.getBoundingClientRect(), z = uiZoom(sky);
+    if (r.width) { dx = T.x - (r.left - k.left + r.width / 2) / z; dy = T.y - (r.top - k.top + r.height / 2) / z; }
+  }
+  const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  // lean it a little towards the orbit's backward side, so it comes in roughly with the orbit's flow
+  const ex = dx - tn.x * 0.35, ey = dy - tn.y * 0.35, m = Math.hypot(ex, ey) || 1;
+  return { dx: ex / m, dy: ey / m };
+}
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+const easeOut = (p: number) => 1 - Math.pow(1 - p, 4); // fast in, a long retro-burn
+/** where the probe is at arrival progress p (0…1), around a target T moving along the orbit */
+function arrivalPos(p: number, T: { x: number; y: number }, tn: { x: number; y: number }) {
+  const L = Math.hypot(cam.W, cam.H) * 0.85, u = easeOut(clamp01(p)), v = 1 - u;
+  // a gentle curve in, bending a little the way the orbit runs, braking all the way to its slot
+  const P0 = { x: T.x + arriving.dx * L, y: T.y + arriving.dy * L }, side = arriving.dx * tn.y - arriving.dy * tn.x > 0 ? 1 : -1;
+  const P1 = { x: T.x + arriving.dx * L * 0.35 - arriving.dy * L * 0.1 * side, y: T.y + arriving.dy * L * 0.35 + arriving.dx * L * 0.1 * side };
+  return { x: v * v * P0.x + 2 * v * u * P1.x + u * u * T.x, y: v * v * P0.y + 2 * v * u * P1.y + u * u * T.y };
+}
+const hash = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
+
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
   const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y);
   // from further out the probe is just a small blinking mark beside its planet
   if (cam.s < LOD_TRACKS) { drawMark(ctx, pl.s, c.x, c.y, Math.max(3, pl.r * cam.s), t); return; }
   const R = Math.max(orbitR(pl) * cam.s + 22, pl.r * cam.s + 40), a = (t / 42000) * Math.PI * 2; // one slow lap in ~40 s
-  const x = c.x + Math.cos(a) * R, y = c.y + Math.sin(a) * R * 0.92;
-  if (x < -90 || y < -90 || x > cam.W + 90 || y > cam.H + 90) return;
+  const ox = c.x + Math.cos(a) * R, oy = c.y + Math.sin(a) * R * 0.92;
   const { bar } = pulseOf(pl.s, t), col = (al: number) => sc(pl.s, al);
+
+  // a new station: wait for the camera to settle, then fly it in (unless it was long ago or motion is off)
+  if (arriving.key !== state.orbitSince) {
+    if (cam.flying) return;
+    arriving = { key: state.orbitSince, at: still || Date.now() - state.orbitSince > 15000 ? t - ARRIVE - SETTLE : t, dx: -1, dy: 0 };
+  }
+  const p = (t - arriving.at) / ARRIVE, after = clamp01((t - arriving.at - ARRIVE) / SETTLE); // flight, then settling in
+  const tl = Math.hypot(Math.sin(a), Math.cos(a) * 0.92) || 1, tn = { x: -Math.sin(a) / tl, y: (Math.cos(a) * 0.92) / tl };
+  // in flight it aims at where its slot on the orbit will be when it gets there, so it never doubles back
+  const aEnd = ((arriving.at + ARRIVE) / 42000) * Math.PI * 2;
+  const T = p < 1 ? { x: c.x + Math.cos(aEnd) * R, y: c.y + Math.sin(aEnd) * R * 0.92 } : { x: ox, y: oy };
+  if (arriving.dx === -1 && arriving.dy === 0) Object.assign(arriving, entryDir(T, tn));
+  const at = p < 1 ? arrivalPos(p, T, tn) : T, x = at.x, y = at.y;
+  if (p >= 1 && (x < -90 || y < -90 || x > cam.W + 90 || y > cam.H + 90)) return;
+  if (p < 1) drawFlight(ctx, pl.s, p, T, tn, t);
+  ctx.save(); ctx.globalAlpha = after; // the orbit, the link and the call-out come up once it is in place
 
   // its orbit, faintly
   ctx.strokeStyle = col(0.16); ctx.lineWidth = 1; ctx.setLineDash([2, 6]);
@@ -124,13 +170,28 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
     ctx.strokeStyle = col(0.75 * (1 - f)); ctx.beginPath(); ctx.arc(px0, py0, rr, Math.atan2(uy, ux) - 0.9, Math.atan2(uy, ux) + 0.9); ctx.stroke();
   }
 
-  // the craft: re-shaded every frame, its front toward the planet
+  ctx.restore();
+
+  // the craft: re-shaded every frame. In flight its dish leads the way; braking, it turns to the planet
   grid.tone.fill(0); grid.light.length = 0;
-  beacon = beaconFor(pl.s); probe(t);
-  // the dish (the model's left side) keeps facing the planet all the way round
-  const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, Math.atan2(c.y - y, c.x - x) - Math.PI);
-  const scale = Math.min(0.85, 0.5 + (cam.s - LOD_TRACKS) * 0.08), w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
+  beacon = beaconFor(pl.s); probe(t, p < 0.72 ? 0 : clamp01((p - 0.72) / 0.28 * 0.6 + after * 0.4));
+  const face = Math.atan2(c.y - y, c.x - x) - Math.PI;
+  let theta = face;
+  if (p < 1) {
+    const b = arrivalPos(p + 0.01, T, tn), travel = Math.atan2(b.y - y, b.x - x) - Math.PI, k = clamp01((p - 0.55) / 0.4);
+    const d = Math.atan2(Math.sin(face - travel), Math.cos(face - travel)); theta = travel + d * k * k * (3 - 2 * k);
+  }
+  const px = Math.max(2, Math.min(3, Math.round(cam.DPR))), sp = render(pl.s, px, theta);
+  const grow = p < 1 ? 0.55 + 0.45 * easeOut(clamp01(p)) : 1; // it comes from far away: a touch smaller at first
+  const scale = Math.min(0.85, 0.5 + (cam.s - LOD_TRACKS) * 0.08) * grow, w = (sp.width / cam.DPR) * scale, h = (sp.height / cam.DPR) * scale;
   ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(sp, Math.round(x - w / 2), Math.round(y - h / 2), w, h); ctx.restore();
+  // orbit insertion: a pulse rings out as the engines cut
+  if (p >= 1 && after < 1) {
+    ctx.strokeStyle = col(0.7 * (1 - after)); ctx.setLineDash([1, 3]);
+    ctx.beginPath(); ctx.arc(x, y, 8 + 46 * easeOut(after), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+  }
+  if (after <= 0) return;
+  ctx.save(); ctx.globalAlpha = after;
 
   // a schematic call-out, like a diagnostic screen
   const left = x < c.x, lx = x + (left ? -1 : 1) * (w * 0.5 + 10), ly = y - h * 0.5 - 10;
@@ -142,4 +203,46 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const secs = Math.max(0, Math.floor((Date.now() - state.orbitSince) / 1000)), two = (n: number) => String(n).padStart(2, "0");
   ctx.fillStyle = col(0.65);
   ctx.fillText(`T+${two(Math.floor(secs / 3600))}:${two(Math.floor(secs / 60) % 60)}:${two(secs % 60)} ON STATION`, lx + (left ? -2 : 2), ly + 10);
+  ctx.restore();
+}
+
+/**
+ * The flight in: a dithered wake behind the probe that stretches with its speed, streaks of
+ * starlight sliding past while it is fast, and the flicker of its braking jets near the end.
+ */
+function drawFlight(ctx: CanvasRenderingContext2D, si: number, p: number, T: { x: number; y: number }, tn: { x: number; y: number }, t: number) {
+  const here = arrivalPos(p, T, tn), ahead = arrivalPos(p + 0.004, T, tn);
+  let vx = ahead.x - here.x, vy = ahead.y - here.y; const sp = Math.hypot(vx, vy); if (sp < 0.01) return;
+  vx /= sp; vy /= sp; const nx = -vy, ny = vx, fast = clamp01(sp / 14), fr = Math.floor(t / 70);
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  // the wake: a faint ion trail along the path just flown, and chunky pixels breaking up behind it
+  ctx.strokeStyle = sc(si, 0.22); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(here.x, here.y);
+  for (let k = 1; k <= 30; k++) { const q = arrivalPos(p - k * 0.01, T, tn); ctx.lineTo(q.x, q.y); }
+  ctx.stroke();
+  const n = 46;
+  for (let k = 2; k <= n; k++) {
+    const q = arrivalPos(p - k * 0.0065, T, tn), f = 1 - k / n, j = (hash(k + fr) - 0.5) * (1 - f) * 14;
+    if (hash(k * 7 + fr) > 0.3 + f * 0.7) continue; // dithered: it breaks up towards the tail
+    const s2 = f > 0.7 ? 4 : f > 0.45 ? 3 : f > 0.2 ? 2 : 1;
+    ctx.fillStyle = sc(si, 0.95 * f); ctx.fillRect(Math.round(q.x + nx * j - s2 / 2), Math.round(q.y + ny * j - s2 / 2), s2, s2);
+  }
+  // streaks of starlight sliding past while it is still fast
+  if (fast > 0.1) for (let k = 0; k < 14; k++) {
+    const off = (hash(k + 3.7) - 0.5) * 300, along = 160 - ((hash(k + 9.1) * 320 + t * 1.4) % 320), len = (30 + 160 * hash(k + 1.3)) * fast;
+    const sx = here.x + nx * off + vx * along, sy = here.y + ny * off + vy * along;
+    ctx.strokeStyle = sc(si, 0.55 * fast * (1 - Math.abs(off) / 200)); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(Math.round(sx) + 0.5, Math.round(sy) + 0.5); ctx.lineTo(Math.round(sx - vx * len) + 0.5, Math.round(sy - vy * len) + 0.5); ctx.stroke();
+  }
+  // the retro-burn: jets fire forward, against the motion, flickering; brightest at the nozzle
+  if (p > 0.3 && p < 0.97) {
+    const burn = Math.sin(((p - 0.3) / 0.67) * Math.PI), f2 = Math.floor(t / 45);
+    for (let k = 0; k < 22; k++) {
+      if (hash(k + f2 * 13) > 0.25 + burn * 0.75) continue;
+      const r = hash(k * 3 + f2), dd = 9 + r * 34 * burn, sd = (hash(k * 5 + f2) - 0.5) * (4 + r * 12);
+      const s2 = r < 0.3 ? 3 : r < 0.65 ? 2 : 1;
+      ctx.fillStyle = r < 0.25 ? `rgba(255,255,255,${0.9 * burn})` : sc(si, 0.95 * burn * (1 - r * 0.6));
+      ctx.fillRect(Math.round(here.x + vx * dd + nx * sd), Math.round(here.y + vy * dd + ny * sd), s2, s2);
+    }
+  }
+  ctx.restore();
 }
