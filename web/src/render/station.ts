@@ -237,6 +237,8 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const secs = Math.max(0, Math.floor((Date.now() - state.orbitSince) / 1000)), two = (n: number) => String(n).padStart(2, "0");
   ctx.fillStyle = col(0.65);
   ctx.fillText(`T+${two(Math.floor(secs / 3600))}:${two(Math.floor(secs / 60) % 60)}:${two(secs % 60)} ON STATION`, lx + (left ? -2 : 2), ly + 10);
+  // the station's monitor hangs under the call-out: the planet below, live
+  drawMonitor(ctx, left ? lx - MONITOR.w - 2 : lx + 2, ly + 18, pi, pl.s, t, after);
   ctx.restore();
 }
 
@@ -280,3 +282,94 @@ function drawFlight(ctx: CanvasRenderingContext2D, si: number, p: number, T: { x
   }
   ctx.restore();
 }
+
+// ---------- the station's monitor: the planet below, as an old tube shows it ----------
+const MON_W = 150, MON_H = 100, COLS = 90, ROWS = 40, PH_ = 60; // css px; the picture's cells (each a stretch of one scan line); the grey picture's height
+let grey: HTMLCanvasElement | null = null, gx: CanvasRenderingContext2D, tube: HTMLCanvasElement, tx: CanvasRenderingContext2D;
+const G = (v: number) => { const n = Math.max(0, Math.min(255, Math.round(v * 255))); return `rgb(${n},${n},${n})`; };
+const hsh = (n: number) => { const x = Math.sin(n * 91.7) * 43758.5; return x - Math.floor(x); };
+
+/** the planet in grey: a shaded globe turning, its kind's surface, satellites circling, the probe passing */
+function drawPlanetScene(c: CanvasRenderingContext2D, pi: number, t: number, beat: number) {
+  const W = COLS, H = PH_, kind = galaxy.ptype[pi], cx = W / 2, cy = H / 2 + 3, r = H * 0.27, spin = t / 9000, kick = Math.exp(-(beat % 1) * 5);
+  c.fillStyle = "#000"; c.fillRect(0, 0, W, H);
+  for (let k = 0; k < 40; k++) { if ((k + Math.floor(t / 300)) % 7) { c.fillStyle = G(0.25 + hsh(k) * 0.5); c.fillRect(hsh(k + 1) * W, hsh(k + 2) * H, 0.7, 0.7); } } // stars
+  const halo = c.createRadialGradient(cx, cy, r * 0.9, cx, cy, r * 1.6); halo.addColorStop(0, G(0.18 + kick * 0.1)); halo.addColorStop(1, "rgba(0,0,0,0)"); c.fillStyle = halo; c.fillRect(0, 0, W, H);
+  const ring = galaxy.ringed[pi] || kind === "ringed", tiltR = -0.32;
+  const drawRing = (front: boolean) => {
+    c.save(); c.translate(cx, cy); c.rotate(tiltR); c.beginPath();
+    if (front) c.ellipse(0, 0, r * 2, r * 0.48, 0, 0, Math.PI); else c.ellipse(0, 0, r * 2, r * 0.48, 0, Math.PI, Math.PI * 2);
+    c.strokeStyle = G(0.75); c.lineWidth = r * 0.22; c.stroke(); c.strokeStyle = G(0.3); c.lineWidth = r * 0.05; c.stroke(); c.restore();
+  };
+  if (ring) drawRing(false);
+  // the globe, its surface wrapped round and turning
+  c.save(); c.beginPath(); c.arc(cx, cy, r, 0, 7); c.clip();
+  c.fillStyle = G(0.45); c.fillRect(cx - r, cy - r, r * 2, r * 2);
+  const u = (lon: number) => cx + Math.sin(lon) * r; // a longitude on the sphere, to screen x
+  if (kind === "giant" || kind === "ringed") {
+    for (let k = -5; k <= 5; k++) { const y = cy + k * r * 0.18 + Math.sin(spin * 3 + k) * 0.4; c.fillStyle = G(k % 2 ? 0.25 : 0.7); c.fillRect(cx - r, y, r * 2, r * 0.09 + (k % 3 === 0 ? r * 0.05 : 0)); }
+    const sl = spin * 2.5 % (Math.PI * 2); if (Math.cos(sl) > 0) { c.fillStyle = G(0.15); c.beginPath(); c.ellipse(u(sl), cy + r * 0.3, r * 0.22 * Math.cos(sl), r * 0.12, 0, 0, 7); c.fill(); } // a storm
+  } else {
+    for (let k = 0; k < 9; k++) { // features spread round the globe, seen when on the near side
+      const lon = spin * 2 + k * 0.7 + hsh(pi + k) * 2, lat = (hsh(pi * 3 + k) - 0.5) * 1.6, vis = Math.cos(lon); if (vis <= 0) continue;
+      const x = u(lon), y = cy + Math.sin(lat) * r, w = r * (0.12 + hsh(k + pi) * 0.22) * vis, h = r * (0.1 + hsh(k * 2 + pi) * 0.18) * Math.cos(lat);
+      if (kind === "ancient") { c.fillStyle = G(0.2); c.beginPath(); c.ellipse(x, y, w, h, 0, 0, 7); c.fill(); c.strokeStyle = G(0.8); c.lineWidth = 0.5; c.beginPath(); c.ellipse(x - w * 0.15, y - h * 0.15, w, h, 0, Math.PI * 0.9, Math.PI * 1.7); c.stroke(); } // craters
+      else if (kind === "young") { c.fillStyle = G(0.85); c.beginPath(); c.ellipse(x, y, w * 1.4, h * 0.6, 0, 0, 7); c.fill(); } // ice
+      else { c.fillStyle = G(0.72); c.beginPath(); c.ellipse(x, y, w * 1.5, h, hsh(k) * 2, 0, 7); c.fill(); } // land
+    }
+    if (kind === "young") { c.fillStyle = G(0.95); c.fillRect(cx - r, cy - r, r * 2, r * 0.25); c.fillRect(cx - r, cy + r * 0.78, r * 2, r * 0.3); } // polar caps
+  }
+  // light from the star on one side, night on the other, and a bright limb
+  const sh = c.createLinearGradient(cx - r, cy - r, cx + r, cy + r); sh.addColorStop(0, "rgba(255,255,255,.25)"); sh.addColorStop(0.45, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,.85)");
+  c.fillStyle = sh; c.fillRect(cx - r, cy - r, r * 2, r * 2); c.restore();
+  c.strokeStyle = G(0.9); c.lineWidth = 0.8; c.beginPath(); c.arc(cx, cy, r, Math.PI * 0.8, Math.PI * 1.75); c.stroke();
+  if (ring) drawRing(true);
+  // satellites: the label's tracks circling, the one on air brighter; and the probe itself
+  for (let k = 0; k < 14; k++) {
+    const a = t / (2600 + k * 420) + k * 1.9, rr = r * (1.25 + (k % 5) * 0.16), x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr * 0.42;
+    if (Math.sin(a) < 0 && Math.hypot(x - cx, y - cy) < r) continue; // behind the globe
+    c.fillStyle = G(k === 0 ? 0.6 + kick * 0.4 : 0.7); c.fillRect(x - 0.7, y - 0.7, k === 0 ? 2 : 1.3, k === 0 ? 2 : 1.3);
+  }
+  const pa = t / 4200, px = cx + Math.cos(pa) * r * 2.2, py = cy + Math.sin(pa) * r * 0.9;
+  c.fillStyle = G(1); c.fillRect(px - 1.5, py - 0.4, 3, 0.8); c.fillRect(px - 0.4, py - 1.6, 0.8, 3.2); // the station, a small cross of light
+}
+
+/** the tube: each cell becomes a stretch of glowing scan line, edges burning brighter, alternate fields dimmer */
+export function drawMonitor(ctx: CanvasRenderingContext2D, x: number, y: number, pi: number, si: number, t: number, alpha: number) {
+  if (!grey) {
+    grey = document.createElement("canvas"); grey.width = COLS; grey.height = PH_; gx = grey.getContext("2d", { willReadFrequently: true })!;
+    tube = document.createElement("canvas"); tube.width = COLS * 2; tube.height = ROWS * 3; tx = tube.getContext("2d")!;
+  }
+  const beat = (t / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si];
+  drawPlanetScene(gx, pi, t, beat);
+  const src = gx.getImageData(0, 0, COLS, PH_).data, img = tx.createImageData(COLS * 2, ROWS * 3), d = img.data, [R, Gc, B] = SC[si];
+  const lum = (cx: number, cy: number) => src[(Math.max(0, Math.min(PH_ - 1, cy)) * COLS + Math.max(0, Math.min(COLS - 1, cx))) * 4] / 255;
+  const roll = (t / 40) % (ROWS + 10) - 5;
+  for (let row = 0; row < ROWS; row++) {
+    const jit = (row * 13 + Math.floor(t / 80)) % 61 === 0 ? 2 : 0, dim = row % 2 ? 0.8 : 1, boost = Math.abs(row - roll) < 1.5 ? 0.18 : 0;
+    for (let col = 0; col < COLS; col++) {
+      const sy = Math.round(row * PH_ / ROWS), l = lum(col, sy), e = Math.min(1, (Math.abs(lum(col + 1, sy) - lum(col - 1, sy)) + Math.abs(lum(col, sy + 2) - lum(col, sy - 2))) * 1.2);
+      const v = Math.min(1, Math.pow(l, 0.85) + e * 0.5 + (l > 0.02 ? boost : 0)) * dim; if (v < 0.03) continue;
+      const hot = Math.max(0, (v - 0.8) / 0.2); // the brightest burn towards white
+      for (let sx = 0; sx < 2; sx++) for (let ly = 0; ly < 2; ly++) { // two lit lines out of three: the scan line and its gap
+        const X = col * 2 + sx + jit, Y = row * 3 + ly; if (X >= COLS * 2) continue;
+        const k = (Y * COLS * 2 + X) * 4, a = ly ? 0.55 : 1;
+        d[k] = R + (255 - R) * hot; d[k + 1] = Gc + (255 - Gc) * hot; d[k + 2] = B + (255 - B) * hot; d[k + 3] = 255 * v * a;
+      }
+    }
+  }
+  tx.putImageData(img, 0, 0);
+  // frame, the picture with a soft bloom, captions
+  ctx.save(); ctx.globalAlpha = alpha;
+  ctx.fillStyle = "rgba(0,0,0,.88)"; ctx.fillRect(x, y, MON_W, MON_H);
+  ctx.imageSmoothingEnabled = true; ctx.shadowColor = sc(si, 0.9); ctx.shadowBlur = 6;
+  ctx.drawImage(tube, x + 2, y + 2, MON_W - 4, MON_H - 4); ctx.shadowBlur = 0;
+  const vg = ctx.createRadialGradient(x + MON_W / 2, y + MON_H / 2, MON_H * 0.3, x + MON_W / 2, y + MON_H / 2, MON_W * 0.7);
+  vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)"); ctx.fillStyle = vg; ctx.fillRect(x, y, MON_W, MON_H);
+  ctx.strokeStyle = sc(si, 0.75); ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, MON_W - 1, MON_H - 1);
+  ctx.font = `600 8px "Martian Mono", monospace`; ctx.textBaseline = "top"; ctx.textAlign = "left";
+  ctx.fillStyle = state.onAir && !lampLit(t) ? "rgba(255,77,109,.25)" : "#ff4d6d"; ctx.fillText("● LIVE", x + 5, y + 4);
+  ctx.fillStyle = sc(si, 0.9); ctx.textAlign = "right"; ctx.fillText("EXT 1", x + MON_W - 5, y + 4);
+  ctx.restore();
+}
+export const MONITOR = { w: MON_W, h: MON_H };

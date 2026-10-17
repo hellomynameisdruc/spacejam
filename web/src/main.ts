@@ -28,7 +28,6 @@ import { initInput } from "./ui/input";
 import { initWormhole } from "./ui/wormhole";
 import { initTheme } from "./ui/theme";
 import { initBriefing } from "./ui/briefing";
-import { initTv } from "./ui/tv";
 
 initScene();
 initDock();
@@ -38,7 +37,6 @@ initLogPanel();
 initSearch();
 initInput();
 initWormhole();
-initTv();
 initClock();
 
 // stores tell the UI when they change
