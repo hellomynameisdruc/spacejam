@@ -1,5 +1,5 @@
 // TIME WARP on an old broadcast console: while a label's history plays, the map gives way to a worn
-// control desk with a small CRT monitor in the middle, where a dancer keeps time with the style's tempo
+// control desk with a small CRT monitor in the middle, where a woman's face sways to the style's tempo
 // behind a test-card grid. The year on air glows on a red LED read-out, faders and needles move with the
 // beat, and the knobs along the bottom work: PREV, MEMORY (a beacon), NEXT and DISCONNECT (back to map).
 // Drawn like the rest of the cosmos: a small grey picture, ordered dithering into the system's phosphor
@@ -17,13 +17,14 @@ const SX0 = 92, SY0 = 14, SX1 = 154, SY1 = 86; // its monitor's screen
 /** the working knobs along the bottom (picture cells) */
 const KNOBS = [{ x: 98, label: "◂ PREV", act: "prev" }, { x: 122, label: "MEMORY", act: "beacon" }, { x: 146, label: "NEXT ▸", act: "next" }, { x: 176, label: "DISCONNECT", act: "exit" }] as const;
 const KY = 112, KR = 8;
+const PIC = 3, PW = (SX1 - SX0) * PIC, PH = (SY1 - SY0) * PIC; // the monitor picture's own, finer cells
 /** where the printed labels sit (centre x, centre y, strip width), in picture cells */
 const LABELS: [number, number, number][] = [[66, 32, 30], [66, 56, 20], [123, 7.5, 30], [180, 59, 24], [214, 126, 24], [23, 122, 26],
   ...KNOBS.map((n): [number, number, number] => [n.x, 125.5, n.act === "exit" ? 34 : 22])];
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const ON_MS = 900, OFF_MS = 520;
 
-let cv: HTMLCanvasElement, g: CanvasRenderingContext2D, low: HTMLCanvasElement, lg: CanvasRenderingContext2D, back: HTMLButtonElement, reopen: HTMLButtonElement;
+let cv: HTMLCanvasElement, g: CanvasRenderingContext2D, low: HTMLCanvasElement, lg: CanvasRenderingContext2D, pic: HTMLCanvasElement, pg: CanvasRenderingContext2D, back: HTMLButtonElement, reopen: HTMLButtonElement;
 let open = false, phase: "on" | "off" | "" = "", t0 = 0, lastKey = "", switchAt = -1e9, tuning = 0;
 let rect = { x: 0, y: 0, k: 1 }, bgCol = [7, 6, 14];
 const turned: Record<string, number> = {};
@@ -45,6 +46,7 @@ export function initTv() {
   cv = document.createElement("canvas"); cv.className = "tv"; cv.setAttribute("aria-hidden", "true"); viewportEl().appendChild(cv);
   g = cv.getContext("2d")!;
   low = document.createElement("canvas"); low.width = LW; low.height = LH; lg = low.getContext("2d", { willReadFrequently: true })!;
+  pic = document.createElement("canvas"); pic.width = PW; pic.height = PH; pg = pic.getContext("2d", { willReadFrequently: true })!;
   back = document.createElement("button"); back.type = "button"; back.className = "key tv-back"; back.hidden = true;
   back.textContent = "◂ BACK TO MAP"; back.onclick = closeTv; viewportEl().appendChild(back);
   reopen = document.getElementById("dockTv") as HTMLButtonElement; reopen.onclick = openTv;
@@ -63,86 +65,78 @@ export function initTv() {
   addEventListener("keydown", (e) => { if (e.key === "Escape" && open && phase !== "off") { e.stopImmediatePropagation(); closeTv(); } }, true);
 }
 
-// ---------- the dancer ----------
-type Pose = { sway: number; tilt: number; leg: [number, number]; knee: [number, number]; arm: [number, number]; fore: [number, number]; head: number };
-const smooth = (x: number) => x * x * (3 - 2 * x);
-/** four moves, two bars each; angles from straight down, positive = outwards */
-function move(m: number, beat: number): Pose {
-  const b = beat % 1, s = Math.sin(Math.PI * beat), bounce = Math.abs(Math.sin(Math.PI * beat)), w = Math.sin(2 * Math.PI * b);
-  switch (m) {
-    case 0: // step-touch, clapping overhead and at the hips
-      return { sway: 4 * s, tilt: -0.08 * s, leg: [0.12 + 0.22 * Math.max(0, -s), 0.12 + 0.22 * Math.max(0, s)], knee: [0.35 * bounce, 0.35 * bounce],
-        arm: [1.1 + 1.4 * (0.5 + 0.5 * w), 1.1 + 1.4 * (0.5 + 0.5 * w)], fore: [0.6, 0.6], head: 0.1 * s };
-    case 1: { // the disco point: one arm up to the sky, then down across, other hand on the hip
-      const up = Math.floor(beat / 2) % 2 === 0, k = smooth(Math.min(1, (beat % 2) * 2));
-      const a = up ? 0.5 + 2.2 * k : 2.7 - 2.2 * k;
-      return { sway: 3 * s, tilt: 0.1 * s, leg: [0.25, 0.15], knee: [0.25 * bounce, 0.1], arm: [0.7, a], fore: [-2.1, 0.1], head: 0.18 * (up ? -1 : 1) };
-    }
-    case 2: // arms overhead, waving side to side
-      return { sway: 5 * Math.sin(Math.PI * beat / 2), tilt: -0.12 * Math.sin(Math.PI * beat / 2), leg: [0.18, 0.18], knee: [0.2 * bounce, 0.2 * bounce],
-        arm: [2.6 + 0.25 * w, 2.6 - 0.25 * w], fore: [0.35 + 0.3 * w, 0.35 - 0.3 * w], head: 0.15 * Math.sin(Math.PI * beat / 2) };
-    default: // the twist: knees low, elbows out, swinging opposite ways
-      return { sway: 2 * s, tilt: 0.14 * s, leg: [0.3, 0.3], knee: [0.55 + 0.25 * bounce, 0.55 + 0.25 * bounce],
-        arm: [1.2 + 0.5 * s, 1.2 - 0.5 * s], fore: [-1.3 - 0.4 * s, -1.3 + 0.4 * s], head: -0.1 * s };
+// ---------- the face on the monitor ----------
+const W1 = (a: number) => `rgba(255,255,255,${a})`;
+/** an opaque grey, for the dark features drawn over the lit face */
+const Gr = (v: number) => { const n = Math.round(v * 255); return `rgb(${n},${n},${n})`; };
+/**
+ * A portrait in soft grey, dithered like everything else: long hair, a flower above her ear, a calm face.
+ * She sways with the bar and nods on the beat, her hair drifts, and now and then she blinks or glances aside.
+ */
+function drawPortrait(c: CanvasRenderingContext2D, cx: number, cy: number, now: number, beat: number) {
+  const bar = beat / 4, tilt = reduce ? 0 : Math.sin(Math.PI * bar) * 0.09, nod = reduce ? 0 : Math.exp(-(beat % 1) * 5) * 1.2;
+  const drift = (k: number) => (reduce ? 0 : Math.sin(now / 1300 + k * 1.7) * 1.2 + Math.sin(Math.PI * bar + k) * 0.8);
+  c.save(); c.translate(cx, cy + nod); c.rotate(tilt); c.scale(1.2, 1.2);
+  // hair behind: a long dark fall down past the shoulders, with lighter strands
+  c.fillStyle = W1(0.26); c.beginPath();
+  c.moveTo(-15, -6); c.bezierCurveTo(-18, -26, 18, -26, 15, -6);
+  c.bezierCurveTo(19, 10, 20 + drift(1), 26, 22 + drift(2), 40); c.lineTo(-22 + drift(3), 40); c.bezierCurveTo(-20 + drift(4), 26, -19, 10, -15, -6); c.fill();
+  c.strokeStyle = W1(0.42); c.lineWidth = 1;
+  for (let k = 0; k < 7; k++) {
+    const side = k % 2 ? 1 : -1, x0 = side * (9 + (k % 3) * 2.5);
+    c.beginPath(); c.moveTo(x0, -10); c.quadraticCurveTo(x0 + side * 6, 12, x0 + side * (8 + k * 0.6) + drift(k), 36); c.stroke();
   }
-}
-function pose(beat: number): Pose {
-  if (reduce) return move(0, 0.25);
-  const m = Math.floor(beat / 8) % 4, into = smooth(Math.min(1, (beat % 8) / 1)), cur = move(m, beat);
-  if (into >= 1) return cur;
-  const prev = move((m + 3) % 4, beat), mix = (a: number, b: number) => a + (b - a) * into;
-  const pair = (a: [number, number], b: [number, number]): [number, number] => [mix(a[0], b[0]), mix(a[1], b[1])];
-  return { sway: mix(prev.sway, cur.sway), tilt: mix(prev.tilt, cur.tilt), leg: pair(prev.leg, cur.leg), knee: pair(prev.knee, cur.knee),
-    arm: pair(prev.arm, cur.arm), fore: pair(prev.fore, cur.fore), head: mix(prev.head, cur.head) };
-}
-function drawDancer(c: CanvasRenderingContext2D, cx: number, floor: number, beat: number) {
-  const P = pose(beat), at = (x: number, y: number, a: number, len: number, side: number) => ({ x: x + Math.sin(a) * len * side, y: y + Math.cos(a) * len });
-  // legs first, to find how high the hips sit with the feet on the floor
-  const hip = { x: cx + P.sway, y: 0 }, legs = [-1, 1].map((side, k) => {
-    const h = { x: hip.x + side * 3, y: 0 }, kn = at(h.x, 0, P.leg[k] + P.knee[k] * 0.5, 13, side), ft = at(kn.x, kn.y, P.leg[k] - P.knee[k] * 0.6, 13, side);
-    return { h, kn, ft };
-  });
-  const lift = floor - Math.max(legs[0].ft.y, legs[1].ft.y);
-  const Y = (p: { x: number; y: number }) => ({ x: p.x, y: p.y + lift });
-  c.strokeStyle = "#fff"; c.fillStyle = "#fff"; c.lineCap = "round"; c.lineJoin = "round";
-  // shadow on the floor
-  c.fillStyle = "rgba(255,255,255,.22)"; c.beginPath(); c.ellipse(cx + P.sway * 0.5, floor + 1, 13, 2.5, 0, 0, 7); c.fill(); c.fillStyle = "#fff";
-  c.lineWidth = 3.2;
-  for (const L of legs) { const a = Y(L.h), b = Y(L.kn), f = Y(L.ft); c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); c.lineTo(f.x, f.y); c.stroke(); c.fillRect(f.x - 2, f.y - 1, 4, 2); }
-  const H = Y(hip), N = { x: H.x + Math.sin(P.tilt) * 19, y: H.y - Math.cos(P.tilt) * 19 };
-  // dress: from the waist, flaring out with the swing of the hips
-  const wx = H.x + Math.sin(P.tilt) * 7, wy = H.y - Math.cos(P.tilt) * 7, flare = 9 + Math.abs(P.sway) * 0.4;
-  c.beginPath(); c.moveTo(wx - 4, wy); c.lineTo(wx + 4, wy); c.lineTo(H.x + flare + P.sway * 0.3, H.y + 8); c.lineTo(H.x - flare + P.sway * 0.3, H.y + 8); c.closePath(); c.fill();
-  c.lineWidth = 6.5; c.beginPath(); c.moveTo(wx, wy); c.lineTo(N.x, N.y + 2); c.stroke(); // torso
-  // arms
-  c.lineWidth = 2.8;
-  [-1, 1].forEach((side, k) => {
-    const S = { x: N.x + side * 4.5, y: N.y + 2 }, E = at(S.x, S.y, P.arm[k], 10, side), Hd = at(E.x, E.y, P.arm[k] + P.fore[k], 9, side);
-    c.beginPath(); c.moveTo(S.x, S.y); c.lineTo(E.x, E.y); c.lineTo(Hd.x, Hd.y); c.stroke();
-  });
-  // head and a ponytail that swings behind
-  const hx = N.x + Math.sin(P.tilt + P.head) * 6, hy = N.y - Math.cos(P.tilt + P.head) * 6;
-  c.beginPath(); c.arc(hx, hy, 4.6, 0, 7); c.fill();
-  const sw = Math.sin(Math.PI * beat + 0.8) * 0.9;
-  c.lineWidth = 2.2; c.beginPath(); c.moveTo(hx + 1, hy - 4); c.quadraticCurveTo(hx + 6 + sw * 3, hy - 4, hx + 5 + sw * 5, hy + 4); c.stroke();
-  c.fillStyle = "#000"; c.fillRect(hx - 2, hy - 1, 1, 1); c.fillRect(hx + 1, hy - 1, 1, 1); // eyes
+  // neck and shoulders, in shadow
+  c.fillStyle = W1(0.4); c.beginPath(); c.moveTo(-5, 10); c.lineTo(5, 10); c.lineTo(6, 22); c.lineTo(-6, 22); c.closePath(); c.fill();
+  const sh = c.createLinearGradient(0, 20, 0, 40); sh.addColorStop(0, W1(0.5)); sh.addColorStop(1, W1(0.12));
+  c.fillStyle = sh; c.beginPath(); c.moveTo(-6, 20); c.bezierCurveTo(-14, 22, -26, 26, -30, 40); c.lineTo(30, 40); c.bezierCurveTo(26, 26, 14, 22, 6, 20); c.closePath(); c.fill();
+  // the face: lit from the upper left, falling off to the jaw
+  const fg = c.createRadialGradient(-4, -6, 2, 0, 0, 17); fg.addColorStop(0, W1(0.85)); fg.addColorStop(0.6, W1(0.62)); fg.addColorStop(1, W1(0.3));
+  c.fillStyle = fg; c.beginPath(); c.moveTo(0, -15); c.bezierCurveTo(10, -15, 11.5, -5, 10.5, 2); c.bezierCurveTo(9.5, 9, 4, 14, 0, 14); c.bezierCurveTo(-4, 14, -9.5, 9, -10.5, 2); c.bezierCurveTo(-11.5, -5, -10, -15, 0, -15); c.fill();
+  // eyes: almonds that blink now and then and sometimes look aside
+  const blink = !reduce && now % 4300 < 140, look = reduce ? 0 : Math.round(Math.sin(now / 3100) * 1.2) * 0.6;
+  for (const ex of [-4.6, 4.6]) {
+    c.fillStyle = Gr(0.5); c.beginPath(); c.ellipse(ex, -2.4, 3.4, 1.4, 0, Math.PI, 0); c.fill(); // lid shadow
+    if (blink) { c.fillStyle = Gr(0); c.fillRect(ex - 3.2, -1.6, 6.4, 1.1); continue; }
+    c.fillStyle = Gr(0); c.beginPath(); c.ellipse(ex, -1.2, 2.9, 1.25, 0, 0, 7); c.fill(); // the eye, dark
+    c.fillStyle = Gr(0.9); c.beginPath(); c.arc(ex + look + 0.7, -1.7, 0.6, 0, 7); c.fill(); // glint
+  }
+  c.strokeStyle = Gr(0.08); c.lineWidth = 1.1; // brows
+  c.beginPath(); c.moveTo(-8, -5.6); c.quadraticCurveTo(-5, -7.4, -2, -6); c.moveTo(2, -6); c.quadraticCurveTo(5, -7.4, 8, -5.6); c.stroke();
+  c.strokeStyle = Gr(0.3); c.lineWidth = 0.9; c.beginPath(); c.moveTo(0.8, -0.5); c.lineTo(1.6, 4); c.lineTo(-0.6, 4.7); c.stroke(); // nose
+  c.fillStyle = Gr(0.32); c.beginPath(); c.ellipse(0, 8.2, 3.1, 1.3, 0, 0, 7); c.fill(); // lips
+  c.strokeStyle = Gr(0); c.lineWidth = 0.7; c.beginPath(); c.moveTo(-3, 8); c.quadraticCurveTo(0, 8.7, 3, 8); c.stroke();
+  // fringe: two locks falling over the forehead
+  c.fillStyle = Gr(0.24); c.beginPath(); c.moveTo(0, -16); c.bezierCurveTo(-8, -15, -11, -9, -11.5, 2); c.bezierCurveTo(-9, -6, -5, -11, 1, -12); c.fill();
+  c.beginPath(); c.moveTo(0, -16); c.bezierCurveTo(8, -15, 11, -9, 11.5, 2); c.bezierCurveTo(9.5, -7, 5, -11, -1, -12); c.fill();
+  // a flower above her right ear, and a smaller one beside it
+  const flower = (x: number, y: number, r: number, spin: number) => {
+    c.fillStyle = W1(0.95);
+    for (let k = 0; k < 5; k++) { const a = spin + k * 1.2566; c.beginPath(); c.arc(x + Math.cos(a) * r, y + Math.sin(a) * r, r * 0.75, 0, 7); c.fill(); }
+    c.fillStyle = W1(0.35); c.beginPath(); c.arc(x, y, r * 0.5, 0, 7); c.fill();
+  };
+  const spin = reduce ? 0 : Math.sin(now / 2600) * 0.2;
+  flower(-11, -13, 2.6, spin); flower(-15, -7, 1.7, -spin + 0.5);
+  c.restore();
 }
 
 // ---------- the picture on the screen ----------
 function drawPicture(c: CanvasRenderingContext2D, now: number, beat: number) {
   const w = SX1 - SX0, cx = SX0 + w / 2;
-  // a soft spotlight from above, swaying on the bar
-  const sw = Math.sin(Math.PI * beat / 4) * 6;
-  const gl = c.createRadialGradient(cx + sw, SY0 + 34, 2, cx + sw, SY0 + 40, 34);
-  gl.addColorStop(0, "rgba(255,255,255,.3)"); gl.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = gl; c.fillRect(SX0, SY0, w, SY1 - SY0);
-  // the test-card grid behind her, like a monitor's graticule
-  c.strokeStyle = "rgba(255,255,255,.45)"; c.lineWidth = 1; c.beginPath();
+  // a soft glow behind her, breathing on the beat
+  const glow = 0.2 + 0.08 * Math.exp(-(beat % 1) * 4);
+  const gl = c.createRadialGradient(cx, SY0 + 32, 2, cx, SY0 + 34, 38);
+  gl.addColorStop(0, W1(glow)); gl.addColorStop(1, W1(0)); c.fillStyle = gl; c.fillRect(SX0, SY0, w, SY1 - SY0);
+  drawPortrait(c, cx, SY0 + 37, now, beat);
+  // the test-card grid in front of her, like a monitor's graticule
+  c.strokeStyle = W1(0.3); c.lineWidth = 1; c.beginPath();
   for (let x = SX0 + 3; x < SX1; x += 7) { c.moveTo(x + 0.5, SY0); c.lineTo(x + 0.5, SY1); }
   for (let y = SY0 + 4; y < SY1; y += 7) { c.moveTo(SX0, y + 0.5); c.lineTo(SX1, y + 0.5); }
   c.stroke();
-  drawDancer(c, cx, SY1 - 6, beat);
   // a rolling bar of interference
-  if (!reduce) { const y = SY0 + ((now / 25) % (SY1 - SY0 + 20)) - 10; c.fillStyle = "rgba(255,255,255,.1)"; c.fillRect(SX0, y, w, 5); }
+  if (!reduce) {
+    const y = SY0 + ((now / 25) % (SY1 - SY0 + 20)) - 10; c.fillStyle = W1(0.1); c.fillRect(SX0, y, w, 5);
+  }
 }
 
 /** the console: four worn panels with seams and screws, a monitor in a deep bezel, faders, switches, knobs */
@@ -198,14 +192,14 @@ function drawSet(c: CanvasRenderingContext2D, now: number, beat: number) {
 }
 
 /** grey picture → dithered phosphor, with dark scanlines (the planets' style) */
-function phosphor(si: number) {
-  const img = lg.getImageData(0, 0, LW, LH), d = img.data, [r, gg, b] = SC[si];
-  for (let y = 0; y < LH; y++) for (let x = 0; x < LW; x++) {
-    const k = (y * LW + x) * 4, v = d[k] / 255;
+function phosphor(c: CanvasRenderingContext2D, W: number, H: number, si: number) {
+  const img = c.getImageData(0, 0, W, H), d = img.data, [r, gg, b] = SC[si];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const k = (y * W + x) * 4, v = d[k] / 255;
     if (v > BAYER[(y % 4) * 4 + (x % 4)] / 16 + 0.02) { d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = y % 3 === 2 ? 150 : 255; }
     else { d[k] = bgCol[0]; d[k + 1] = bgCol[1]; d[k + 2] = bgCol[2]; d[k + 3] = 255; }
   }
-  lg.putImageData(img, 0, 0);
+  c.putImageData(img, 0, 0);
 }
 
 function frame(now: number) {
@@ -242,23 +236,30 @@ function frame(now: number) {
 
   lg.setTransform(1, 0, 0, 1, 0, 0); lg.clearRect(0, 0, LW, LH); lg.fillStyle = "#000"; lg.fillRect(0, 0, LW, LH);
   drawSet(lg, now, beat);
-  lg.save(); lg.beginPath(); lg.roundRect(SX0, SY0, SX1 - SX0, SY1 - SY0, 7); lg.clip();
+  phosphor(lg, LW, LH, si);
+  g.imageSmoothingEnabled = false; g.drawImage(low, rect.x, rect.y, LW * k, LH * k);
+  // the monitor's picture is finer than the desk around it (PIC× the cells), so a face can be read
+  pg.setTransform(1, 0, 0, 1, 0, 0); pg.fillStyle = "#000"; pg.fillRect(0, 0, PW, PH);
+  pg.setTransform(PIC, 0, 0, PIC, -SX0 * PIC, -SY0 * PIC);
   // switching on: a line across the middle, then the picture opens up; off: the reverse, to a dot
   let open01 = 1, lineW = 1;
   if (phase === "on") { open01 = Math.min(1, Math.max(0, (p - 0.3) / 0.35)); lineW = Math.min(1, p / 0.3); }
   if (phase === "off") { open01 = Math.max(0, 1 - p / 0.55); lineW = p < 0.55 ? 1 : Math.max(0, 1 - (p - 0.55) / 0.4); }
   const cy = (SY0 + SY1) / 2, ph = (SY1 - SY0) * open01;
   if (open01 > 0) {
-    lg.save(); lg.beginPath(); lg.rect(SX0, cy - ph / 2, SX1 - SX0, ph); lg.clip();
-    drawPicture(lg, now, beat);
+    pg.save(); pg.beginPath(); pg.rect(SX0, cy - ph / 2, SX1 - SX0, ph); pg.clip();
+    drawPicture(pg, now, beat);
     const snow = Math.max(phase === "on" ? 1 - (p - 0.3) / 0.7 : 0, 1 - (now - switchAt) / 320);
-    if (snow > 0 && !reduce) for (let n = 0; n < 900 * snow; n++) { lg.fillStyle = `rgba(255,255,255,${Math.random()})`; lg.fillRect(SX0 + Math.random() * (SX1 - SX0), SY0 + Math.random() * (SY1 - SY0), 1, 1); }
-    lg.restore();
+    if (snow > 0 && !reduce) for (let n = 0; n < 2500 * snow; n++) { pg.fillStyle = `rgba(255,255,255,${Math.random()})`; pg.fillRect(SX0 + Math.random() * (SX1 - SX0), SY0 + Math.random() * (SY1 - SY0), 1 / PIC, 1 / PIC); }
+    pg.restore();
+    // now and then a strip of the picture slips sideways
+    if (!reduce && now % 2900 < 90) { const ty = Math.round(((now / 7) % (PH - 9))); pg.setTransform(1, 0, 0, 1, 0, 0); pg.drawImage(pic, 0, ty, PW, 9, 8, ty, PW, 9); }
   }
-  if (open01 < 1 && lineW > 0) { const lw = (SX1 - SX0) * lineW; lg.fillStyle = "#fff"; lg.fillRect((SX0 + SX1) / 2 - lw / 2, cy - 1, lw, 2); }
-  lg.restore();
-  phosphor(si);
-  g.imageSmoothingEnabled = false; g.drawImage(low, rect.x, rect.y, LW * k, LH * k);
+  if (open01 < 1 && lineW > 0) { const lw = (SX1 - SX0) * lineW; pg.fillStyle = "#fff"; pg.setTransform(PIC, 0, 0, PIC, -SX0 * PIC, -SY0 * PIC); pg.fillRect((SX0 + SX1) / 2 - lw / 2, cy - 1, lw, 2); }
+  pg.setTransform(1, 0, 0, 1, 0, 0);
+  phosphor(pg, PW, PH, si);
+  g.save(); g.beginPath(); g.roundRect(rect.x + SX0 * k, rect.y + SY0 * k, (SX1 - SX0) * k, (SY1 - SY0) * k, 7 * k); g.clip();
+  g.drawImage(pic, rect.x + SX0 * k, rect.y + SY0 * k, (SX1 - SX0) * k, (SY1 - SY0) * k); g.restore();
 
   // crisp type over the picture: the red LED year, the panel labels, the label's name plate, the track
   const X = (x: number) => rect.x + x * k, Yp = (y: number) => rect.y + y * k, px = (n: number) => `${Math.round(Math.max(8, n * k))}px ${FONT_LBL}`;
