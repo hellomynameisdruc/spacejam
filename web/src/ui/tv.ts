@@ -1,23 +1,33 @@
-// TIME WARP on an old television: while a label's history plays, the map gives way to a little CRT set
-// in a dark room, with a dancer on a disco floor keeping time with the style's tempo. The year of the
-// track on air is the channel. Drawn like the rest of the cosmos: a small grey picture, then ordered
-// dithering into the system's phosphor colour and dark scanlines, scaled up in big pixels.
-// The YouTube player stays above it, uncovered; "back to map" turns the set off, the music plays on.
+// TIME WARP on an old broadcast console: while a label's history plays, the map gives way to a worn
+// control desk with a small CRT monitor in the middle, where a dancer keeps time with the style's tempo
+// behind a test-card grid. The year on air glows on a red LED read-out, faders and needles move with the
+// beat, and the knobs along the bottom work: PREV, MEMORY (a beacon), NEXT and DISCONNECT (back to map).
+// Drawn like the rest of the cosmos: a small grey picture, ordered dithering into the system's phosphor
+// colour, dark scanlines, scaled up in big pixels. The YouTube player stays above it, uncovered.
 import { reduce } from "../core/dom";
-import { chunk, galaxy, state } from "../app/state";
+import { beacons, chunk, galaxy, state } from "../app/state";
 import { BG, FONT_LBL, SC, sc } from "../render/palette";
 import { cam } from "../render/camera";
 import { onFrame, viewportEl } from "../render/scene";
 import { routePanelWidth } from "./routePanel";
+import { next, prev, toggleBeacon } from "../app/actions";
 
-const LW = 160, LH = 142; // the set, in picture cells
-const SX0 = 11, SY0 = 31, SX1 = 115, SY1 = 117; // its screen
+const LW = 232, LH = 132; // the console, in picture cells
+const SX0 = 92, SY0 = 14, SX1 = 154, SY1 = 86; // its monitor's screen
+/** the working knobs along the bottom (picture cells) */
+const KNOBS = [{ x: 98, label: "◂ PREV", act: "prev" }, { x: 122, label: "MEMORY", act: "beacon" }, { x: 146, label: "NEXT ▸", act: "next" }, { x: 176, label: "DISCONNECT", act: "exit" }] as const;
+const KY = 112, KR = 8;
+/** where the printed labels sit (centre x, centre y, strip width), in picture cells */
+const LABELS: [number, number, number][] = [[66, 32, 30], [66, 56, 20], [123, 7.5, 30], [180, 59, 24], [214, 126, 24], [23, 122, 26],
+  ...KNOBS.map((n): [number, number, number] => [n.x, 125.5, n.act === "exit" ? 34 : 22])];
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 const ON_MS = 900, OFF_MS = 520;
 
 let cv: HTMLCanvasElement, g: CanvasRenderingContext2D, low: HTMLCanvasElement, lg: CanvasRenderingContext2D, back: HTMLButtonElement, reopen: HTMLButtonElement;
-let open = false, phase: "on" | "off" | "" = "", t0 = 0, lastKey = "", switchAt = -1e9, knob = 0;
+let open = false, phase: "on" | "off" | "" = "", t0 = 0, lastKey = "", switchAt = -1e9, tuning = 0;
 let rect = { x: 0, y: 0, k: 1 }, bgCol = [7, 6, 14];
+const turned: Record<string, number> = {};
+const beaconOn = () => beacons.has(state.nowPlaying);
 
 export const tvOpen = () => open;
 const timeWarpOn = () => !!state.route?.years;
@@ -39,6 +49,17 @@ export function initTv() {
   back.textContent = "◂ BACK TO MAP"; back.onclick = closeTv; viewportEl().appendChild(back);
   reopen = document.getElementById("dockTv") as HTMLButtonElement; reopen.onclick = openTv;
   onFrame(frame);
+  // the knobs: click one to use it
+  const hit = (e: MouseEvent) => {
+    const b = cv.getBoundingClientRect(), z = b.width / cv.offsetWidth || 1, x = ((e.clientX - b.left) / z - rect.x) / rect.k, y = ((e.clientY - b.top) / z - rect.y) / rect.k;
+    return KNOBS.find((n) => Math.hypot(x - n.x, y - KY) <= KR + 2);
+  };
+  cv.addEventListener("mousemove", (e) => { cv.style.cursor = hit(e) ? "pointer" : ""; });
+  cv.addEventListener("click", (e) => {
+    const n = hit(e); if (!n) return;
+    turned[n.act] = performance.now();
+    if (n.act === "prev") prev(); else if (n.act === "next") next(); else if (n.act === "beacon") toggleBeacon(state.nowPlaying); else closeTv();
+  });
   addEventListener("keydown", (e) => { if (e.key === "Escape" && open && phase !== "off") { e.stopImmediatePropagation(); closeTv(); } }, true);
 }
 
@@ -109,58 +130,71 @@ function drawDancer(c: CanvasRenderingContext2D, cx: number, floor: number, beat
 
 // ---------- the picture on the screen ----------
 function drawPicture(c: CanvasRenderingContext2D, now: number, beat: number) {
-  const w = SX1 - SX0, h = SY1 - SY0, hz = SY0 + h * 0.5, cx = SX0 + w / 2;
-  // spotlights from the top corners, swinging on the bar
-  const sw = Math.sin(Math.PI * beat / 4);
-  c.fillStyle = "rgba(255,255,255,.1)";
-  for (const [x0, d] of [[SX0 + 8, 1], [SX1 - 8, -1]] as const) {
-    const fx = cx + d * (-8 + sw * 22 * d);
-    c.beginPath(); c.moveTo(x0 - 2, SY0); c.lineTo(x0 + 2, SY0); c.lineTo(fx + 13, SY1); c.lineTo(fx - 13, SY1); c.closePath(); c.fill();
-  }
-  // a mirror ball, its sparkles turning
-  const bx = cx, by = SY0 + 9;
-  c.fillStyle = "rgba(255,255,255,.75)"; c.beginPath(); c.arc(bx, by, 4.5, 0, 7); c.fill();
-  c.fillRect(bx, SY0, 1, 4);
-  for (let k = 0; k < 7; k++) {
-    const a = k * 0.9 + now / 1500, r = 12 + (k % 3) * 9, x = bx + Math.cos(a) * r * 1.6, y = by + 6 + Math.abs(Math.sin(a)) * r * 0.9;
-    if ((Math.floor(now / 120) + k) % 3) { c.fillStyle = "rgba(255,255,255,.8)"; c.fillRect(Math.round(x), Math.round(y), 1, 1); }
-  }
-  // the floor: a grid running towards you on the beat
-  c.strokeStyle = "rgba(255,255,255,.35)"; c.lineWidth = 1;
-  c.beginPath();
-  for (let k = -7; k <= 7; k++) { c.moveTo(cx + k * 2, hz); c.lineTo(cx + k * 15, SY1); }
-  const n = 6, run = reduce ? 0 : (beat % 1);
-  for (let k = 0; k < n; k++) { const z = (k + run) / n, y = Math.round(hz + (SY1 - hz) * z * z) + 0.5; c.moveTo(SX0, y); c.lineTo(SX1, y); }
+  const w = SX1 - SX0, cx = SX0 + w / 2;
+  // a soft spotlight from above, swaying on the bar
+  const sw = Math.sin(Math.PI * beat / 4) * 6;
+  const gl = c.createRadialGradient(cx + sw, SY0 + 34, 2, cx + sw, SY0 + 40, 34);
+  gl.addColorStop(0, "rgba(255,255,255,.3)"); gl.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = gl; c.fillRect(SX0, SY0, w, SY1 - SY0);
+  // the test-card grid behind her, like a monitor's graticule
+  c.strokeStyle = "rgba(255,255,255,.45)"; c.lineWidth = 1; c.beginPath();
+  for (let x = SX0 + 3; x < SX1; x += 7) { c.moveTo(x + 0.5, SY0); c.lineTo(x + 0.5, SY1); }
+  for (let y = SY0 + 4; y < SY1; y += 7) { c.moveTo(SX0, y + 0.5); c.lineTo(SX1, y + 0.5); }
   c.stroke();
-  // lit tiles flashing with the beat
-  const lit = Math.floor(beat) % 4;
-  c.fillStyle = "rgba(255,255,255,.3)";
-  for (let k = 0; k < 4; k++) {
-    const col = (k * 3 + lit * 2) % 7 - 3, row = (k + lit) % 3 + 1;
-    const z0 = row / n, z1 = (row + 1) / n, y0 = hz + (SY1 - hz) * z0 * z0, y1 = hz + (SY1 - hz) * z1 * z1;
-    const xa = (z: number, kk: number) => cx + kk * (2 + 13 * Math.sqrt(z * z * 1));
-    c.beginPath(); c.moveTo(xa(z0, col), y0); c.lineTo(xa(z0, col + 1), y0); c.lineTo(xa(z1, col + 1), y1); c.lineTo(xa(z1, col), y1); c.closePath(); c.fill();
-  }
-  drawDancer(c, cx, SY1 - 13, beat);
+  drawDancer(c, cx, SY1 - 6, beat);
+  // a rolling bar of interference
+  if (!reduce) { const y = SY0 + ((now / 25) % (SY1 - SY0 + 20)) - 10; c.fillStyle = "rgba(255,255,255,.1)"; c.fillRect(SX0, y, w, 5); }
 }
 
-/** the television itself: a boxy set with rabbit ears, two knobs and a speaker grille */
-function drawSet(c: CanvasRenderingContext2D) {
+/** the console: four worn panels with seams and screws, a monitor in a deep bezel, faders, switches, knobs */
+function drawSet(c: CanvasRenderingContext2D, now: number, beat: number) {
   const rr = (x: number, y: number, w: number, h: number, r: number) => { c.beginPath(); c.roundRect(x, y, w, h, r); };
-  c.strokeStyle = "rgba(255,255,255,.85)"; c.lineWidth = 1.5; c.lineCap = "round";
-  c.beginPath(); c.moveTo(78, 22); c.lineTo(50, 3); c.moveTo(82, 22); c.lineTo(112, 5); c.stroke(); // antenna
-  c.fillStyle = "rgba(255,255,255,.85)"; c.fillRect(48, 1, 3, 3); c.fillRect(111, 3, 3, 3);
-  rr(68, 18, 24, 6, 3); c.fill();
-  rr(2, 23, 156, 108, 9); c.fillStyle = "rgba(255,255,255,.2)"; c.fill(); c.lineWidth = 2; c.strokeStyle = "rgba(255,255,255,.9)"; c.stroke(); // cabinet
-  rr(6, 27, 114, 96, 6); c.fillStyle = "rgba(0,0,0,1)"; c.fill(); c.lineWidth = 1; c.strokeStyle = "rgba(255,255,255,.55)"; c.stroke(); // bezel
-  // knobs: the channel one turns when the year changes
-  for (const [y, a] of [[46, knob], [72, 0.6]] as const) {
-    c.fillStyle = "rgba(255,255,255,.45)"; c.beginPath(); c.arc(138, y, 8, 0, 7); c.fill();
+  const panel = (x: number, y: number, w: number, h: number) => {
+    rr(x, y, w, h, 3); c.fillStyle = "rgba(255,255,255,.07)"; c.fill(); c.strokeStyle = "rgba(255,255,255,.75)"; c.lineWidth = 1; c.stroke();
+    c.fillStyle = "rgba(255,255,255,.8)"; for (const [sx, sy] of [[x + 3, y + 3], [x + w - 4, y + 3], [x + 3, y + h - 4], [x + w - 4, y + h - 4]]) c.fillRect(sx, sy, 1, 1);
+  };
+  const knob = (x: number, y: number, r: number, a: number, lit = 0.55) => {
+    c.fillStyle = `rgba(255,255,255,${lit * 0.55})`; c.beginPath(); c.arc(x, y, r, 0, 7); c.fill();
     c.strokeStyle = "rgba(255,255,255,.95)"; c.lineWidth = 1; c.stroke();
-    c.lineWidth = 2; c.beginPath(); c.moveTo(138, y); c.lineTo(138 + Math.sin(a) * 7, y - Math.cos(a) * 7); c.stroke();
+    c.fillStyle = "rgba(255,255,255,.7)"; c.beginPath(); c.arc(x - r * 0.35, y - r * 0.35, r * 0.22, 0, 7); c.fill(); // shine
+    c.strokeStyle = "#fff"; c.lineWidth = 1.6; c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.sin(a) * r * 0.9, y - Math.cos(a) * r * 0.9); c.stroke();
+    c.fillStyle = "rgba(255,255,255,.5)"; for (let k = -3; k <= 3; k++) { const t = k * 0.55; c.fillRect(Math.round(x + Math.sin(t) * (r + 3)), Math.round(y - Math.cos(t) * (r + 3)), 1, 1); } // scale
+  };
+  // left: vents and a big dial
+  panel(3, 3, 40, 126);
+  c.fillStyle = "rgba(255,255,255,.6)"; for (let k = 0; k < 4; k++) { c.fillRect(10 + k * 7, 12, 1, 52); c.fillRect(14 + k * 7, 12, 1, 52); } // vents
+  knob(23, 100, 12, tuning + now / 9000); // the tuning dial turns when the year changes
+  // left-centre: the LED read-out (drawn in red over the picture), a keypad, a small dial
+  panel(46, 3, 40, 126);
+  rr(50, 13, 32, 14, 2); c.fillStyle = "#000"; c.fill(); c.strokeStyle = "rgba(255,255,255,.6)"; c.stroke();
+  rr(50, 40, 32, 12, 2); c.fillStyle = "rgba(0,0,0,.9)"; c.fill(); c.stroke(); // a dark meter window
+  const lvl = Math.exp(-(beat % 1) * 3); c.fillStyle = "rgba(255,255,255,.75)"; c.fillRect(52, 44, Math.round(28 * (0.25 + 0.75 * lvl)), 4); // level bar
+  for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) {
+    const on = !reduce && (Math.floor(beat) + r * 4 + k) % 7 === 0;
+    c.fillStyle = on ? "rgba(255,255,255,.95)" : "rgba(255,255,255,.45)"; c.fillRect(51 + k * 8, 62 + r * 8, 6, 6);
   }
-  c.fillStyle = "rgba(255,255,255,.6)"; for (let y = 90; y < 120; y += 4) c.fillRect(127, y, 22, 2); // speaker
-  c.fillStyle = "rgba(255,255,255,.7)"; c.fillRect(14, 131, 8, 9); c.fillRect(138, 131, 8, 9); // feet
+  knob(66, 112, 7, 0.4 + Math.sin(beat * Math.PI / 8) * 0.2);
+  // the monitor in its deep bezel, with a name plate under the screen
+  panel(89 - 4, 3, 76, 96);
+  rr(SX0 - 5, SY0 - 6, SX1 - SX0 + 10, SY1 - SY0 + 12, 8); c.fillStyle = "rgba(255,255,255,.18)"; c.fill(); c.strokeStyle = "rgba(255,255,255,.95)"; c.lineWidth = 1.5; c.stroke();
+  rr(SX0 - 1, SY0 - 1, SX1 - SX0 + 2, SY1 - SY0 + 2, 7); c.fillStyle = "#000"; c.fill();
+  c.fillStyle = "rgba(255,255,255,.8)"; c.fillRect(SX0 - 2, 6, 2, 2); c.fillRect(SX1, 6, 2, 2);
+  // the working knobs under the monitor
+  panel(85, 100, 106, 29);
+  KNOBS.forEach((n) => { const spin = Math.max(0, 1 - (now - (turned[n.act] ?? -1e9)) / 500); knob(n.x, KY, KR, -0.6 + spin * 1.2 + (n.act === "beacon" && state.nowPlaying && beaconOn() ? 0.9 : 0), n.act === "exit" ? 0.4 : 0.55); });
+  // right: faders that ride the beat, and switches
+  panel(164, 3, 32, 96);
+  for (let k = 0; k < 3; k++) {
+    const x = 170 + k * 9; c.fillStyle = "#000"; c.fillRect(x + 1, 10, 2, 44);
+    const lv = reduce ? 0.5 : 0.5 + 0.45 * Math.sin(beat * Math.PI * (k + 1) / 2 + k);
+    c.fillStyle = "rgba(255,255,255,.9)"; c.fillRect(x - 2, Math.round(48 - lv * 36), 8, 5);
+  }
+  for (let k = 0; k < 3; k++) { const up = !reduce && (Math.floor(beat / 2) + k) % 3 === 0; c.fillStyle = "rgba(255,255,255,.6)"; c.fillRect(170 + k * 9, 66, 6, 14); c.fillStyle = "#fff"; c.fillRect(171 + k * 9, up ? 67 : 74, 4, 5); }
+  // far right: three big dials
+  panel(199, 3, 30, 126);
+  for (let k = 0; k < 3; k++) knob(214, 24 + k * 40, 10, -0.8 + k * 0.7 + Math.sin(now / 4000 + k) * 0.15);
+  // dark strips where the panel labels are printed
+  c.fillStyle = "#000";
+  for (const [x, y, w] of LABELS) c.fillRect(Math.round(x - w / 2), Math.round(y - 2.5), Math.round(w), 5);
 }
 
 /** grey picture → dithered phosphor, with dark scanlines (the planets' style) */
@@ -198,17 +232,17 @@ function frame(now: number) {
   rect = { x: Math.round(left + (W - left - right - LW * k) / 2), y: Math.round(40 + (Hh - 40 - LH * k) / 2), k };
   g.globalAlpha = roomA; g.fillStyle = BG; g.fillRect(0, 0, W, Hh);
   // the set's glow on the room
-  const gl = g.createRadialGradient(rect.x + 63 * k, rect.y + 74 * k, 10, rect.x + 63 * k, rect.y + 74 * k, 120 * k);
+  const gl = g.createRadialGradient(rect.x + 123 * k, rect.y + 50 * k, 10, rect.x + 123 * k, rect.y + 50 * k, 150 * k);
   gl.addColorStop(0, sc(si, 0.16)); gl.addColorStop(1, sc(si, 0)); g.fillStyle = gl; g.fillRect(0, 0, W, Hh);
 
   // the year on air is the channel: a burst of snow and a turn of the knob when it changes
   const yr = ch ? ch.yr[np!.i] : 0, key = `${np?.s}-${np?.i}`;
-  if (key !== lastKey) { if (lastKey) { switchAt = now; knob += 0.9; } lastKey = key; }
+  if (key !== lastKey) { if (lastKey) { switchAt = now; tuning += 0.9; } lastKey = key; }
   const beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si];
 
   lg.setTransform(1, 0, 0, 1, 0, 0); lg.clearRect(0, 0, LW, LH); lg.fillStyle = "#000"; lg.fillRect(0, 0, LW, LH);
-  drawSet(lg);
-  lg.save(); lg.beginPath(); lg.roundRect(SX0, SY0, SX1 - SX0, SY1 - SY0, 9); lg.clip();
+  drawSet(lg, now, beat);
+  lg.save(); lg.beginPath(); lg.roundRect(SX0, SY0, SX1 - SX0, SY1 - SY0, 7); lg.clip();
   // switching on: a line across the middle, then the picture opens up; off: the reverse, to a dot
   let open01 = 1, lineW = 1;
   if (phase === "on") { open01 = Math.min(1, Math.max(0, (p - 0.3) / 0.35)); lineW = Math.min(1, p / 0.3); }
@@ -226,18 +260,30 @@ function frame(now: number) {
   phosphor(si);
   g.imageSmoothingEnabled = false; g.drawImage(low, rect.x, rect.y, LW * k, LH * k);
 
-  // captions in crisp type over the picture: the channel (year) and the track
-  if (open01 >= 1 && ch) {
-    const X = (x: number) => rect.x + x * k, Yp = (y: number) => rect.y + y * k;
-    g.fillStyle = sc(si, 1); g.shadowColor = sc(si, 0.8); g.shadowBlur = 6; g.textBaseline = "top";
-    g.font = `${Math.round(Math.max(12, 9 * k))}px ${FONT_LBL}`; g.textAlign = "right";
-    g.fillText(yr ? String(yr) : "—", X(SX1 - 5), Yp(SY0 + 4));
-    g.font = `${Math.round(Math.max(9, 3.6 * k))}px ${FONT_LBL}`; g.textAlign = "left";
-    g.fillText("TIME WARP", X(SX0 + 5), Yp(SY0 + 4));
-    const text = `${ch.an[ch.a[np!.i]]} — ${ch.t[np!.i]}`.toUpperCase(), boxW = (SX1 - SX0 - 10) * k;
-    g.save(); g.beginPath(); g.rect(X(SX0 + 5), Yp(SY1 - 12), boxW, 10 * k); g.clip();
+  // crisp type over the picture: the red LED year, the panel labels, the label's name plate, the track
+  const X = (x: number) => rect.x + x * k, Yp = (y: number) => rect.y + y * k, px = (n: number) => `${Math.round(Math.max(8, n * k))}px ${FONT_LBL}`;
+  g.textBaseline = "middle"; g.textAlign = "center";
+  // the LED read-out: the year on air, in red seven-segment glow
+  g.font = px(10); g.fillStyle = "#ff4d6d"; g.shadowColor = "#ff4d6d"; g.shadowBlur = 8;
+  g.fillText(open01 > 0 && yr ? String(yr) : "----", X(66), Yp(20.5));
+  g.shadowBlur = 0; g.fillStyle = sc(si, 0.75);
+  g.font = px(3.4);
+  g.fillText("YEAR ON AIR", X(66), Yp(32)); g.fillText("LEVEL", X(66), Yp(56)); g.fillText("TIME WARP", X(123), Yp(7.5));
+  g.fillText("LEVELS", X(180), Yp(59)); g.fillText("SIGNAL", X(214), Yp(126)); g.fillText("TUNING", X(23), Yp(122));
+  KNOBS.forEach((n) => g.fillText(n.label, X(n.x), Yp(KY + KR + 5.5)));
+  if (open01 >= 1 && ch && route) {
+    // the label's name plate at the foot of the screen
+    g.font = px(5); const name = galaxy.planets[route.a].name.toUpperCase(), nw = Math.min(g.measureText(name).width + 10, (SX1 - SX0 - 6) * k);
+    g.fillStyle = BG; g.fillRect(X((SX0 + SX1) / 2) - nw / 2, Yp(SY1 - 11), nw, 7 * k);
+    g.strokeStyle = sc(si, 0.9); g.lineWidth = 1; g.strokeRect(X((SX0 + SX1) / 2) - nw / 2 + 0.5, Yp(SY1 - 11) + 0.5, nw - 1, 7 * k - 1);
+    g.fillStyle = sc(si, 1); g.shadowColor = sc(si, 0.8); g.shadowBlur = 6;
+    g.save(); g.beginPath(); g.rect(X((SX0 + SX1) / 2) - nw / 2, Yp(SY1 - 11), nw, 7 * k); g.clip(); g.fillText(name, X((SX0 + SX1) / 2), Yp(SY1 - 7.5)); g.restore();
+    // the track, running along the top of the screen
+    g.font = px(3.6); g.textAlign = "left";
+    const text = `${ch.an[ch.a[np!.i]]} — ${ch.t[np!.i]}`.toUpperCase(), boxW = (SX1 - SX0 - 6) * k;
+    g.save(); g.beginPath(); g.rect(X(SX0 + 3), Yp(SY0 + 1), boxW, 6 * k); g.clip();
     const tw = g.measureText(text).width, off = tw > boxW && !reduce ? ((now / 40) % (tw + 60)) : 0;
-    g.fillText(text, X(SX0 + 5) - off, Yp(SY1 - 9)); if (off) g.fillText(text, X(SX0 + 5) - off + tw + 60, Yp(SY1 - 9));
+    g.fillText(text, X(SX0 + 3) - off, Yp(SY0 + 4)); if (off) g.fillText(text, X(SX0 + 3) - off + tw + 60, Yp(SY0 + 4));
     g.restore(); g.shadowBlur = 0;
   }
   g.globalAlpha = 1;
