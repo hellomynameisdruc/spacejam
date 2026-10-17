@@ -109,7 +109,7 @@ function frame(now: number) {
   // and stretches the last picture and repaints it only now and then, and once the flight lands
   cam.update(now);
   // behind a wormhole in full flow there is nothing to see: spend the frame on the tunnel
-  if (!state.warpCovers) {
+  if (!state.warpCovers && !state.mapHidden) {
     if (state.dirty) { state.dirty = false; paintStatic(); }
     drawLive(now);
   }

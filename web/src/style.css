@@ -463,3 +463,9 @@ body.briefing .dock > :not(.video) { opacity: .3; transition: opacity .3s }
 body.briefing .dock { border-color: var(--faint); box-shadow: none }
 .plot.like { display: flex; align-items: center; justify-content: center; gap: 8px }
 .plot.like .ico { flex: none }
+
+/* ---------- TIME WARP television ---------- */
+.tv { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 4; display: none }
+.tv-back { position: absolute; z-index: 6; background: rgb(0 0 0 / .85) }
+.tv-back[hidden] { display: none }
+#dockTv[hidden] { display: none }

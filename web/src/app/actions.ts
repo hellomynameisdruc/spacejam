@@ -11,6 +11,7 @@ import { renderDossier } from "../ui/dossier";
 import { decodeDossier } from "../ui/glitch";
 import { loadInDock, player } from "../ui/dock";
 import { denyPick, hidePickHint, renderRoutePanel, routePanelWidth, showPickHint } from "../ui/routePanel";
+import { openTv } from "../ui/tv";
 import { ticker } from "../ui/ticker";
 import { wormhole } from "../ui/wormhole";
 
@@ -167,6 +168,7 @@ export async function playLightYears(pi: number) {
   const r = planLightYears(galaxy, pi, ch, state.played, Math.random, dead); if (!r) return;
   state.route = r; state.routeIdx = -1; renderRoutePanel(); state.dirty = true;
   playRouteAt(0);
+  openTv(); // the history plays on an old television
 }
 
 /** a tour round one star system, played at once */
