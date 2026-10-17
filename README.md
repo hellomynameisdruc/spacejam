@@ -56,7 +56,7 @@ House · Techno · Disco · Trance · Drum n Bass · Ambient · Downtempo · Exp
 - **Autopilot**: when a track ends, the ship flies on to the nearest track you haven't heard yet.
 - **Odysseys**: start one from a star, then pick where to go (any other system). It visits 10 planets in 5 systems, entering and leaving each through "gate" labels that face the next system, with 20+ fresh tracks and its own shareable link.
 - **Hitchhike the system**: on a star, thumb a ride round ten of its labels (from the big inner planets out to the edge), 42 tracks, a different ride every time.
-- **Time warp**: on a planet, the label's story in order, one track a year from its first release to its last; defunct labels end on their last transmission. It plays on an old broadcast console: the year glows on a red LED read-out, a woman's face on the monitor sways to the style's tempo behind a test-card grid, and the knobs work (prev, beacon, next, back to the map).
+- **Time warp**: on a planet, the label's story in order, one track a year from its first release to its last; defunct labels end on their last transmission. It plays as found footage on a full-screen security monitor: cameras cut on the bar between her close-up, a camera above as she looks up and waves, and a corridor she walks across, under a camcorder's REC, timecode and the year on air, until TAPE END.
 - **Solaris station**: on a planet, park a radio station in its orbit: an endless radio of that label, and the player counts how many of its tracks you've heard.
 - **Wormhole**: a jump to a random point in the cosmos. The signal scope in the dossier rides the jump with you.
 - **Beacons**: mark the tracks you love. The **flight log** keeps your listening history. Both stay in your browser.
