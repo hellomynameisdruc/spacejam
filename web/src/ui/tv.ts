@@ -8,8 +8,7 @@ import { reduce } from "../core/dom";
 import { chunk, galaxy, state } from "../app/state";
 import { BG, SC, sc } from "../render/palette";
 import { cam } from "../render/camera";
-import { onFrame, sceneCanvas, viewportEl } from "../render/scene";
-import { stationAt } from "../render/station";
+import { onFrame, viewportEl } from "../render/scene";
 import { routePanelWidth } from "./routePanel";
 import { lampLit } from "../core/util";
 import { player } from "./dock";
@@ -42,7 +41,7 @@ export function initTv() {
   back.textContent = "◂ BACK TO MAP"; back.onclick = closeTv; viewportEl().appendChild(back);
   reopen = document.getElementById("dockTv") as HTMLButtonElement; reopen.onclick = openTv;
   onFrame(frame);
-  onFrame(mini);
+  initMini(); onFrame(mini);
   addEventListener("keydown", (e) => { if (e.key === "Escape" && open && phase !== "off") { e.stopImmediatePropagation(); closeTv(); } }, true);
 }
 
@@ -160,79 +159,113 @@ function hand(c: CanvasRenderingContext2D, h: { x: number; y: number }, ang: num
 /** the booth: light fanning from above, two turntables and a mixer, speakers thumping in the desk */
 function sceneDJ(c: CanvasRenderingContext2D, now: number, beat: number) {
   const t = reduce ? 0 : now / 1000, b = reduce ? 0.5 : beat, kick = reduce ? 0 : Math.exp(-(b % 1) * 5), cx = FW / 2;
-  // rays from a lamp above, pulsing with the kick
-  for (let k = 0; k < 9; k++) {
-    const a0 = Math.PI * (0.18 + k * 0.07), a1 = a0 + 0.035, r = FH * 1.4;
-    c.fillStyle = W1((k % 2 ? 0.08 : 0.16) + kick * 0.08);
-    c.beginPath(); c.moveTo(cx, -6); c.lineTo(cx + Math.cos(a0) * r, -6 + Math.sin(a0) * r); c.lineTo(cx + Math.cos(a1) * r, -6 + Math.sin(a1) * r); c.closePath(); c.fill();
+  // the room: rays from a lamp above pulsing with the kick, a laser, specks of light from a mirror ball
+  for (let k = 0; k < 11; k++) {
+    const a0 = Math.PI * (0.14 + k * 0.066 + Math.sin(t * 0.3) * 0.01), a1 = a0 + 0.03, r = FH * 1.5;
+    c.fillStyle = W1((k % 2 ? 0.07 : 0.15) + kick * 0.07);
+    c.beginPath(); c.moveTo(cx, -8); c.lineTo(cx + Math.cos(a0) * r, -8 + Math.sin(a0) * r); c.lineTo(cx + Math.cos(a1) * r, -8 + Math.sin(a1) * r); c.closePath(); c.fill();
   }
-  c.strokeStyle = W1(0.55); c.lineWidth = 0.6; c.beginPath(); c.moveTo(0, 40); c.lineTo(FW, 22); c.stroke(); // a laser across the room
+  c.strokeStyle = W1(0.6); c.lineWidth = 0.35; c.beginPath(); c.moveTo(0, 41); c.lineTo(FW, 21 + Math.sin(t * 0.5) * 3); c.stroke();
+  for (let k = 0; k < 24; k++) { const x = (k * 41.3 + t * (3 + (k % 3))) % FW, y = (k * 17.9) % 44; if ((k + Math.floor(t * 4)) % 5) { c.fillStyle = W1(0.7); c.fillRect(x, y, 0.45, 0.45); } }
 
   // ---- her, from the hips up ----
-  const sway = reduce ? 0 : Math.sin(Math.PI * b / 2) * 1.6, bob = kick * 1.1, nod = kick * 0.9 + (Math.floor(b / 4) % 4 === 3 ? Math.abs(Math.sin(Math.PI * b)) * 1.2 : 0);
-  const hipY = 50, chestY = 26 + bob, x = cx + sway;
-  const phase = Math.floor(b % 16 / 4); // 0-1: both on the decks · 2: right hand up · 3: holding the headphone to her ear
-  // torso: a tapered chrome shell with panel seams and a glowing core
-  c.fillStyle = chrome(c, x - 9, chestY, x + 9, chestY + 4);
-  c.beginPath(); c.moveTo(x - 8, chestY); c.quadraticCurveTo(x - 8.6, chestY + 8, x - 4.3, chestY + 15); c.quadraticCurveTo(x - 4, chestY + 19, x - 7, hipY); c.lineTo(x + 7, hipY); c.quadraticCurveTo(x + 4, chestY + 19, x + 4.3, chestY + 15); c.quadraticCurveTo(x + 8.6, chestY + 8, x + 8, chestY); c.closePath(); c.fill();
-  c.strokeStyle = Gr(0.18); c.lineWidth = 0.45; c.beginPath();
-  c.moveTo(x - 7, chestY + 4); c.quadraticCurveTo(x, chestY + 7, x + 7, chestY + 4); c.moveTo(x - 4.3, chestY + 15); c.lineTo(x + 4.3, chestY + 15); c.moveTo(x, chestY + 12); c.lineTo(x, hipY);
-  for (let k = 0; k < 3; k++) { c.moveTo(x - 4.1 - k * 0.4, chestY + 17 + k * 2.2); c.lineTo(x + 4.1 + k * 0.4, chestY + 17 + k * 2.2); } // waist rings
+  const sway = reduce ? 0 : Math.sin(Math.PI * b / 2) * 1.6, bob = kick * 0.9, phase = Math.floor((b % 16) / 4);
+  const bang = phase === 3 ? Math.abs(Math.sin(Math.PI * b)) * 1.4 : 0, nod = kick * 0.8 + bang;
+  const hipY = 50, chestY = 25 + bob, x = cx + sway;
+  const hx = x + sway * 0.25, hy = chestY - 10 + nod, tilt = (phase === 3 ? 0.16 : 0) + sway * 0.03;
+  // ponytail: a braided chrome cable swinging behind
+  const sw = reduce ? 0 : Math.sin(Math.PI * b + 0.6) * 3.2;
+  const tail = (q: number) => ({ x: hx + 3 + (5.5 + sw * q) * Math.sin(q * 1.6) * 1.2, y: hy - 4 + 17 * q * q + q * 2 });
+  for (let k = 0; k <= 14; k++) { const q = k / 14, p = tail(q), r = 1.25 - q * 0.6; c.fillStyle = chrome(c, p.x - r, p.y - r, p.x + r, p.y + r, 0.05); c.beginPath(); c.arc(p.x, p.y, r, 0, 7); c.fill(); }
+  // torso: a slim chrome shell, panel seams, vents, a glowing core
+  c.fillStyle = chrome(c, x - 9, chestY, x + 9, chestY + 3);
+  c.beginPath(); c.moveTo(x - 7.6, chestY); c.quadraticCurveTo(x - 8.4, chestY + 8, x - 4.2, chestY + 15); c.quadraticCurveTo(x - 3.9, chestY + 19, x - 6.8, hipY); c.lineTo(x + 6.8, hipY); c.quadraticCurveTo(x + 3.9, chestY + 19, x + 4.2, chestY + 15); c.quadraticCurveTo(x + 8.4, chestY + 8, x + 7.6, chestY); c.closePath(); c.fill();
+  c.strokeStyle = Gr(0.15); c.lineWidth = 0.3; c.beginPath();
+  c.moveTo(x - 6.5, chestY + 1.2); c.quadraticCurveTo(x, chestY + 4, x + 6.5, chestY + 1.2); // collar
+  c.moveTo(x - 6.2, chestY + 5); c.quadraticCurveTo(x - 2, chestY + 12, x - 4.2, chestY + 15); c.moveTo(x + 6.2, chestY + 5); c.quadraticCurveTo(x + 2, chestY + 12, x + 4.2, chestY + 15); // side panels
+  c.moveTo(x - 4.2, chestY + 15); c.lineTo(x + 4.2, chestY + 15);
+  for (let k = 0; k < 4; k++) { const y = chestY + 17 + k * 2, w = 4 + k * 0.6; c.moveTo(x - w, y); c.lineTo(x + w, y); } // waist rings
   c.stroke();
-  c.fillStyle = W1(0.6 + kick * 0.4); c.beginPath(); c.arc(x, chestY + 9.5, 1.6 + kick * 0.5, 0, 7); c.fill(); // the core
-  c.strokeStyle = Gr(0.9); c.lineWidth = 0.4; c.beginPath(); c.arc(x, chestY + 9.5, 2.6, 0, 7); c.stroke();
+  c.fillStyle = Gr(0.08); for (const sd of [-1, 1]) for (let k = 0; k < 3; k++) c.fillRect(x + sd * 4.8 - 0.25, chestY + 6.5 + k * 1.1, sd * 1.6, 0.45); // vents
+  c.fillStyle = Gr(0.06); c.beginPath(); c.arc(x, chestY + 9.5, 2.5, 0, 7); c.fill();
+  c.fillStyle = W1(0.55 + kick * 0.45); c.beginPath(); c.arc(x, chestY + 9.5, 1.3 + kick * 0.6, 0, 7); c.fill(); // the core
+  c.strokeStyle = Gr(0.95); c.lineWidth = 0.3; c.beginPath(); c.arc(x, chestY + 9.5, 2.7, 0, 7); c.stroke();
+  c.fillStyle = Gr(0.1); c.fillRect(x - 6.8, hipY - 1.6, 13.6, 1); c.fillStyle = W1(0.9); c.fillRect(x - 0.8, hipY - 1.7, 1.6, 1.2); // a belt and its buckle
   // neck: stacked rings
-  for (let k = 0; k < 3; k++) { c.fillStyle = chrome(c, x - 2.4, 0, x + 2.4, 0, 0.05); c.fillRect(x - 2.2 + k * 0.2, chestY - 2 - k * 1.5, 4.4 - k * 0.4, 1.2); }
-  // head: a smooth chrome helmet, a face display with an equaliser for eyes, headphones on
-  const hx = x + sway * 0.2, hy = chestY - 10 + nod, tilt = (phase === 3 ? 0.18 : 0) + sway * 0.03;
-  // a ponytail of chrome cable, swinging behind her as she moves
-  const sw = reduce ? 0 : Math.sin(Math.PI * b + 0.6) * 3;
-  c.strokeStyle = Gr(0.75); c.lineWidth = 2.2; c.lineCap = "round"; c.beginPath(); c.moveTo(hx + 3, hy - 4); c.bezierCurveTo(hx + 9, hy - 6, hx + 9 + sw, hy + 4, hx + 7 + sw * 1.4, hy + 12); c.stroke();
-  c.strokeStyle = Gr(0.2); c.lineWidth = 0.5; for (let k = 1; k < 5; k++) { const q = k / 5, px = hx + 3 + (6 + sw * q) * q * 1.3, py = hy - 4 + 16 * q * q; c.beginPath(); c.moveTo(px - 1, py); c.lineTo(px + 1, py); c.stroke(); }
+  for (let k = 0; k < 4; k++) { c.fillStyle = chrome(c, x - 2.2, 0, x + 2.2, 0, 0.05); c.fillRect(x - 1.9 + k * 0.12, chestY - 1.2 - k * 1.05, 3.8 - k * 0.24, 0.85); }
+  // head: helmet, visor with LED eyes, a smile, headphones
   c.save(); c.translate(hx, hy); c.rotate(tilt);
-  c.fillStyle = chrome(c, -6, -7, 6, 6); c.beginPath(); c.ellipse(0, 0, 5.6, 6.6, 0, 0, 7); c.fill();
-  c.fillStyle = Gr(0.06); c.beginPath(); c.roundRect(-4.6, -1.2, 9.2, 3.4, 1.7); c.fill(); // a dark visor band across the eyes
+  c.fillStyle = chrome(c, -6, -7, 6, 6); c.beginPath(); c.ellipse(0, -0.2, 5.2, 6.4, 0, 0, 7); c.fill();
+  c.fillStyle = chrome(c, -3, 2, 3, 6, 0.08); c.beginPath(); c.moveTo(-3.6, 2.4); c.quadraticCurveTo(0, 7.6, 3.6, 2.4); c.closePath(); c.fill(); // chin
+  c.strokeStyle = Gr(0.2); c.lineWidth = 0.25; c.beginPath(); c.moveTo(0, -6.5); c.lineTo(0, -2.2); c.moveTo(-4.6, 2.8); c.quadraticCurveTo(-3.6, 5, -1.6, 5.6); c.moveTo(4.6, 2.8); c.quadraticCurveTo(3.6, 5, 1.6, 5.6); c.stroke(); // seams
+  c.fillStyle = Gr(0.04); c.beginPath(); c.roundRect(-4.5, -1.6, 9, 3.2, 1.6); c.fill(); // visor
+  c.fillStyle = W1(0.25); c.fillRect(-4, -1.2, 8, 0.35); // its glint
   const blinkD = !reduce && now % 3700 < 130;
-  c.strokeStyle = W1(0.95); c.lineWidth = 0.55; c.lineCap = "round";
-  for (const ex of [-1.8, 1.8]) { c.beginPath(); if (blinkD) { c.moveTo(ex - 1, 0.4); c.lineTo(ex + 1, 0.4); } else c.arc(ex, 0.9, 1.1, Math.PI * 1.1, Math.PI * 1.9); c.moveTo(ex + Math.sign(ex) * 1.1, 0.1); c.lineTo(ex + Math.sign(ex) * 1.7, -0.5); c.stroke(); } // LED eyes, smiling, with a flick of lash
-  c.strokeStyle = Gr(0.15); c.lineWidth = 0.6; c.beginPath(); c.moveTo(-1.6, 4.3); c.quadraticCurveTo(0, 5.1 + kick * 0.4, 1.6, 4.3); c.stroke(); // a small smile
-  c.fillStyle = Gr(0.2); c.fillRect(-0.25, 2.6, 0.5, 0.9); // the line of her nose
-  c.fillStyle = Gr(1); c.beginPath(); c.ellipse(-2.4, -4, 1.4, 0.8, -0.5, 0, 7); c.fill(); // a glint on the dome
-  c.strokeStyle = Gr(0.12); c.lineWidth = 1.2; c.beginPath(); c.arc(0, -0.5, 6.4, Math.PI * 1.08, Math.PI * 1.92); c.stroke(); // headband
-  for (const sd of [-1, 1]) { c.fillStyle = Gr(0.12); c.beginPath(); c.ellipse(sd * 6, 0.5, 1.8, 2.8, 0, 0, 7); c.fill(); c.strokeStyle = Gr(0.85); c.lineWidth = 0.4; c.stroke(); c.fillStyle = W1(0.5 + kick * 0.5); c.beginPath(); c.arc(sd * 6.3, 0.5, 0.7, 0, 7); c.fill(); }
+  c.strokeStyle = W1(1); c.lineWidth = 0.5; c.lineCap = "round";
+  for (const ex of [-1.9, 1.9]) {
+    c.beginPath();
+    if (blinkD) { c.moveTo(ex - 1, 0.2); c.lineTo(ex + 1, 0.2); } else c.arc(ex, 0.75, 1.05, Math.PI * 1.1, Math.PI * 1.9);
+    c.moveTo(ex + Math.sign(ex) * 1.05, -0.05); c.lineTo(ex + Math.sign(ex) * 1.6, -0.6); c.stroke();
+  }
+  c.fillStyle = Gr(0.25); c.beginPath(); c.ellipse(0, 4.1 + kick * 0.15, 1.3, 0.55 + kick * 0.25, 0, 0, 7); c.fill(); // lips, opening a little on the kick
+  c.fillStyle = Gr(1); c.beginPath(); c.ellipse(-2.3, -4.4, 1.3, 0.7, -0.5, 0, 7); c.fill(); // a glint on the dome
+  c.strokeStyle = Gr(0.1); c.lineWidth = 1; c.beginPath(); c.arc(0, -0.6, 6.2, Math.PI * 1.06, Math.PI * 1.94); c.stroke(); // headband
+  c.strokeStyle = Gr(0.85); c.lineWidth = 0.25; c.beginPath(); c.arc(0, -0.6, 6.7, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+  for (const sd of [-1, 1]) {
+    c.fillStyle = Gr(0.08); c.beginPath(); c.ellipse(sd * 5.7, 0.4, 1.9, 2.9, 0, 0, 7); c.fill();
+    c.strokeStyle = Gr(0.9); c.lineWidth = 0.3; c.stroke();
+    c.fillStyle = W1(0.45 + kick * 0.55); c.beginPath(); c.arc(sd * 6, 0.4, 0.8, 0, 7); c.fill(); // speaker lights on the cups
+  }
   c.restore();
-  // arms: hands on the decks, scratching and riding the faders; up in the air; or a hand to the headphone
-  const shL = { x: x - 8.5, y: chestY + 1.5 }, shR = { x: x + 8.5, y: chestY + 1.5 }, deckL = { x: FW * 0.3, y: 52 }, deckR = { x: FW * 0.7, y: 52 }, mix = { x: cx, y: 53 };
-  const scratch = reduce ? 0 : Math.sin(b * Math.PI * 4) * 3 * (phase === 0 || phase === 2 ? 1 : 0.3);
-  const tL = phase === 3 ? { x: hx - 7, y: hy + 1 } : { x: deckL.x + 4 + scratch, y: deckL.y - 1 };
+  // arms: on the decks scratching and mixing; a hand up in the air; a hand pressing the headphone to her ear
+  const shL = { x: x - 8, y: chestY + 1.6 }, shR = { x: x + 8, y: chestY + 1.6 }, deckL = { x: FW * 0.3, y: 52.6 }, deckR = { x: FW * 0.7, y: 52.6 }, mix = { x: cx, y: 53 };
+  const scratch = reduce ? 0 : Math.sin(b * Math.PI * 4) * 2.8 * (phase === 0 || phase === 2 ? 1 : 0.3);
+  const tL = phase === 3 ? { x: hx - 6.6, y: hy + 0.6 } : { x: deckL.x + 3 + scratch, y: deckL.y - 0.6 };
   const pump = Math.exp(-(b % 1) * 4);
-  const tR = phase === 2 ? { x: shR.x + 6, y: chestY - 16 - pump * 3 } : phase === 1 ? { x: mix.x + 3 + Math.sin(b * Math.PI) * 2, y: mix.y - 1 } : { x: deckR.x - 4, y: deckR.y - 1 - kick };
+  const tR = phase === 2 ? { x: shR.x + 5, y: chestY - 15 - pump * 3 } : phase === 1 ? { x: mix.x + 2.5 + Math.sin(b * Math.PI) * 2, y: mix.y - 0.6 } : { x: deckR.x - 3, y: deckR.y - 0.6 - kick * 0.6 };
   for (const [s, tg, bend] of [[shL, tL, -1], [shR, tR, 1]] as const) {
-    const r = reach(s, tg, 10, 10, bend);
-    limb(c, s, r.e, 3.4); limb(c, r.e, r.h, 2.8);
+    const r = reach(s, tg, 9.6, 9.6, bend);
+    limb(c, s, r.e, 3); limb(c, r.e, r.h, 2.4);
+    c.strokeStyle = Gr(0.15); c.lineWidth = 0.3; c.beginPath(); // cuff rings on the forearm
+    for (const q of [0.62, 0.72]) { const px = r.e.x + (r.h.x - r.e.x) * q, py = r.e.y + (r.h.y - r.e.y) * q, a = Math.atan2(r.h.y - r.e.y, r.h.x - r.e.x) + Math.PI / 2; c.moveTo(px + Math.cos(a) * 1.2, py + Math.sin(a) * 1.2); c.lineTo(px - Math.cos(a) * 1.2, py - Math.sin(a) * 1.2); }
+    c.stroke();
     hand(c, r.h, Math.atan2(r.h.y - r.e.y, r.h.x - r.e.x), phase === 2 && tg === tR ? 1 : 0.2);
   }
-  for (const s of [shL, shR]) { c.fillStyle = chrome(c, s.x - 3, s.y - 3, s.x + 3, s.y + 3, 0.05); c.beginPath(); c.arc(s.x, s.y, 3.1, 0, 7); c.fill(); } // shoulders
+  for (const s of [shL, shR]) { c.fillStyle = chrome(c, s.x - 3, s.y - 3, s.x + 3, s.y + 3, 0.05); c.beginPath(); c.arc(s.x, s.y, 2.9, 0, 7); c.fill(); c.strokeStyle = Gr(0.2); c.lineWidth = 0.3; c.beginPath(); c.arc(s.x, s.y, 2, 0.4, 2.6); c.stroke(); } // shoulders
 
   // ---- the desk, in front of her ----
-  c.fillStyle = Gr(0.24); c.fillRect(8, 50, FW - 16, 7); c.fillStyle = W1(0.85); c.fillRect(8, 50, FW - 16, 0.6); // top
-  c.fillStyle = Gr(0.1); c.fillRect(8, 57, FW - 16, FH - 57); // front
+  c.fillStyle = Gr(0.2); c.fillRect(6, 50, FW - 12, 7); c.fillStyle = W1(0.9); c.fillRect(6, 50, FW - 12, 0.4); // top
   for (const dx of [0.3, 0.7]) { // turntables
-    const px = FW * dx, py = 53.5, spin = reduce ? 0 : t * 3.5 * (dx < 0.5 ? 1 : 1) + (dx < 0.5 ? scratch * 0.3 : 0);
-    c.fillStyle = Gr(0.35); c.fillRect(px - 13, 50.6, 26, 5.6);
-    c.fillStyle = Gr(0.05); c.beginPath(); c.ellipse(px, py, 10, 2.6, 0, 0, 7); c.fill(); // the record
-    c.strokeStyle = Gr(0.3); c.lineWidth = 0.35; c.beginPath(); c.ellipse(px, py, 7, 1.8, 0, 0, 7); c.ellipse(px, py, 4.5, 1.2, 0, 0, 7); c.stroke(); // grooves
-    c.fillStyle = W1(0.9); c.beginPath(); c.ellipse(px, py, 2.2, 0.65, 0, 0, 7); c.fill(); // label
-    c.fillStyle = Gr(0); c.fillRect(px + Math.cos(spin) * 1.4 - 0.3, py + Math.sin(spin) * 0.4 - 0.2, 0.6, 0.4); // a mark on it, turning
-    c.strokeStyle = Gr(0.9); c.lineWidth = 0.6; c.beginPath(); c.moveTo(px + 11, 51.2); c.lineTo(px + 9, 54.5); c.lineTo(px + 6.5, 54.2); c.stroke(); // tonearm
+    const px = FW * dx, py = 53.4, spin = (reduce ? 0 : t * 3.5) + (dx < 0.5 ? scratch * 0.35 : 0);
+    c.fillStyle = Gr(0.32); c.fillRect(px - 13.5, 50.5, 27, 6); c.fillStyle = W1(0.6); c.fillRect(px - 13.5, 50.5, 27, 0.3);
+    c.fillStyle = Gr(0.55); c.beginPath(); c.ellipse(px, py, 10.6, 2.9, 0, 0, 7); c.fill(); // platter
+    for (let k = 0; k < 24; k++) { const a = spin * 0.5 + k * 0.2618; if (Math.sin(a) > 0) { c.fillStyle = W1(0.95); c.fillRect(px + Math.cos(a) * 10.6 - 0.15, py + Math.sin(a) * 2.9 - 0.1, 0.3, 0.25); } } // strobe dots on the rim
+    c.fillStyle = Gr(0.04); c.beginPath(); c.ellipse(px, py, 9.6, 2.5, 0, 0, 7); c.fill(); // the record
+    c.strokeStyle = Gr(0.22); c.lineWidth = 0.2; c.beginPath(); for (const r of [8.2, 6.8, 5.4, 4]) c.ellipse(px, py, r, r * 0.26, 0, 0, 7); c.stroke(); // grooves
+    c.strokeStyle = W1(0.5); c.lineWidth = 0.3; c.beginPath(); c.ellipse(px, py, 7.5, 1.95, 0, Math.PI * 1.15, Math.PI * 1.45); c.stroke(); // light on the vinyl
+    c.fillStyle = W1(0.85); c.beginPath(); c.ellipse(px, py, 2.4, 0.66, 0, 0, 7); c.fill(); // label
+    c.fillStyle = Gr(0); c.fillRect(px + Math.cos(spin) * 1.5 - 0.3, py + Math.sin(spin) * 0.4 - 0.18, 0.6, 0.36); // a mark on it, turning
+    c.strokeStyle = Gr(0.95); c.lineWidth = 0.45; c.beginPath(); c.moveTo(px + 11.5, 51.2); c.lineTo(px + 10, 54.8); c.lineTo(px + 6.8, 54.6); c.stroke(); // tonearm
+    c.fillStyle = Gr(0.95); c.fillRect(px + 6, 54.2, 1.2, 0.8); c.beginPath(); c.arc(px + 11.5, 51.2, 0.8, 0, 7); c.fill(); // headshell, pivot
+    c.fillStyle = Gr(0.1); c.fillRect(px + 12, 52.6, 0.6, 3); c.fillStyle = W1(0.9); c.fillRect(px + 11.8, 53.6 + Math.sin(dx * 9) * 0.6, 1, 0.4); // pitch fader
   }
-  c.fillStyle = Gr(0.3); c.fillRect(cx - 6, 50.4, 12, 6); // mixer
-  c.fillStyle = W1(0.9); for (let k = 0; k < 4; k++) { c.fillRect(cx - 4.5 + k * 3, 51.2, 0.8, 0.8); c.fillRect(cx - 4.6 + k * 3, 53.2 + Math.sin(b * 0.5 + k) * 0.8, 1, 0.6); }
-  c.fillRect(cx - 1 + Math.sin(b * Math.PI / 8) * 3, 55.3, 2, 0.6); // crossfader
-  for (const dx of [0.22, 0.5, 0.78]) { // speakers in the front, cones thumping
-    const sx = FW * dx, sy = 64.5, r = 4.5 + kick * 0.7;
-    c.strokeStyle = W1(0.7); c.lineWidth = 0.5; c.beginPath(); c.arc(sx, sy, 5.6, 0, 7); c.stroke();
-    c.fillStyle = W1(0.3); c.beginPath(); c.arc(sx, sy, r, 0, 7); c.fill(); c.fillStyle = W1(0.75); c.beginPath(); c.arc(sx, sy, r * 0.35, 0, 7); c.fill();
+  c.fillStyle = Gr(0.28); c.fillRect(cx - 6.5, 50.3, 13, 6.4); c.fillStyle = W1(0.6); c.fillRect(cx - 6.5, 50.3, 13, 0.3); // mixer
+  for (let k = 0; k < 4; k++) for (let r = 0; r < 2; r++) { c.fillStyle = W1(0.8); c.beginPath(); c.arc(cx - 4.5 + k * 3, 51.4 + r * 1.2, 0.4, 0, 7); c.fill(); } // knobs
+  for (let ch = 0; ch < 2; ch++) { // channel VU meters and faders
+    const lv = reduce ? 0.5 : Math.min(1, 0.4 + kick * 0.6 + Math.sin(t * 7 + ch) * 0.1);
+    for (let k = 0; k < 5; k++) { c.fillStyle = k < lv * 5 ? W1(0.95) : Gr(0.15); c.fillRect(cx - 1.4 + ch * 2.2, 55.4 - k * 0.55, 0.6, 0.35); }
+    c.fillStyle = Gr(0.08); c.fillRect(cx - 4.6 + ch * 8.6, 53, 0.4, 2.8); c.fillStyle = W1(0.95); c.fillRect(cx - 5 + ch * 8.6, 53.6 + Math.sin(b * 0.5 + ch * 2) * 0.8, 1.2, 0.45);
+  }
+  c.fillStyle = Gr(0.08); c.fillRect(cx - 3.5, 56.1, 7, 0.4); c.fillStyle = W1(0.95); c.fillRect(cx - 0.8 + Math.sin(b * Math.PI / 8) * 2.6, 55.9, 1.6, 0.8); // crossfader
+  c.fillStyle = Gr(0.09); c.fillRect(6, 57, FW - 12, FH - 57); // the front
+  c.fillStyle = W1(0.2); for (let x0 = 7; x0 < FW - 7; x0 += 1.2) c.fillRect(x0, 57, 0.25, FH - 57); // its grille
+  for (const dx of [0.2, 0.5, 0.8]) { // speakers in the front, cones thumping
+    const sx = FW * dx, sy = 64.6, r = 4.8 + kick * 0.6;
+    c.fillStyle = Gr(0.05); c.beginPath(); c.arc(sx, sy, 6, 0, 7); c.fill();
+    c.strokeStyle = W1(0.8); c.lineWidth = 0.35; c.beginPath(); c.arc(sx, sy, 6, 0, 7); c.stroke();
+    const cone = c.createRadialGradient(sx - 1, sy - 1, 0.3, sx, sy, r); cone.addColorStop(0, W1(0.85)); cone.addColorStop(0.35, W1(0.3)); cone.addColorStop(1, W1(0.12));
+    c.fillStyle = cone; c.beginPath(); c.arc(sx, sy, r, 0, 7); c.fill();
+    c.fillStyle = W1(0.9); c.beginPath(); c.arc(sx, sy, r * 0.28, 0, 7); c.fill();
   }
 }
 
@@ -363,10 +396,10 @@ function drawPicture(c: CanvasRenderingContext2D, now: number, beat: number) {
 }
 
 /** grey picture → dithered phosphor, with dark scanlines (the planets' style) */
-function phosphor(c: CanvasRenderingContext2D, W: number, H: number, si: number) {
+function phosphor(c: CanvasRenderingContext2D, W: number, H: number, si: number, gamma = 1) {
   const img = c.getImageData(0, 0, W, H), d = img.data, [r, gg, b] = SC[si];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const k = (y * W + x) * 4, v = d[k] / 255;
+    const k = (y * W + x) * 4, v = gamma === 1 ? d[k] / 255 : Math.pow(d[k] / 255, gamma);
     if (v > BAYER[(y % 4) * 4 + (x % 4)] / 16 + 0.02) { d[k] = r; d[k + 1] = gg; d[k + 2] = b; d[k + 3] = y % 3 === 2 ? 150 : 255; }
     else { d[k] = bgCol[0]; d[k + 1] = bgCol[1]; d[k + 2] = bgCol[2]; d[k + 3] = 255; }
   }
@@ -453,31 +486,33 @@ function frame(now: number) {
   if (!back.hidden) { back.style.left = ""; back.style.right = "16px"; back.style.top = "16px"; }
 }
 
-// ---------- the station's little monitor ----------
-let mc: HTMLCanvasElement | null = null, mg: CanvasRenderingContext2D;
-/** under the SOLARIS call-out: a small screen showing the planet's party — the DJ, the pool, the beach */
+// ---------- the SOLARIS monitor ----------
+let mbox: HTMLElement, mc: HTMLCanvasElement, mg: CanvasRenderingContext2D, mlabel: HTMLElement;
+function initMini() {
+  mbox = document.createElement("div"); mbox.className = "solaris-tv"; mbox.hidden = true; mbox.setAttribute("aria-hidden", "true");
+  mbox.innerHTML = `<div class="stv-head"><span class="stv-live">● LIVE</span><span class="stv-name"></span></div><canvas></canvas>`;
+  viewportEl().appendChild(mbox);
+  mc = mbox.querySelector("canvas")!; mg = mc.getContext("2d", { willReadFrequently: true })!; mlabel = mbox.querySelector(".stv-name")!;
+}
+/** while a SOLARIS station listens, a monitor in the corner shows the DJ playing the planet's records */
 function mini(now: number) {
-  if (!stationAt.ok || state.mapHidden || open) return;
-  const W = 92, H = 60, R = 2; // its size in css px, and picture pixels per css px
-  const pw = Math.round(W * R), ph = Math.round(H * R);
-  if (!mc) { mc = document.createElement("canvas"); mg = mc.getContext("2d", { willReadFrequently: true })!; }
-  if (mc.width !== pw || mc.height !== ph) { mc.width = pw; mc.height = ph; }
-  const si = stationAt.si, beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si];
-  const shot = reduce ? 0 : [0, 1, 0, 2][Math.floor(beat / 16) % 4], keepFW = FW;
-  FW = Math.round(FH * W / H);
-  mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillStyle = "#000"; mg.fillRect(0, 0, pw, ph);
-  mg.setTransform(ph / FH, 0, 0, ph / FH, 0, 0);
-  SCENES[shot](mg, now, beat);
+  const on = state.orbit !== null && !open && !state.mapHidden;
+  if (mbox.hidden === on) mbox.hidden = !on;
+  if (!on) return;
+  const pl = galaxy.planets[state.orbit!], si = pl.s, W = mc.clientWidth, H = mc.clientHeight; if (!W || !H) return;
+  // one picture cell per css pixel: fine grain, still dithered like everything else
+  if (mc.width !== W || mc.height !== H) { mc.width = W; mc.height = H; }
+  const name = pl.name.toUpperCase(); if (mlabel.textContent !== name) mlabel.textContent = name;
+  mbox.classList.toggle("blink", state.onAir && !lampLit(now));
+  mbox.style.setProperty("--stv", sc(si, 0.85));
+  const beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si], keepFW = FW;
+  // framed closer than the big screen: her and the decks, a little of the light above
+  const k = H / 66; FW = W / k;
+  mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillStyle = "#000"; mg.fillRect(0, 0, W, H);
+  mg.setTransform(k, 0, 0, k, 0, -5 * k);
+  sceneDJ(mg, now, beat);
   FW = keepFW;
   mg.setTransform(1, 0, 0, 1, 0, 0);
   const h = BG.replace("#", ""); bgCol = [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16));
-  phosphor(mg, pw, ph, si);
-  const c = sceneCanvas().getContext("2d")!, x = stationAt.left ? stationAt.x - W - 2 : stationAt.x + 2, y = stationAt.y;
-  c.save(); c.globalAlpha = stationAt.a;
-  c.imageSmoothingEnabled = false; c.drawImage(mc, x, y, W, H);
-  c.strokeStyle = sc(si, 0.8); c.lineWidth = 1; c.strokeRect(x - 0.5, y - 0.5, W + 1, H + 1);
-  c.fillStyle = state.onAir && lampLit(now) ? "#ff4d6d" : sc(si, 0.5); c.font = '600 7px "Martian Mono", monospace'; c.textAlign = "left"; c.textBaseline = "top";
-  c.fillText("● LIVE", x + 3, y + 3);
-  c.fillStyle = sc(si, 0.9); c.textAlign = "right"; c.fillText(["DJ", "POOL", "BEACH"][shot], x + W - 3, y + 3);
-  c.restore();
+  phosphor(mg, W, H, si, 0.75);
 }

@@ -148,11 +148,7 @@ function offscreen(T: { x: number; y: number }, dx: number, dy: number) {
 }
 const hash = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
 
-/** where the station's call-out sits this frame, for the little monitor that hangs under it */
-export const stationAt = { ok: false, x: 0, y: 0, left: false, si: 0, a: 0 };
-
 export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
-  stationAt.ok = false;
   const pi = state.orbit; if (pi === null || cam.s < LOD_PLANETS) return;
   const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y);
   // from further out the probe is just a small blinking mark beside its planet
@@ -241,7 +237,6 @@ export function drawStation(ctx: CanvasRenderingContext2D, t: number) {
   const secs = Math.max(0, Math.floor((Date.now() - state.orbitSince) / 1000)), two = (n: number) => String(n).padStart(2, "0");
   ctx.fillStyle = col(0.65);
   ctx.fillText(`T+${two(Math.floor(secs / 3600))}:${two(Math.floor(secs / 60) % 60)}:${two(secs % 60)} ON STATION`, lx + (left ? -2 : 2), ly + 10);
-  Object.assign(stationAt, { ok: true, x: lx, y: ly + 18, left, si: pl.s, a: after });
   ctx.restore();
 }
 
