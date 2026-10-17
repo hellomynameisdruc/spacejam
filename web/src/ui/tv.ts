@@ -156,13 +156,15 @@ function hand(c: CanvasRenderingContext2D, h: { x: number; y: number }, ang: num
   c.stroke(); c.restore();
 }
 
+/** drawing for the ASCII monitor: a quieter room, so she stands out in characters */
+let asciiPass = false;
 /** the booth: light fanning from above, two turntables and a mixer, speakers thumping in the desk */
 function sceneDJ(c: CanvasRenderingContext2D, now: number, beat: number) {
   const t = reduce ? 0 : now / 1000, b = reduce ? 0.5 : beat, kick = reduce ? 0 : Math.exp(-(b % 1) * 5), cx = FW / 2;
   // the room: rays from a lamp above pulsing with the kick, a laser, specks of light from a mirror ball
   for (let k = 0; k < 11; k++) {
     const a0 = Math.PI * (0.14 + k * 0.066 + Math.sin(t * 0.3) * 0.01), a1 = a0 + 0.03, r = FH * 1.5;
-    c.fillStyle = W1((k % 2 ? 0.07 : 0.15) + kick * 0.07);
+    c.fillStyle = W1(((k % 2 ? 0.07 : 0.15) + kick * 0.07) * (asciiPass ? 0.45 : 1));
     c.beginPath(); c.moveTo(cx, -8); c.lineTo(cx + Math.cos(a0) * r, -8 + Math.sin(a0) * r); c.lineTo(cx + Math.cos(a1) * r, -8 + Math.sin(a1) * r); c.closePath(); c.fill();
   }
   c.strokeStyle = W1(0.6); c.lineWidth = 0.35; c.beginPath(); c.moveTo(0, 41); c.lineTo(FW, 21 + Math.sin(t * 0.5) * 3); c.stroke();
@@ -258,7 +260,7 @@ function sceneDJ(c: CanvasRenderingContext2D, now: number, beat: number) {
   }
   c.fillStyle = Gr(0.08); c.fillRect(cx - 3.5, 56.1, 7, 0.4); c.fillStyle = W1(0.95); c.fillRect(cx - 0.8 + Math.sin(b * Math.PI / 8) * 2.6, 55.9, 1.6, 0.8); // crossfader
   c.fillStyle = Gr(0.09); c.fillRect(6, 57, FW - 12, FH - 57); // the front
-  c.fillStyle = W1(0.2); for (let x0 = 7; x0 < FW - 7; x0 += 1.2) c.fillRect(x0, 57, 0.25, FH - 57); // its grille
+  if (!asciiPass) { c.fillStyle = W1(0.2); for (let x0 = 7; x0 < FW - 7; x0 += 1.2) c.fillRect(x0, 57, 0.25, FH - 57); } // its grille
   for (const dx of [0.2, 0.5, 0.8]) { // speakers in the front, cones thumping
     const sx = FW * dx, sy = 64.6, r = 4.8 + kick * 0.6;
     c.fillStyle = Gr(0.05); c.beginPath(); c.arc(sx, sy, 6, 0, 7); c.fill();
@@ -494,25 +496,54 @@ function initMini() {
   viewportEl().appendChild(mbox);
   mc = mbox.querySelector("canvas")!; mg = mc.getContext("2d", { willReadFrequently: true })!; mlabel = mbox.querySelector(".stv-name")!;
 }
-/** while a SOLARIS station listens, a monitor in the corner shows the DJ playing the planet's records */
+/** the ramp the ASCII picture is drawn with, darkest to brightest */
+const RAMP = " .'`,:;-~+=<>ilrcvunxzoaewYUXCLQ0OZmqpdbkhM*#W&8%B@$";
+let gb: HTMLCanvasElement | null = null, gbx: CanvasRenderingContext2D, atlas: HTMLCanvasElement | null = null, atlasKey = "";
+/** each glyph of the ramp drawn once in the system's colour; the picture is stamped from these */
+function glyphs(si: number, cw: number, chH: number, dpr: number) {
+  const key = `${si}|${cw}|${chH}|${dpr}`; if (atlas && atlasKey === key) return atlas;
+  atlas = atlas ?? document.createElement("canvas"); atlasKey = key;
+  const gw = Math.ceil(cw * dpr), gh = Math.ceil(chH * dpr); atlas.width = gw * RAMP.length; atlas.height = gh;
+  const a = atlas.getContext("2d")!; a.clearRect(0, 0, atlas.width, gh);
+  a.font = `700 ${Math.round(chH * 1.02 * dpr)}px "Martian Mono", monospace`; a.textAlign = "center"; a.textBaseline = "middle"; a.fillStyle = sc(si, 1);
+  a.shadowColor = sc(si, 0.9); a.shadowBlur = 3 * dpr;
+  for (let k = 1; k < RAMP.length; k++) a.fillText(RAMP[k], k * gw + gw / 2, gh / 2 + dpr * 0.5);
+  return atlas;
+}
+/** while a SOLARIS station listens, a monitor in the corner shows the DJ playing the planet's records, in ASCII */
 function mini(now: number) {
   const on = state.orbit !== null && !open && !state.mapHidden;
   if (mbox.hidden === on) mbox.hidden = !on;
   if (!on) return;
   const pl = galaxy.planets[state.orbit!], si = pl.s, W = mc.clientWidth, H = mc.clientHeight; if (!W || !H) return;
-  // one picture cell per css pixel: fine grain, still dithered like everything else
-  if (mc.width !== W || mc.height !== H) { mc.width = W; mc.height = H; }
+  const dpr = Math.min(2, cam.DPR);
+  if (mc.width !== Math.round(W * dpr) || mc.height !== Math.round(H * dpr)) { mc.width = Math.round(W * dpr); mc.height = Math.round(H * dpr); }
   const name = pl.name.toUpperCase(); if (mlabel.textContent !== name) mlabel.textContent = name;
   mbox.classList.toggle("blink", state.onAir && !lampLit(now));
   mbox.style.setProperty("--stv", sc(si, 0.85));
+  // the scene in grey, one pixel per character cell
+  const cw = 2.6, chH = 4.3, cols = Math.floor(W / cw), rows = Math.floor(H / chH);
+  if (!gb) { gb = document.createElement("canvas"); gbx = gb.getContext("2d", { willReadFrequently: true })!; }
+  if (gb.width !== cols || gb.height !== rows) { gb.width = cols; gb.height = rows; }
   const beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si], keepFW = FW;
-  // framed closer than the big screen: her and the decks, a little of the light above
-  const k = H / 66; FW = W / k;
-  mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillStyle = "#000"; mg.fillRect(0, 0, W, H);
-  mg.setTransform(k, 0, 0, k, 0, -5 * k);
-  sceneDJ(mg, now, beat);
+  const unit = H / 66; FW = W / unit; // framed close: her and the decks, a little of the light above
+  gbx.setTransform(1, 0, 0, 1, 0, 0); gbx.fillStyle = "#000"; gbx.fillRect(0, 0, cols, rows);
+  gbx.setTransform(cols / FW, 0, 0, rows / 66, 0, -5 * rows / 66);
+  asciiPass = true; sceneDJ(gbx, now, beat); asciiPass = false;
   FW = keepFW;
-  mg.setTransform(1, 0, 0, 1, 0, 0);
-  const h = BG.replace("#", ""); bgCol = [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16));
-  phosphor(mg, W, H, si, 0.75);
+  const px = gbx.getImageData(0, 0, cols, rows).data, at = glyphs(si, cw, chH, dpr), gw = at.width / RAMP.length, gh = at.height;
+  mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillStyle = BG; mg.fillRect(0, 0, mc.width, mc.height);
+  const ox = (W - cols * cw) / 2 * dpr, oy = (H - rows * chH) / 2 * dpr;
+  // a brighter band rolls down the screen, and a few characters flicker to random glyphs
+  const roll = reduce ? -1 : Math.floor((now / 60) % (rows + 12)) - 6;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    let v = Math.pow(Math.max(0, (px[(y * cols + x) * 4] / 255 - 0.08) / 0.92), 0.7);
+    if (v < 0.05) continue;
+    if (Math.abs(y - roll) < 2) v = Math.min(1, v + 0.25);
+    let k = Math.min(RAMP.length - 1, 1 + Math.floor(v * (RAMP.length - 1)));
+    if (!reduce && Math.random() < 0.003) k = 1 + Math.floor(Math.random() * (RAMP.length - 1));
+    mg.globalAlpha = 0.65 + 0.35 * v;
+    mg.drawImage(at, k * gw, 0, gw, gh, ox + x * cw * dpr, oy + y * chH * dpr, gw, gh);
+  }
+  mg.globalAlpha = 1;
 }
