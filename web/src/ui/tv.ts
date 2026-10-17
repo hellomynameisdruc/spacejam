@@ -271,6 +271,107 @@ function sceneDJ(c: CanvasRenderingContext2D, now: number, beat: number) {
   }
 }
 
+// ---------- the DJ up close: head and shoulders, every reflection moving with her ----------
+/**
+ * Fill the current path as polished chrome: a bright sky above a horizon line, a dark ground below it
+ * fading back up, and the horizon sliding with `shift` as she moves, so the metal seems to turn.
+ */
+function chromeFill(c: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, shift = 0, lift = 0) {
+  const hz = 0.48 + shift, gr = c.createLinearGradient(x0, y0, x1, y1), v = (a: number) => Gr(Math.max(0, Math.min(1, a + lift)));
+  const at = (p: number) => Math.max(0, Math.min(1, p));
+  gr.addColorStop(0, v(0.55)); gr.addColorStop(at(hz - 0.3), v(0.9)); gr.addColorStop(at(hz - 0.02), v(1)); gr.addColorStop(at(hz), v(0.12));
+  gr.addColorStop(at(hz + 0.18), v(0.3)); gr.addColorStop(at(hz + 0.36), v(0.62)); gr.addColorStop(1, v(0.25));
+  c.fillStyle = gr; c.fill();
+}
+/** a soft specular highlight */
+function glint(c: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rot: number, a = 1) {
+  const g = c.createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, W1(a)); g.addColorStop(0.5, W1(a * 0.45)); g.addColorStop(1, W1(0));
+  c.save(); c.translate(x, y); c.rotate(rot); c.scale(rx, ry); c.fillStyle = g; c.beginPath(); c.arc(0, 0, 1, 0, 7); c.fill(); c.restore();
+}
+function sceneDJClose(c: CanvasRenderingContext2D, now: number, beat: number) {
+  const t = reduce ? 0 : now / 1000, b = reduce ? 0.5 : beat, kick = reduce ? 0 : Math.exp(-(b % 1) * 5), cx = FW / 2;
+  const sway = reduce ? 0 : Math.sin(Math.PI * b / 2), nod = kick * 1.6 + (Math.floor(b / 4) % 4 === 3 ? Math.abs(Math.sin(Math.PI * b)) * 1.5 : 0);
+  const tilt = sway * 0.07 + (Math.floor(b / 8) % 2 ? 0.1 : -0.04), turn = reduce ? 0 : Math.sin(t * 0.37) * 0.5; // head angle, and how far she looks aside
+  const sh = sway * 0.05 + turn * 0.04; // how the reflections slide
+  // behind her: a soft glow and faint rays
+  const bg = c.createRadialGradient(cx, 30, 4, cx, 30, 60); bg.addColorStop(0, W1(0.16 + kick * 0.08)); bg.addColorStop(1, W1(0)); c.fillStyle = bg; c.fillRect(0, 0, FW, FH);
+  // ---- shoulders and chest plate ----
+  const sx = cx + sway * 1.2, sy = 58 + kick * 0.6;
+  c.beginPath(); c.moveTo(sx - 46, FH + 2); c.bezierCurveTo(sx - 44, sy - 8, sx - 30, sy - 13, sx - 12, sy - 14); c.lineTo(sx + 12, sy - 14); c.bezierCurveTo(sx + 30, sy - 13, sx + 44, sy - 8, sx + 46, FH + 2); c.closePath();
+  chromeFill(c, sx - 40, sy - 16, sx + 40, FH, -sh * 2);
+  c.strokeStyle = Gr(0.08); c.lineWidth = 0.6; c.beginPath(); c.moveTo(sx - 13, sy - 14); c.quadraticCurveTo(sx, sy - 6, sx + 13, sy - 14); c.stroke(); // the collar's edge
+  c.strokeStyle = Gr(0.15); c.lineWidth = 0.4; c.beginPath(); c.moveTo(sx - 28, sy - 10); c.quadraticCurveTo(sx - 22, sy + 2, sx - 24, FH); c.moveTo(sx + 28, sy - 10); c.quadraticCurveTo(sx + 22, sy + 2, sx + 24, FH); c.stroke(); // panel seams
+  for (const sd of [-1, 1]) { // shoulder caps, each with a little speaker grille
+    const px = sx + sd * 34, py = sy - 4;
+    c.beginPath(); c.ellipse(px, py, 11, 8, sd * 0.25, 0, 7); chromeFill(c, px - 11, py - 8, px + 11, py + 8, -sh * 3, 0.05);
+    glint(c, px - sd * 3, py - 4, 5, 1.6, sd * 0.25, 0.9);
+    c.fillStyle = Gr(0.06); c.beginPath(); c.arc(px + sd * 1, py + 1, 4.2, 0, 7); c.fill();
+    c.strokeStyle = W1(0.55 + kick * 0.45); c.lineWidth = 0.35; c.beginPath(); for (const r of [1.2, 2.3, 3.4]) { c.moveTo(px + sd + r, py + 1); c.arc(px + sd, py + 1, r, 0, 7); } c.stroke();
+  }
+  // ---- the neck: stacked rings ----
+  const nx = cx + sway * 0.8;
+  for (let k = 0; k < 7; k++) {
+    const y = sy - 15 - k * 2.3, w = 7.4 - k * 0.25;
+    c.beginPath(); c.ellipse(nx, y, w, 1.5, 0, 0, 7); chromeFill(c, nx - w, y - 1.5, nx + w, y + 1.5, k * 0.02 - sh, 0);
+    c.strokeStyle = Gr(0.05); c.lineWidth = 0.35; c.beginPath(); c.ellipse(nx, y + 0.9, w, 1.2, 0, 0, Math.PI); c.stroke();
+  }
+  // ---- the ponytail, behind the head ----
+  const hx = cx + sway * 1.4 + turn * 1.5, hy = 26 + nod;
+  const sw = reduce ? 0 : Math.sin(Math.PI * b + 0.6) * 4;
+  for (let k = 0; k <= 22; k++) { const q = k / 22, px = hx + 10 + (6 + sw * q) * Math.sin(q * 1.7) * 1.4, py = hy - 8 + 34 * q * q, r = 2.6 - q * 1.3; c.beginPath(); c.arc(px, py, r, 0, 7); chromeFill(c, px - r, py - r, px + r, py + r, -0.1, 0.05); }
+  // ---- the head ----
+  c.save(); c.translate(hx, hy); c.rotate(tilt);
+  // helmet
+  c.beginPath(); c.ellipse(0, -2, 13, 15.5, 0, 0, 7); chromeFill(c, -13, -17, 13, 13, sh * 2 - 0.08);
+  glint(c, -6 + turn * 2, -11, 4.5, 2, -0.6, 1); glint(c, 7 + turn * 2, -6, 1.6, 4, 0.3, 0.6);
+  c.strokeStyle = Gr(0.12); c.lineWidth = 0.45; c.beginPath(); c.moveTo(turn * 3, -17.4); c.quadraticCurveTo(turn * 4, -10, turn * 3, -5.5); c.stroke(); // a seam over the crown
+  // the face: chrome cheeks and chin under a wraparound visor
+  c.beginPath(); c.moveTo(-10.5, 1); c.bezierCurveTo(-10, 9, -5, 14.5, turn * 2, 15.2); c.bezierCurveTo(5 + turn, 14.5, 10, 9, 10.5, 1); c.closePath();
+  chromeFill(c, -10, 1, 10, 15, 0.12 + sh * 2, 0.05);
+  c.strokeStyle = Gr(0.2); c.lineWidth = 0.4; c.beginPath(); c.moveTo(-9, 5); c.quadraticCurveTo(-6, 10, -2 + turn, 12.6); c.moveTo(9, 5); c.quadraticCurveTo(6, 10, 2 + turn, 12.6); c.stroke(); // cheek lines
+  c.strokeStyle = Gr(0.35); c.lineWidth = 0.5; c.beginPath(); c.moveTo(turn * 2 + 0.4, 2.5); c.lineTo(turn * 2 + 0.9, 6.8); c.lineTo(turn * 2 - 0.6, 7.3); c.stroke(); // the nose
+  // lips: sculpted, catching the light, moving a little with the music
+  const open = kick * 0.7 + (reduce ? 0 : Math.max(0, Math.sin(b * Math.PI * 0.5)) * 0.4), lx = turn * 2;
+  c.fillStyle = Gr(0.32); c.beginPath(); c.moveTo(lx - 3.4, 10); c.quadraticCurveTo(lx - 1.2, 8.6, lx, 9.3); c.quadraticCurveTo(lx + 1.2, 8.6, lx + 3.4, 10); c.quadraticCurveTo(lx, 10.4 + open * 0.3, lx - 3.4, 10); c.fill();
+  c.fillStyle = Gr(0.45); c.beginPath(); c.moveTo(lx - 3.2, 10.2 + open * 0.4); c.quadraticCurveTo(lx, 12.6 + open, lx + 3.2, 10.2 + open * 0.4); c.quadraticCurveTo(lx, 10.8 + open, lx - 3.2, 10.2 + open * 0.4); c.fill();
+  c.fillStyle = Gr(0.04); c.beginPath(); c.ellipse(lx, 10.4 + open * 0.45, 2.6, 0.25 + open * 0.55, 0, 0, 7); c.fill(); // between them
+  glint(c, lx - 1, 11.4 + open * 0.6, 1.4, 0.45, 0, 0.9);
+  // the visor: smoked glass wrapping round, LED eyes behind it, a streak of reflection across
+  c.beginPath(); c.moveTo(-12.6, -3); c.quadraticCurveTo(0, -6.8, 12.6, -3); c.lineTo(12.2, 2.2); c.quadraticCurveTo(0, -0.6, -12.2, 2.2); c.closePath();
+  c.fillStyle = Gr(0.05); c.fill(); c.strokeStyle = Gr(0.85); c.lineWidth = 0.4; c.stroke();
+  const blink = !reduce && now % 3900 < 140;
+  for (const ex of [-4.6, 4.6]) {
+    const x = ex + turn * 2.5, e = c.createRadialGradient(x, -1.6, 0, x, -1.6, 3.4); e.addColorStop(0, W1(0.7)); e.addColorStop(1, W1(0)); c.fillStyle = e; c.fillRect(x - 3.4, -5, 6.8, 6.8); // glow
+    c.strokeStyle = W1(1); c.lineWidth = 0.7; c.lineCap = "round"; c.beginPath();
+    if (blink) { c.moveTo(x - 2, -1.4); c.lineTo(x + 2, -1.4); } else c.arc(x, -0.6, 2, Math.PI * 1.12, Math.PI * 1.88);
+    c.moveTo(x + Math.sign(ex) * 2, -1.6); c.lineTo(x + Math.sign(ex) * 2.9, -2.6); c.stroke(); // a flick of lash
+  }
+  c.strokeStyle = W1(0.45); c.lineWidth = 0.5; c.beginPath(); c.moveTo(-10 + turn * 3, -3.3); c.quadraticCurveTo(-2, -5.6, 4 + turn * 3, -4.8); c.stroke(); // reflection on the glass
+  // headphones: band over the top, big cups with rings and a light that pulses on the kick
+  c.strokeStyle = Gr(0.08); c.lineWidth = 2.2; c.beginPath(); c.ellipse(0, -2, 15, 17, 0, Math.PI * 1.08, Math.PI * 1.92); c.stroke();
+  c.strokeStyle = Gr(0.9); c.lineWidth = 0.4; c.beginPath(); c.ellipse(0, -2, 16.1, 18.1, 0, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
+  for (const sd of [-1, 1]) {
+    const px = sd * (13.6 - turn * sd * 1.2), py = 0;
+    c.fillStyle = Gr(0.07); c.beginPath(); c.ellipse(px, py, 4.4, 6.4, 0, 0, 7); c.fill();
+    c.beginPath(); c.ellipse(px + sd * 0.8, py, 3.3, 5.2, 0, 0, 7); chromeFill(c, px - 3, py - 5, px + 3, py + 5, -0.1, 0);
+    c.fillStyle = Gr(0.06); c.beginPath(); c.ellipse(px + sd * 1, py, 2, 3.4, 0, 0, 7); c.fill();
+    c.strokeStyle = W1(0.45 + kick * 0.55); c.lineWidth = 0.6; c.beginPath(); c.ellipse(px + sd * 1, py, 2.5, 3.9, 0, 0, 7); c.stroke(); // the light ring
+  }
+  c.restore();
+  // every few bars a hand comes up and presses the headphone to her ear
+  const hb = reduce ? -1 : (b % 16) - 12;
+  if (hb > 0) {
+    const up = Math.min(1, hb * 2, (4 - hb) * 2), px = hx - 17 + (1 - up) * -6, py = hy + 2 + (1 - up) * 40;
+    c.beginPath(); c.moveTo(px - 4, FH + 4); c.quadraticCurveTo(px - 8, py + 20, px - 1, py + 5); c.lineTo(px + 3, py + 6); c.quadraticCurveTo(px - 3, py + 22, px + 4, FH + 4); c.closePath(); chromeFill(c, px - 6, py, px + 4, FH, -0.15, 0);
+    c.beginPath(); c.ellipse(px + 1, py + 1, 3.6, 4.6, 0.3, 0, 7); chromeFill(c, px - 3, py - 4, px + 4, py + 5, -0.05, 0.05); // the palm
+    c.strokeStyle = Gr(0.85); c.lineWidth = 1; c.lineCap = "round"; c.beginPath();
+    for (let f = 0; f < 4; f++) { c.moveTo(px + 2 + f * 0.4, py - 2 + f * 1.4); c.lineTo(px + 5 + f * 0.3, py - 4.5 + f * 1.8); }
+    c.stroke();
+  }
+  // the beat shows as a level meter along the bottom, like a broadcast caption
+  for (let k = 0; k < 16; k++) { const lv = reduce ? 0.4 : Math.abs(Math.sin(t * (2 + k * 0.7) + k)) * (0.4 + kick * 0.6); c.fillStyle = W1(0.85); c.fillRect(FW - 20 + k * 1.1, FH - 3 - lv * 5, 0.6, lv * 5); }
+}
+
 /** a camera on the pool's edge, looking down: she floats on a ring, ripples spreading, and waves up at it */
 function scenePool(c: CanvasRenderingContext2D, now: number, beat: number) {
   const t = reduce ? 0 : now / 1000;
@@ -502,12 +603,15 @@ let gb: HTMLCanvasElement | null = null, gbx: CanvasRenderingContext2D, atlas: H
 /** each glyph of the ramp drawn once in the system's colour; the picture is stamped from these */
 function glyphs(si: number, cw: number, chH: number, dpr: number) {
   const key = `${si}|${cw}|${chH}|${dpr}`; if (atlas && atlasKey === key) return atlas;
+  const [r, g, b] = SC[si], hot = `rgb(${(r + 255 * 2) / 3 | 0},${(g + 255 * 2) / 3 | 0},${(b + 255 * 2) / 3 | 0})`;
   atlas = atlas ?? document.createElement("canvas"); atlasKey = key;
-  const gw = Math.ceil(cw * dpr), gh = Math.ceil(chH * dpr); atlas.width = gw * RAMP.length; atlas.height = gh;
-  const a = atlas.getContext("2d")!; a.clearRect(0, 0, atlas.width, gh);
+  const gw = Math.ceil(cw * dpr), gh = Math.ceil(chH * dpr); atlas.width = gw * RAMP.length; atlas.height = gh * 2; // row 0: the phosphor, row 1: white-hot highlights
+  const a = atlas.getContext("2d")!; a.clearRect(0, 0, atlas.width, gh * 2);
   a.font = `700 ${Math.round(chH * 1.02 * dpr)}px "Martian Mono", monospace`; a.textAlign = "center"; a.textBaseline = "middle"; a.fillStyle = sc(si, 1);
   a.shadowColor = sc(si, 0.9); a.shadowBlur = 3 * dpr;
   for (let k = 1; k < RAMP.length; k++) a.fillText(RAMP[k], k * gw + gw / 2, gh / 2 + dpr * 0.5);
+  a.fillStyle = hot;
+  for (let k = 1; k < RAMP.length; k++) a.fillText(RAMP[k], k * gw + gw / 2, gh + gh / 2 + dpr * 0.5);
   return atlas;
 }
 /** while a SOLARIS station listens, a monitor in the corner shows the DJ playing the planet's records, in ASCII */
@@ -526,24 +630,35 @@ function mini(now: number) {
   if (!gb) { gb = document.createElement("canvas"); gbx = gb.getContext("2d", { willReadFrequently: true })!; }
   if (gb.width !== cols || gb.height !== rows) { gb.width = cols; gb.height = rows; }
   const beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si], keepFW = FW;
-  const unit = H / 66; FW = W / unit; // framed close: her and the decks, a little of the light above
+  // the cut: eight bars up close, four at the decks
+  const close = reduce || Math.floor(beat / 16) % 3 !== 2;
   gbx.setTransform(1, 0, 0, 1, 0, 0); gbx.fillStyle = "#000"; gbx.fillRect(0, 0, cols, rows);
-  gbx.setTransform(cols / FW, 0, 0, rows / 66, 0, -5 * rows / 66);
-  asciiPass = true; sceneDJ(gbx, now, beat); asciiPass = false;
+  if (close) { FW = FH * W / H; gbx.setTransform(cols / FW, 0, 0, rows / FH, 0, 0); sceneDJClose(gbx, now, beat); }
+  else { FW = W / (H / 66); gbx.setTransform(cols / FW, 0, 0, rows / 66, 0, -5 * rows / 66); asciiPass = true; sceneDJ(gbx, now, beat); asciiPass = false; }
   FW = keepFW;
   const px = gbx.getImageData(0, 0, cols, rows).data, at = glyphs(si, cw, chH, dpr), gw = at.width / RAMP.length, gh = at.height;
   mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillStyle = BG; mg.fillRect(0, 0, mc.width, mc.height);
   const ox = (W - cols * cw) / 2 * dpr, oy = (H - rows * chH) / 2 * dpr;
   // a brighter band rolls down the screen, and a few characters flicker to random glyphs
   const roll = reduce ? -1 : Math.floor((now / 60) % (rows + 12)) - 6;
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    let v = Math.pow(Math.max(0, (px[(y * cols + x) * 4] / 255 - 0.08) / 0.92), 0.7);
-    if (v < 0.05) continue;
-    if (Math.abs(y - roll) < 2) v = Math.min(1, v + 0.25);
-    let k = Math.min(RAMP.length - 1, 1 + Math.floor(v * (RAMP.length - 1)));
-    if (!reduce && Math.random() < 0.003) k = 1 + Math.floor(Math.random() * (RAMP.length - 1));
-    mg.globalAlpha = 0.65 + 0.35 * v;
-    mg.drawImage(at, k * gw, 0, gw, gh, ox + x * cw * dpr, oy + y * chH * dpr, gw, gh);
+  const lum = (x: number, y: number) => px[(Math.min(rows - 1, Math.max(0, y)) * cols + Math.min(cols - 1, Math.max(0, x))) * 4] / 255;
+  const gh2 = gh / 2;
+  for (let y = 0; y < rows; y++) {
+    // now and then a line of the picture slips sideways, like a tired tube
+    const slip = !reduce && (y * 7 + Math.floor(now / 90)) % 97 === 0 ? (Math.random() * 6 - 3) * dpr : 0;
+    for (let x = 0; x < cols; x++) {
+      const l = lum(x, y);
+      // edges glow: where the brightness changes, the outline burns brighter, as on a CRT
+      const edge = Math.min(1, (Math.abs(lum(x + 1, y) - lum(x - 1, y)) + Math.abs(lum(x, y + 1) - lum(x, y - 1))) * 1.4);
+      let v = Math.pow(Math.max(0, (l - 0.06) / 0.94), 0.75) + edge * 0.45;
+      if (v < 0.06) continue;
+      if (Math.abs(y - roll) < 2) v += 0.2;
+      v = Math.min(1, v);
+      let k = Math.min(RAMP.length - 1, 1 + Math.floor(v * (RAMP.length - 1)));
+      if (!reduce && Math.random() < 0.002) k = 1 + Math.floor(Math.random() * (RAMP.length - 1));
+      mg.globalAlpha = (0.55 + 0.45 * v) * (y % 2 ? 0.82 : 1); // alternate lines a touch darker: interlace
+      mg.drawImage(at, k * gw, v > 0.86 ? gh2 : 0, gw, gh2, ox + x * cw * dpr + slip, oy + y * chH * dpr, gw, gh2);
+    }
   }
   mg.globalAlpha = 1;
 }
