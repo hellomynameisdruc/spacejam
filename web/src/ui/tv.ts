@@ -8,7 +8,8 @@ import { reduce } from "../core/dom";
 import { chunk, galaxy, state } from "../app/state";
 import { BG, SC, sc } from "../render/palette";
 import { cam } from "../render/camera";
-import { onFrame, viewportEl } from "../render/scene";
+import { onFrame, sceneCanvas, viewportEl } from "../render/scene";
+import { stationAt } from "../render/station";
 import { routePanelWidth } from "./routePanel";
 import { lampLit } from "../core/util";
 import { player } from "./dock";
@@ -41,6 +42,7 @@ export function initTv() {
   back.textContent = "◂ BACK TO MAP"; back.onclick = closeTv; viewportEl().appendChild(back);
   reopen = document.getElementById("dockTv") as HTMLButtonElement; reopen.onclick = openTv;
   onFrame(frame);
+  onFrame(mini);
   addEventListener("keydown", (e) => { if (e.key === "Escape" && open && phase !== "off") { e.stopImmediatePropagation(); closeTv(); } }, true);
 }
 
@@ -69,8 +71,8 @@ function drawPortrait(c: CanvasRenderingContext2D, cx: number, cy: number, now: 
   c.fillStyle = Gr(0.5); c.beginPath(); c.moveTo(-5, 10); c.lineTo(5, 10); c.lineTo(6, 22); c.lineTo(-6, 22); c.closePath(); c.fill();
   const sh = c.createLinearGradient(-20, 20, 20, 40); sh.addColorStop(0, Gr(0.7)); sh.addColorStop(1, Gr(0.4));
   c.fillStyle = sh; c.beginPath(); c.moveTo(-6, 20); c.bezierCurveTo(-14, 22, -26, 26, -30, 40); c.lineTo(30, 40); c.bezierCurveTo(26, 26, 14, 22, 6, 20); c.closePath(); c.fill();
-  c.fillStyle = Gr(0.12); c.beginPath(); c.moveTo(-15, 40); c.quadraticCurveTo(0, 33, 15, 40); c.closePath(); c.fill(); // the swimsuit's neckline
-  c.strokeStyle = Gr(0.12); c.lineWidth = 1.4; c.beginPath(); c.moveTo(-11, 24); c.lineTo(-12, 38); c.moveTo(11, 24); c.lineTo(12, 38); c.stroke(); // straps
+  c.fillStyle = Gr(0.12); c.beginPath(); c.moveTo(-14, 40); c.quadraticCurveTo(-8, 35, -2, 40); c.closePath(); c.moveTo(2, 40); c.quadraticCurveTo(8, 35, 14, 40); c.closePath(); c.fill(); // the top of her bikini, at the edge of the frame
+  c.strokeStyle = Gr(0.12); c.lineWidth = 1.4; c.beginPath(); c.moveTo(-11, 24); c.lineTo(-8, 37); c.moveTo(11, 24); c.lineTo(8, 37); c.stroke(); // straps
   // the face: lit from the upper left, falling off to the jaw
   const fg = c.createRadialGradient(-4, -6, 2, 0, 0, 17); fg.addColorStop(0, W1(0.85)); fg.addColorStop(0.6, W1(0.62)); fg.addColorStop(1, W1(0.3));
   c.fillStyle = fg; c.beginPath(); c.moveTo(0, -15); c.bezierCurveTo(10, -15, 11.5, -5, 10.5, 2); c.bezierCurveTo(9.5, 9, 4, 14, 0, 14); c.bezierCurveTo(-4, 14, -9.5, 9, -10.5, 2); c.bezierCurveTo(-11.5, -5, -10, -15, 0, -15); c.fill();
@@ -262,7 +264,8 @@ function scenePool(c: CanvasRenderingContext2D, now: number, beat: number) {
   // her, lying back across it: legs over one side, head and arms over the other
   c.fillStyle = Gr(0.66); c.strokeStyle = Gr(0.66); c.lineCap = "round"; c.lineWidth = 2.1;
   c.beginPath(); c.moveTo(3, 1); c.lineTo(15, -2); c.moveTo(3, 3); c.lineTo(15, 4); c.stroke(); // legs
-  c.fillStyle = Gr(0.14); c.beginPath(); c.ellipse(0, 1, 4.6, 3.2, 0, 0, 7); c.fill(); // swimsuit
+  c.fillStyle = Gr(0.7); c.beginPath(); c.ellipse(0, 1, 4.6, 3.2, 0, 0, 7); c.fill(); // body
+  c.fillStyle = Gr(0.12); c.fillRect(-3.8, -1.6, 1.6, 5.2); c.beginPath(); c.ellipse(3.6, 1.6, 1.4, 2, 0, 0, 7); c.fill(); // bikini
   c.fillStyle = Gr(0.66); c.beginPath(); c.ellipse(-6, 0.5, 2.4, 2.2, 0, 0, 7); c.fill(); // shoulders
   c.fillStyle = Gr(0.08); c.beginPath(); c.ellipse(-11.5, 0.8, 3.6, 3.4, 0, 0, 7); c.fill(); // hair, spread on the water
   c.fillStyle = Gr(0.68); c.beginPath(); c.ellipse(-10, 0.6, 2.1, 2.3, 0, 0, 7); c.fill(); // face
@@ -284,9 +287,15 @@ function bather(c: CanvasRenderingContext2D, x: number, foot: number, h: number,
   c.strokeStyle = Gr(0.88); c.lineWidth = 2 * u;
   c.beginPath(); c.moveTo(hip.x - 1.3 * u, hip.y); c.lineTo(x - 2.6 * u - Math.max(0, -s) * 1.5 * u, foot - 6.5 * u + bounce * 0.5 * u); c.lineTo(x - 2.5 * u - Math.max(0, -s) * 2 * u, foot);
   c.moveTo(hip.x + 1.3 * u, hip.y); c.lineTo(x + 2.6 * u + Math.max(0, s) * 1.5 * u, foot - 6.5 * u + bounce * 0.5 * u); c.lineTo(x + 2.5 * u + Math.max(0, s) * 2 * u, foot); c.stroke();
-  // the swimsuit: shoulders to hips, with straps
-  c.fillStyle = Gr(0.12); c.beginPath();
-  c.moveTo(neck.x - 2.6 * u, neck.y + 2 * u); c.lineTo(neck.x + 2.6 * u, neck.y + 2 * u); c.lineTo(hip.x + 2.6 * u, hip.y + 1 * u); c.lineTo(hip.x - 2.6 * u, hip.y + 1 * u); c.closePath(); c.fill();
+  // body, then a bikini: a top and bottoms
+  const quad = (a: number, b: number, w0: number, w1: number) => {
+    const ya = neck.y + (hip.y - neck.y) * a, yb = neck.y + (hip.y - neck.y) * b, xa = neck.x + (hip.x - neck.x) * a, xb = neck.x + (hip.x - neck.x) * b;
+    c.beginPath(); c.moveTo(xa - w0 * u, ya); c.lineTo(xa + w0 * u, ya); c.lineTo(xb + w1 * u, yb); c.lineTo(xb - w1 * u, yb); c.closePath(); c.fill();
+  };
+  c.fillStyle = Gr(0.88); c.beginPath(); c.moveTo(neck.x - 2.6 * u, neck.y + 2 * u); c.lineTo(neck.x + 2.6 * u, neck.y + 2 * u); c.lineTo(hip.x + 2.6 * u, hip.y + 1.2 * u); c.lineTo(hip.x - 2.6 * u, hip.y + 1.2 * u); c.closePath(); c.fill();
+  c.fillStyle = Gr(0.1); quad(0.2, 0.42, 2.7, 2.4); // top
+  c.beginPath(); c.moveTo(hip.x - 2.7 * u, hip.y - 0.8 * u); c.lineTo(hip.x + 2.7 * u, hip.y - 0.8 * u); c.lineTo(hip.x + 1.2 * u, hip.y + 1.6 * u); c.lineTo(hip.x - 1.2 * u, hip.y + 1.6 * u); c.closePath(); c.fill(); // bottoms
+  c.strokeStyle = Gr(0.1); c.lineWidth = 0.35 * u; c.beginPath(); c.moveTo(neck.x - 1.6 * u, neck.y + 2 * u); c.lineTo(neck.x - 0.6 * u, neck.y + 0.6 * u); c.moveTo(neck.x + 1.6 * u, neck.y + 2 * u); c.lineTo(neck.x + 0.6 * u, neck.y + 0.6 * u); c.stroke(); // straps
   c.strokeStyle = Gr(0.88); c.lineWidth = 1.6 * u; c.beginPath(); c.moveTo(neck.x, neck.y - 0.5 * u); c.lineTo(neck.x, neck.y + 1.5 * u); c.stroke(); // neck
   // arms: up and waving on even bars, swinging at the hips on odd ones
   const up = Math.floor(b / 4) % 2 === 0, w = Math.sin(Math.PI * 2 * b);
@@ -442,4 +451,33 @@ function frame(now: number) {
   }
   g.globalAlpha = 1;
   if (!back.hidden) { back.style.left = ""; back.style.right = "16px"; back.style.top = "16px"; }
+}
+
+// ---------- the station's little monitor ----------
+let mc: HTMLCanvasElement | null = null, mg: CanvasRenderingContext2D;
+/** under the SOLARIS call-out: a small screen showing the planet's party — the DJ, the pool, the beach */
+function mini(now: number) {
+  if (!stationAt.ok || state.mapHidden || open) return;
+  const W = 92, H = 60, R = 2; // its size in css px, and picture pixels per css px
+  const pw = Math.round(W * R), ph = Math.round(H * R);
+  if (!mc) { mc = document.createElement("canvas"); mg = mc.getContext("2d", { willReadFrequently: true })!; }
+  if (mc.width !== pw || mc.height !== ph) { mc.width = pw; mc.height = ph; }
+  const si = stationAt.si, beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si];
+  const shot = reduce ? 0 : [0, 1, 0, 2][Math.floor(beat / 16) % 4], keepFW = FW;
+  FW = Math.round(FH * W / H);
+  mg.setTransform(1, 0, 0, 1, 0, 0); mg.fillStyle = "#000"; mg.fillRect(0, 0, pw, ph);
+  mg.setTransform(ph / FH, 0, 0, ph / FH, 0, 0);
+  SCENES[shot](mg, now, beat);
+  FW = keepFW;
+  mg.setTransform(1, 0, 0, 1, 0, 0);
+  const h = BG.replace("#", ""); bgCol = [0, 2, 4].map((k) => parseInt(h.slice(k, k + 2), 16));
+  phosphor(mg, pw, ph, si);
+  const c = sceneCanvas().getContext("2d")!, x = stationAt.left ? stationAt.x - W - 2 : stationAt.x + 2, y = stationAt.y;
+  c.save(); c.globalAlpha = stationAt.a;
+  c.imageSmoothingEnabled = false; c.drawImage(mc, x, y, W, H);
+  c.strokeStyle = sc(si, 0.8); c.lineWidth = 1; c.strokeRect(x - 0.5, y - 0.5, W + 1, H + 1);
+  c.fillStyle = state.onAir && lampLit(now) ? "#ff4d6d" : sc(si, 0.5); c.font = '600 7px "Martian Mono", monospace'; c.textAlign = "left"; c.textBaseline = "top";
+  c.fillText("● LIVE", x + 3, y + 3);
+  c.fillStyle = sc(si, 0.9); c.textAlign = "right"; c.fillText(["DJ", "POOL", "BEACH"][shot], x + W - 3, y + 3);
+  c.restore();
 }
