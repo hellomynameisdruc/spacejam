@@ -3,7 +3,7 @@ import { esc, pad } from "../core/util";
 import { $ } from "../core/dom";
 import { beacons, chunk, flightLog, galaxy, tracks } from "../app/state";
 import { select } from "../app/actions";
-import { toggleComms } from "./comms";
+import { openComms } from "./comms";
 
 /** a saved entry's place on the current map: by YouTube id within its star (found by name), or by its
  * saved numbers if the map hasn't been rebuilt since; null if it can't be found */
@@ -48,11 +48,14 @@ export async function renderBeacons() {
     }).join("");
 }
 
-type Tab = "log" | "liked";
+type Tab = "log" | "liked" | "comms";
 function showTab(tab: Tab) {
-  $("log").hidden = tab !== "log"; $("liked").hidden = tab !== "liked";
+  $("log").hidden = tab !== "log"; $("liked").hidden = tab !== "liked"; $("comms").hidden = tab !== "comms";
+  ($("log").parentElement as HTMLElement).hidden = tab === "comms";
   $("tabLog").setAttribute("aria-selected", String(tab === "log")); $("tabLiked").setAttribute("aria-selected", String(tab === "liked"));
+  $("tabComms").setAttribute("aria-selected", String(tab === "comms"));
   if (tab === "liked") renderBeacons();
+  if (tab === "comms") openComms();
 }
 
 export function initLogPanel() {
@@ -65,5 +68,5 @@ export function initLogPanel() {
   });
   $("tabLog").onclick = () => showTab("log");
   $("tabLiked").onclick = () => showTab("liked");
-  $("tabComms").onclick = toggleComms;
+  $("tabComms").onclick = () => showTab("comms");
 }

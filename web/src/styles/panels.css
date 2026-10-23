@@ -1,5 +1,6 @@
 /* The panel under the dossier: FLIGHT LOG, BEACONS and COMMS (the chat, its rooms, ON AIR). */
-.logp { flex: none; height: clamp(120px, 27%, 250px) }
+/* one height for every tab: switching between them never moves the dossier above */
+.logp { flex: none; height: clamp(200px, 40%, 400px) }
 .log { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px 8px }
 .loglines { display: flex; flex-direction: column; font-size: var(--fs-s) }
 .loglines button { display: flex; gap: 10px; background: none; border: 0; padding: 2px 0; cursor: var(--cur-hand, pointer); text-align: left; min-width: 0 }
@@ -25,16 +26,8 @@
 @keyframes ctnews { 50% { box-shadow: var(--glow) } }
 .tabs > .comms-tab b { background: var(--ink); color: var(--inv-ink); padding: 0 4px; text-shadow: none; font-size: var(--fs-xs); line-height: 13px }
 
-/* —— the chat: a drawer that slides out over the left of the map, so nothing else on the page moves */
-.comms-drawer { position: absolute; left: 0; top: 0; bottom: 0; z-index: var(--z-drawer); width: min(380px, 100%);
-  display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; background: rgb(0 0 0 / .92);
-  border-right: 1px solid var(--ink); box-shadow: 8px 0 24px rgb(0 0 0 / .5), var(--glow); animation: drawerin .2s ease-out }
-.comms-drawer[hidden] { display: none }
-@keyframes drawerin { from { transform: translateX(-24px); opacity: 0 } }
-.drawer-head { margin: 0 -10px; padding: 6px 10px }
-.drawer-head > span { display: inline-flex; align-items: center; gap: 8px; color: var(--ink) !important }
-.tabs > .comms-tab[aria-pressed="true"] { background: var(--ink); color: var(--inv-ink); text-shadow: none; box-shadow: var(--glow) }
-.tabs > .comms-tab[aria-pressed="true"] .ct-dot { background: var(--inv-ink); box-shadow: none }
+/* —— the chat */
+.comms { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px 10px 8px; gap: 6px }
 .comms-list { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-s) }
 .msg { display: flex; gap: 8px; align-items: flex-start; min-width: 0 }
 .msg .ava { flex: none; margin-top: 1px; color: var(--ink); border: 1px solid var(--faint) }
@@ -63,9 +56,9 @@
 .rk { color: var(--rk); font-family: var(--f-dot); font-size: var(--fs-xs); letter-spacing: .1em; border: 1px solid var(--rk); padding: 0 3px; line-height: 13px; white-space: nowrap; text-shadow: 0 0 4px var(--rk) }
 
 @media (max-width: 860px) {
-  .logp { height: clamp(92px, 32%, 170px) }
+  .logp { height: clamp(150px, 42%, 280px) }
   .log { padding: 4px 8px 6px }
   .m-x { font-size: var(--fs-l); padding: 0 6px }
 }
-@media (prefers-reduced-motion: reduce) { .ct-dot, .comms-tab.news, .comms-drawer { animation: none } }
+@media (prefers-reduced-motion: reduce) { .ct-dot, .comms-tab.news { animation: none } }
 .ph-head.tabs { justify-content: flex-start }

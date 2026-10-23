@@ -78,13 +78,6 @@
             </div>
           </div>
           <button type="button" class="dock-pill" id="dockPill" hidden><span>▶ RESUME</span><b id="pillTitle"></b></button>
-          <aside class="comms comms-drawer" id="comms" aria-label="COMMS: the pilots' channel" hidden>
-            <div class="ph-head drawer-head"><span><i class="ct-dot" aria-hidden="true"></i> COMMS</span><button type="button" class="key icon sm" id="commsClose" aria-label="Close COMMS" title="Close (Esc)">×</button></div>
-            <div class="tabs sub" role="tablist"><button type="button" data-ch="all" aria-selected="true">ALL</button><button type="button" data-ch="fleet" id="chFleet" hidden>FLEET <b id="fleetN"></b></button><button type="button" data-ch="air">ON AIR <b id="airN"></b></button></div>
-            <div class="comms-list" id="commsList" aria-live="polite"></div>
-            <p class="fmsg" id="commsNote" role="status" hidden></p>
-            <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input class="field" id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key sm">SEND</button></form>
-          </aside>
           <div class="rail" id="rail" role="status" aria-live="polite" hidden></div>
           <div class="route" id="routeBox" hidden>
             <div class="route-head"><span class="dock-k">ODYSSEY</span><span class="route-t" id="routeTitle"></span>
@@ -118,13 +111,18 @@
           <div class="ph-head tabs" role="tablist">
             <button type="button" role="tab" id="tabLog" aria-selected="true">FLIGHT LOG</button>
             <button type="button" role="tab" id="tabLiked" aria-selected="false">BEACONS <b id="likedN">0</b></button>
-            <button type="button" id="tabComms" class="comms-tab" aria-pressed="false" aria-controls="comms" title="Open COMMS, the pilots' channel (C)"><i class="ct-dot" aria-hidden="true"></i>COMMS <b id="commsUnread" hidden></b></button>
+            <button type="button" role="tab" id="tabComms" class="comms-tab" aria-selected="false"><i class="ct-dot" aria-hidden="true"></i>COMMS <b id="commsUnread" hidden></b></button>
           </div>
           <div class="log">
             <div class="loglines" id="log"></div>
             <div class="loglines" id="liked" hidden></div>
           </div>
-
+          <div class="comms" id="comms" hidden>
+            <div class="tabs sub" role="tablist"><button type="button" data-ch="all" aria-selected="true">ALL</button><button type="button" data-ch="fleet" id="chFleet" hidden>FLEET <b id="fleetN"></b></button><button type="button" data-ch="air">ON AIR <b id="airN"></b></button></div>
+            <div class="comms-list" id="commsList" aria-live="polite"></div>
+            <p class="fmsg" id="commsNote" role="status" hidden></p>
+            <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input class="field" id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key sm">SEND</button></form>
+          </div>
         </section>
       </div>
     </main>
@@ -135,7 +133,7 @@
         <input id="q" type="search" placeholder="search: style, label or artist" autocomplete="off" spellcheck="false">
         <div class="results" id="results" hidden></div>
       </div>
-      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>L</kbd>BEACON <kbd>C</kbd>COMMS <kbd>?</kbd>HELP <kbd>ESC</kbd>BACK</div>
+      <div class="hints" aria-hidden="true"><kbd>/</kbd>SEARCH <kbd>␣</kbd>PAUSE <kbd>N</kbd>NEXT <kbd>L</kbd>BEACON <kbd>?</kbd>HELP <kbd>ESC</kbd>BACK</div>
       <span class="copy">HELLOMYNAMEISDRUC © 2026</span>
     </footer>
   </div>
