@@ -1,0 +1,65 @@
+/* The scanner: the map's two canvases, the controls under it, the odyssey panel floating on it,
+   and the message rail along its top. */
+.viewport { position: relative; flex: 1; min-height: 0; overflow: hidden }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: var(--cur-cross, crosshair) }
+canvas.drag { cursor: var(--cur-move, grabbing) }
+#skyBg { inset: auto; left: -200px; top: -200px; width: calc(100% + 400px); height: calc(100% + 400px); pointer-events: none; will-change: transform; transform-origin: 0 0 }
+.wormhole { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; display: none }
+.banner {
+  position: absolute; left: 10px; top: 10px; max-width: min(420px, calc(100% - 20px)); z-index: var(--z-map); cursor: var(--cur-hand, pointer);
+  border: 1px dashed var(--line); background: rgb(0 0 0 / .7); padding: 7px 10px; font-size: var(--fs-s); line-height: 1.55; color: var(--dim)
+}
+.banner b { color: var(--ink); font-weight: 400; font-family: var(--f-dot); letter-spacing: .1em; margin-right: 6px }
+.readout { font-size: var(--fs-s); color: var(--dim); font-variant-numeric: tabular-nums; white-space: pre }
+.ctrl { display: flex; gap: 6px; flex-wrap: wrap }
+
+/* —— the message rail: modes (◆), on air (●), done (✓), trouble (!) — one line, one place */
+.rail { display: flex; align-items: center; gap: 10px; padding: 5px 6px 5px 6px; background: rgb(0 0 0 / .88); border: 1px solid var(--ink); box-shadow: var(--glow);
+  font-family: var(--f-dot); font-size: var(--fs-s); letter-spacing: .1em; color: var(--dim); min-width: 0; animation: railin .18s ease-out }
+#rail { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: var(--z-rail); max-width: calc(100% - 20px); width: max-content }
+.rail-tag { flex: none; display: inline-flex; align-items: center; gap: 4px; background: var(--ink); color: var(--inv-ink); text-shadow: none; padding: 1px 5px; line-height: 1.3 }
+.rail-tag .ico { width: 11px; height: 11px }
+.rail-t { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.4 }
+.rail-t b { color: var(--ink); font-weight: 400 }
+.rail .key { flex: none; padding: 3px 6px; font-size: var(--fs-xs) }
+.rail.ok .rail-t { color: var(--ink) }
+.rail.mode { animation: railin .18s ease-out, frameblink 1.2s steps(2) .2s infinite }
+.rail.err { border-color: var(--red); box-shadow: var(--red-glow) }
+.rail.err .rail-tag { background: var(--red); color: #fff }
+.rail.err .rail-t { color: var(--red-ink) }
+.rail.live .rail-tag { background: var(--red); color: #fff; animation: blink 1.1s steps(1) infinite }
+@keyframes railin { from { opacity: 0; transform: translate(-50%, -6px) } }
+.modal-rail { animation: none }
+@media (prefers-reduced-motion: reduce) { .rail, .rail.mode, .rail.live .rail-tag { animation: none } }
+
+/* —— the odyssey panel */
+.route { position: absolute; left: 10px; top: 10px; z-index: var(--z-map); width: min(300px, calc(100% - 20px)); max-height: calc(100% - 20px);
+  display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; background: rgb(0 0 0 / .84);
+  border: 1px solid color-mix(in srgb, var(--acc) 70%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--acc) 30%, transparent) }
+.route-head { display: flex; align-items: flex-start; gap: 6px; padding-top: 6px; min-width: 0 }
+/* the title wraps (up to three lines) instead of cutting long label names short */
+.route-t { flex: 1; min-width: 0; font-family: var(--f-dot); font-size: var(--fs-m); letter-spacing: .06em; line-height: 1.35; color: var(--ink);
+  overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3 }
+.route-t i { font-style: normal; color: var(--acc) }
+.route-meta { font-size: var(--fs-xs); color: var(--dim); letter-spacing: .04em; line-height: 1.45 }
+.route-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; display: grid; gap: 6px }
+.route-list li { border-left: 2px solid var(--c); padding-left: 8px; display: grid; gap: 1px }
+.rs { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font-size: var(--fs-xs); color: var(--dim); letter-spacing: .06em }
+.rs b { font-family: var(--f-dot); font-weight: 400; color: var(--c) }
+.rp { background: none; border: 0; padding: 0; font-family: var(--f-dot); font-size: var(--fs-m); letter-spacing: .05em; color: var(--ink); cursor: var(--cur-hand, pointer); text-align: left }
+.rp:hover { color: var(--c) }
+.rt { display: flex; gap: 6px; background: none; border: 0; padding: 1px 0; text-align: left; font-size: var(--fs-s); color: var(--dim); cursor: var(--cur-hand, pointer); min-width: 0 }
+.rt .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.rt .t i { font-style: normal; color: var(--acc); margin-right: 2px }
+.rt:hover, .rt.on { color: var(--ink) }
+.rt.on span:first-child { color: var(--c) }
+.route .play { padding: 7px; font-size: var(--fs-m) }
+
+@media (max-width: 860px) {
+  .banner { left: 6px; right: 6px; top: 6px; max-width: none; padding: 5px 8px; font-size: var(--fs-xs); line-height: 1.4 }
+  .ctrl { flex-wrap: nowrap; width: 100% }
+  .ctrl .key:not(.sq) { flex: 1; justify-content: center }
+  .readout { display: none }
+  #rail { top: 6px; max-width: calc(100% - 12px); width: calc(100% - 12px); font-size: var(--fs-xs); flex-wrap: wrap }
+  .rail .key { min-height: 26px }
+}

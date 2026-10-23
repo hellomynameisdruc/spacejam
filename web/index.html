@@ -29,8 +29,8 @@
       <div class="brand"><span class="inv">SOUND COSMOS</span><span class="sub">OBSERVATORY // SECTOR <b id="sector">HOUSE</b></span></div>
       <div class="ticker" aria-hidden="true"><div class="ticker-in" id="ticker"></div></div>
       <div class="sys">
-        <button type="button" class="pilot-btn" id="pilotBtn"><span>SIGN IN</span></button>
-        <button type="button" class="help" id="help" aria-label="Safety briefing: how to use the observatory" title="Safety briefing: how it works (?)">?</button>
+        <button type="button" class="key sm pilot-btn" id="pilotBtn"><span>SIGN IN</span></button>
+        <button type="button" class="key icon sm" id="help" aria-label="Safety briefing: how to use the observatory" title="Safety briefing: how it works (?)">?</button>
         <div class="phos" role="group" aria-label="Phosphor colour">
           <button type="button" data-ph="violet" aria-label="Violet phosphor"></button>
           <button type="button" data-ph="green" aria-label="Green phosphor"></button>
@@ -52,11 +52,10 @@
           <div class="dock" id="playerBox" hidden>
             <div class="dock-head" id="dockHead">
               <span class="live" id="live">●</span><span class="dock-k">ON AIR</span>              <span class="grip" aria-hidden="true">⠿</span>
-              <button type="button" class="dock-btn cast" id="dockCast" aria-label="Broadcast"></button>
-              <button type="button" class="dock-btn" id="dockFind" aria-label="Fly back to the track on air" title="Fly back to the track on air">◎</button>
-              <button type="button" class="dock-btn" id="dockMin" aria-label="Minimise and pause">_</button>
+              <button type="button" class="key icon sm cast" id="dockCast" aria-label="Broadcast"></button>
+              <button type="button" class="key icon sm" id="dockFind" aria-label="Fly back to the track on air" title="Fly back to the track on air">◎</button>
+              <button type="button" class="key icon sm" id="dockMin" aria-label="Minimise and pause">_</button>
             </div>
-            <div class="fleet-bar" id="fleetBar" hidden></div>
             <div class="video" id="videoWrap"><div id="yt"></div></div>
             <div class="dock-np"><span class="dock-ody" id="dockOdy" hidden>ODYSSEY <b id="dockOdyN"></b></span><span class="np-t" id="npTitle">—</span><span class="np-a" id="npArtist"></span></div>
             <div class="seek">
@@ -77,14 +76,13 @@
                 <label class="tog" title="Autopilot: fly to the nearest unheard track when this one ends"><input id="autopilot" type="checkbox" checked><span>AUTO</span></label>
               </div>
             </div>
-            <p class="pmsg" id="pMsg" hidden></p>
           </div>
           <button type="button" class="dock-pill" id="dockPill" hidden><span>▶ RESUME</span><b id="pillTitle"></b></button>
-          <div class="route-hint" id="routeHint" hidden><span id="routeHintText"></span><button type="button" class="key" id="routeCancel">CANCEL <kbd>ESC</kbd></button></div>
+          <div class="rail" id="rail" role="status" aria-live="polite" hidden></div>
           <div class="route" id="routeBox" hidden>
             <div class="route-head"><span class="dock-k">ODYSSEY</span><span class="route-t" id="routeTitle"></span>
-              <button type="button" class="dock-btn" id="routeFit" aria-label="Show the whole odyssey">⤢</button>
-              <button type="button" class="dock-btn" id="routeClose" aria-label="End the odyssey">×</button></div>
+              <button type="button" class="key icon sm" id="routeFit" aria-label="Show the whole odyssey">⤢</button>
+              <button type="button" class="key icon sm" id="routeClose" aria-label="End the odyssey">×</button></div>
             <div class="route-meta" id="routeMeta"></div>
             <ol class="route-list" id="routeList"></ol>
             <button type="button" class="play" id="routePlay">▶ PLAY ODYSSEY</button>
@@ -110,7 +108,7 @@
           <div class="dbody" id="detail"></div>
         </aside>
         <section class="panel logp" aria-label="Flight log and beacons">
-          <div class="ph-head logtabs" role="tablist">
+          <div class="ph-head tabs" role="tablist">
             <button type="button" role="tab" id="tabLog" aria-selected="true">FLIGHT LOG</button>
             <button type="button" role="tab" id="tabLiked" aria-selected="false">BEACONS <b id="likedN">0</b></button>
             <button type="button" role="tab" id="tabComms" class="comms-tab" aria-selected="false"><i class="ct-dot" aria-hidden="true"></i>COMMS <b id="commsUnread" hidden></b></button>
@@ -120,10 +118,10 @@
             <div class="loglines" id="liked" hidden></div>
           </div>
           <div class="comms" id="comms" hidden>
-            <div class="comms-ch" role="tablist"><button type="button" data-ch="all" aria-selected="true">ALL</button><button type="button" data-ch="fleet" id="chFleet" hidden>FLEET <b id="fleetN"></b></button><button type="button" data-ch="air">ON AIR <b id="airN"></b></button></div>
+            <div class="tabs sub" role="tablist"><button type="button" data-ch="all" aria-selected="true">ALL</button><button type="button" data-ch="fleet" id="chFleet" hidden>FLEET <b id="fleetN"></b></button><button type="button" data-ch="air">ON AIR <b id="airN"></b></button></div>
             <div class="comms-list" id="commsList" aria-live="polite"></div>
-            <p class="comms-note" id="commsNote" role="status" hidden></p>
-            <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key">SEND</button></form>
+            <p class="fmsg" id="commsNote" role="status" hidden></p>
+            <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input class="field" id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key sm">SEND</button></form>
           </div>
         </section>
       </div>
@@ -140,8 +138,8 @@
     </footer>
   </div>
 
-  <div class="brief pilot-box" id="pilotBox" role="dialog" aria-modal="true" aria-label="Pilot profile" hidden></div>
-  <div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Pre-flight safety briefing" hidden></div>
+  <div class="overlay" id="pilotBox" role="dialog" aria-modal="true" aria-label="Pilot profile" hidden></div>
+  <div class="overlay" id="brief" role="dialog" aria-modal="true" aria-label="Pre-flight safety briefing" hidden></div>
 
   <script type="module" src="/src/main.ts"></script>
 </body>

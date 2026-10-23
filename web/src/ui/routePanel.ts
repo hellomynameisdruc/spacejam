@@ -6,20 +6,15 @@ import { stopKind } from "../model/routes";
 import { clearRoute, endPick, fitRoute, playRouteAt, select, toggleRoutePlayback } from "../app/actions";
 import { cam } from "../render/camera";
 import { paintOdysseyTag } from "./dock";
+import { clearMode, say, setMode } from "./rail";
 
 export function showPickHint(fromName: string) {
-  clearTimeout(denyT); denyT = 0;
-  $("routeHintText").innerHTML = `ODYSSEY FROM <b>${esc(fromName.toUpperCase())}</b> · CLICK A DESTINATION PLANET OR STAR`;
-  $("routeHint").hidden = false;
+  setMode("pick", `ODYSSEY FROM <b>${esc(fromName.toUpperCase())}</b> · CLICK A DESTINATION PLANET OR STAR`, [{ label: "CANCEL", kbd: "ESC", run: endPick }]);
 }
-export function hidePickHint() { $("routeHint").hidden = true; }
-let denyT = 0, pickText = "";
-/** a click inside the origin's own system: say so in the hint for a moment */
+export function hidePickHint() { clearMode("pick"); }
+/** a click inside the origin's own system: HAL 9000 keeps the pod bay doors shut */
 export function denyPick(starName: string) {
-  const el = $("routeHintText"); if (!denyT) pickText = el.innerHTML;
-  // HAL 9000 keeps the pod bay doors shut
-  el.innerHTML = `<b class="deny">✕ I'M SORRY. I'M AFRAID I CAN'T DO THAT.</b> ${esc(starName.toUpperCase())} IS WHERE THE ODYSSEY STARTS`;
-  clearTimeout(denyT); denyT = window.setTimeout(() => { el.innerHTML = pickText; denyT = 0; }, 2800);
+  say(`I'm sorry. I'm afraid I can't do that. ${starName} is where the odyssey starts`, "err");
 }
 
 /** width the panel takes on wide screens, so the camera can keep the route clear of it */
@@ -54,5 +49,4 @@ export function initRoutePanel() {
   $("routePlay").onclick = toggleRoutePlayback;
   $("routeClose").onclick = clearRoute;
   $("routeFit").onclick = fitRoute;
-  $("routeCancel").onclick = endPick;
 }

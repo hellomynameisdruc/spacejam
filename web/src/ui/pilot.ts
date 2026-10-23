@@ -7,7 +7,8 @@ import { beacons, flightLog } from "../app/state";
 import { cloud, cloudWanted } from "../cloud/client";
 import { avatarSvg, avatarTraits } from "./avatar";
 import { rankTag } from "./ranks";
-import { toast } from "./toast";
+import { say } from "./rail";
+import { closeModal, openModal } from "./modal";
 
 export type Pilot = { id: string; nick: string; avatar: number; rank?: string; admin?: boolean };
 /** the pilot columns to read; without ranks if the database hasn't got them yet */
@@ -60,7 +61,7 @@ async function connect() {
     const err = q.get("error_description");
     history.replaceState(null, "", location.pathname + location.hash);
     if (err || !pilot.session) { note = err ? `SIGN-IN FAILED: ${err}` : "SIGN-IN FAILED. OPEN THE LINK IN THE SAME BROWSER YOU ASKED FOR IT IN, OR ASK FOR A NEW ONE."; openPilot(); }
-    else toast(`Signed in. Welcome aboard, ${pilot.me?.nick ?? "pilot"}`);
+    else say(`Signed in. Welcome aboard, ${pilot.me?.nick ?? "pilot"}`);
   }
 }
 
@@ -76,7 +77,7 @@ function render() {
     ? `<div class="pl-id">${avatarSvg(me.avatar, 96, "ava big")}
         <div class="pl-f">
           <label for="plNick">CALL SIGN ${rankTag(me.rank)}</label>
-          <div class="pl-row"><input id="plNick" value="${esc(me.nick)}" maxlength="20" autocomplete="off" spellcheck="false"><button type="button" class="key" id="plSave">SAVE</button></div>
+          <div class="row-in"><input class="field" id="plNick" value="${esc(me.nick)}" maxlength="20" autocomplete="off" spellcheck="false"><button type="button" class="key" id="plSave">SAVE</button></div>
           <button type="button" class="key" id="plFace">↻ NEW PORTRAIT</button>
           <p class="pl-traits">${avatarTraits(me.avatar).map((t) => esc(t.toUpperCase())).join(" · ")}</p>
         </div></div>
@@ -91,13 +92,17 @@ function render() {
            <div class="pl-foot"><button type="button" class="key" id="plAgain">USE ANOTHER EMAIL</button></div>`
         : `<button type="button" class="key hot pl-google" id="plGoogle"><svg viewBox="0 0 14 14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 1h5v1h2v1h-2v1H9V3H5v1H4v1H3v4h1v1h1v1h4v-1h1V9H7V7h5v4h-1v1h-1v1H5v-1H3v-1H2v-1H1V4h1V3h1V2h2z"/></svg>SIGN IN WITH GOOGLE</button>
            <p class="pl-or">OR A LINK SENT TO YOUR EMAIL, NO PASSWORD</p>
-           <form class="pl-row" id="plForm"><input id="plMail" type="email" required placeholder="you@example.com" autocomplete="email" spellcheck="false"><button class="key hot" ${busy ? "disabled" : ""}>SEND LINK ▸</button></form>`;
-  el.innerHTML = `<div class="pl-card" role="document">
-    <div class="brief-head"><span class="inv">PILOT</span><span>${me ? "REGISTRY // PROFILE" : "REGISTRY // SIGN IN"}</span><button type="button" class="dock-btn" id="plClose" aria-label="Close">×</button></div>
-    ${body}
-    ${note ? `<p class="pl-note" role="status">${esc(note)}</p>` : ""}
-    <p class="pl-small pl-priv">We keep your email (to sign you in), your call sign, portrait number and the messages you send. Deleting the account removes all of it. <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></p>
-  </div>`;
+           <form class="row-in" id="plForm"><input class="field" id="plMail" type="email" required placeholder="you@example.com" autocomplete="email" spellcheck="false"><button class="key hot" ${busy ? "disabled" : ""}>SEND LINK ▸</button></form>`;
+  if (!el.firstChild) {
+    el.innerHTML = `<div class="card pl-card" role="document">
+      <div class="card-head"><span class="inv">PILOT</span><span id="plTitle"></span><button type="button" class="key icon sm" id="plClose" aria-label="Close">×</button></div>
+      <div class="modal-rail" role="status" aria-live="polite" hidden></div>
+      <div class="pl-body" id="plBody"></div>
+      <p class="pl-small pl-priv">We keep your email (to sign you in), your call sign, portrait number and the messages you send. Deleting the account removes all of it. <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></p>
+    </div>`;
+  }
+  $("plTitle").textContent = me ? "REGISTRY // PROFILE" : "REGISTRY // SIGN IN";
+  $("plBody").innerHTML = body + (note ? `<p class="fmsg err" role="alert">${esc(note)}</p>` : "");
   const on = (id: string, f: () => void) => { const b = document.getElementById(id); if (b) b.onclick = f; };
   on("plClose", closePilot);
   on("plAgain", () => { sentTo = ""; note = ""; render(); });
@@ -107,7 +112,7 @@ function render() {
   on("plDel", deleteMe);
   on("plGoogle", google);
   const f = document.getElementById("plForm") as HTMLFormElement | null;
-  if (f) { f.onsubmit = (e) => { e.preventDefault(); sendLink(); }; ($("plMail") as HTMLInputElement).focus(); }
+  if (f) f.onsubmit = (e) => { e.preventDefault(); sendLink(); };
   const n = document.getElementById("plNick") as HTMLInputElement | null;
   if (n) n.onkeydown = (e) => { if (e.key === "Enter") saveNick(); };
 }
@@ -137,7 +142,7 @@ async function saveNick() {
   if (v === me.nick) return;
   const { error } = await (await cloud()).from("pilots").update({ nick: v }).eq("id", me.id);
   note = error ? (error.code === "23505" ? "THAT CALL SIGN IS TAKEN." : `COULD NOT SAVE: ${error.message}`) : "";
-  if (!error) toast(`Call sign saved: ${v}`);
+  if (!error) say(`Call sign saved: ${v}`);
   if (!error) me.nick = v;
   changed();
 }
@@ -146,13 +151,13 @@ async function newFace() {
   const me = pilot.me; if (!me) return;
   const avatar = Math.floor(Math.random() * 2147483647);
   const { error } = await (await cloud()).from("pilots").update({ avatar }).eq("id", me.id);
-  if (error) note = `COULD NOT SAVE: ${error.message}`; else { me.avatar = avatar; note = ""; toast("New portrait saved"); }
+  if (error) note = `COULD NOT SAVE: ${error.message}`; else { me.avatar = avatar; note = ""; say("New portrait saved"); }
   changed();
 }
 
 async function signOut() {
   await (await cloud()).auth.signOut();
-  pilot.session = null; pilot.me = null; note = ""; sentTo = ""; changed(); toast("Signed out");
+  pilot.session = null; pilot.me = null; note = ""; sentTo = ""; changed(); say("Signed out");
 }
 
 async function deleteMe() {
@@ -161,24 +166,19 @@ async function deleteMe() {
   confirmDelete = false;
   if (error) { note = `COULD NOT DELETE: ${error.message}`; render(); return; }
   await sb.auth.signOut().catch(() => {});
-  pilot.session = null; pilot.me = null; note = "ACCOUNT DELETED."; changed(); toast("Account deleted");
+  pilot.session = null; pilot.me = null; note = "ACCOUNT DELETED."; changed(); say("Account deleted");
 }
 
 export function openPilot() {
-  const el = $("pilotBox"); el.hidden = false; confirmDelete = false; render();
+  const el = $("pilotBox"); confirmDelete = false; render();
+  openModal(el, closePilot, { focus: document.getElementById("plMail") ?? document.getElementById("plGoogle") });
   wake(); // connect while the email is typed
 }
-export function closePilot() { $("pilotBox").hidden = true; note = ""; confirmDelete = false; }
+export function closePilot() { closeModal($("pilotBox")); note = ""; confirmDelete = false; }
 export const pilotOpen = () => !$("pilotBox").hidden;
 
 export function initPilot() {
   paintButton();
   $("pilotBtn").onclick = () => (pilotOpen() ? closePilot() : openPilot());
-  $("pilotBox").onclick = (e) => { if (e.target === $("pilotBox")) closePilot(); };
-  addEventListener("keydown", (e) => {
-    if (!pilotOpen()) return;
-    if (e.key === "Escape") { e.preventDefault(); closePilot(); }
-    e.stopImmediatePropagation(); // the card has the keyboard while it is open
-  }, true);
   if (cloudWanted()) wake();
 }

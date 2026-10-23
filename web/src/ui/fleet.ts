@@ -16,7 +16,7 @@ import { onFrame } from "../render/scene";
 import { ICON, player, playTestSignal } from "./dock";
 import { lookup, openPilot, pilot, roster } from "./pilot";
 import { rankOf } from "./ranks";
-import { flashKey, toast } from "./toast";
+import { clearMode, say, setMode } from "./rail";
 
 export type Who = { id: string; nick: string; avatar: number; rank?: string };
 export type Host = Who & { title: string; artist: string; style: string; n: number };
@@ -28,7 +28,6 @@ export const fleet = {
   host: null as Who | null,
   crew: [] as Who[],
   hosts: [] as Host[],
-  note: "",
 };
 const subs: (() => void)[] = [];
 export const onFleet = (f: () => void) => { subs.push(f); };
@@ -78,7 +77,7 @@ function announce() {
 let fc: RealtimeChannel | null = null, seenHost = false, expectYt = "", offMap = "", lastSync = 0, joinTimer = 0;
 async function board(hostId: string, role: "host" | "crew") {
   await disembark();
-  fleet.role = role; fleet.hostId = hostId; fleet.crew = []; fleet.host = role === "host" ? me() : null; fleet.note = ""; seenHost = false;
+  fleet.role = role; fleet.hostId = hostId; fleet.crew = []; fleet.host = role === "host" ? me() : null; seenHost = false;
   emit();
   const sb = await cloud();
   const c = sb.channel(`fleet:${hostId}`, { config: { private: true, broadcast: { self: false }, presence: { key: `${me().id}-${Math.random().toString(36).slice(2, 6)}` } } });
@@ -87,18 +86,18 @@ async function board(hostId: string, role: "host" | "crew") {
     fleet.crew = all.filter((w) => !w.host && !ids.has(w.id) && ids.add(w.id));
     const h = all.find((w) => w.host);
     if (h) { fleet.host = h; seenHost = true; }
-    else if (role === "crew" && seenHost) { leave("THE HOST WENT OFF AIR."); return; }
+    else if (role === "crew" && seenHost) { leave("The host went off air"); return; }
     emit(); announce();
     if (role === "host") sendSync(); // someone came aboard: tell them where we are
   });
   c.on("broadcast", { event: "sync" }, ({ payload }) => { if (fleet.role === "crew") follow(payload as Sync); });
-  c.on("broadcast", { event: "end" }, () => { if (fleet.role === "crew") leave("THE BROADCAST HAS ENDED."); });
-  try { await subscribed(c); } catch { fleet.role = null; fleet.note = "NO SIGNAL. TRY AGAIN IN A MOMENT."; emit(); return; }
+  c.on("broadcast", { event: "end" }, () => { if (fleet.role === "crew") leave("The broadcast has ended"); });
+  try { await subscribed(c); } catch { fleet.role = null; emit(); say("No signal from the fleet. Try again in a moment", "err"); return; }
   fc = c;
   await c.track({ ...me(), host: role === "host" }).catch(() => {}); // a guest listens without showing up
   if (role === "crew") {
     clearTimeout(joinTimer);
-    joinTimer = window.setTimeout(() => { if (fleet.role === "crew" && !seenHost) leave("NOBODY IS BROADCASTING ON THIS FREQUENCY."); }, 7000);
+    joinTimer = window.setTimeout(() => { if (fleet.role === "crew" && !seenHost) leave("Nobody is broadcasting on this frequency"); }, 7000);
   } else sendSync();
 }
 async function disembark() {
@@ -113,25 +112,25 @@ export async function startBroadcast() {
   await watchOnAir().catch(() => {});
   await board(pilot.me.id, "host");
   announce();
-  if (fleet.role === "host") toast("You are on air: pilots can tune in from ON AIR or your invite link");
+  if (fleet.role === "host") say("You are on air: pilots can tune in from ON AIR or your invite link");
 }
 export async function endBroadcast() {
   if (fleet.role !== "host") return;
   fc?.send({ type: "broadcast", event: "end", payload: {} });
   air?.untrack(); lastAnnounce = "";
   await disembark(); fleet.role = null; fleet.crew = []; emit();
-  toast("Broadcast ended");
+  say("Broadcast ended");
 }
 export async function tuneIn(hostId: string) {
   if (fleet.role === "host") await endBroadcast();
   if (pilot.me && hostId === pilot.me.id) return;
   await board(hostId, "crew");
-  if (fleet.role === "crew") toast("Tuned in: you hear what the host hears");
+  if (fleet.role === "crew") say("Tuned in: you hear what the host hears");
 }
 export async function leave(why = "") {
-  if (!why && fleet.role === "crew") toast("You left the fleet");
-  await disembark(); fleet.role = null; fleet.host = null; fleet.crew = []; fleet.note = why; emit();
-  if (why) setTimeout(() => { if (fleet.note === why) { fleet.note = ""; emit(); } }, 6000);
+  if (!why && fleet.role === "crew") say("You left the fleet");
+  await disembark(); fleet.role = null; fleet.host = null; fleet.crew = []; emit();
+  if (why) say(why, "info");
 }
 /** the fleet's room in COMMS */
 export const fleetRoom = () => (fleet.role ? `f:${fleet.hostId}` : null);
@@ -172,32 +171,23 @@ function align(p: Sync) {
   if (p.playing && Math.abs(player.time() - (p.t + 0.3)) > 2.5) player.seek(p.t + 0.3);
 }
 
-// —— the bar in the player
+// —— the fleet on the rail: on air (or tuned in) is a mode, with its keys
 function paintBar() {
-  const bar = $("fleetBar"), cast = $("dockCast");
+  const cast = $("dockCast");
   cast.classList.toggle("on", fleet.role === "host"); cast.hidden = fleet.role === "crew";
   cast.title = fleet.role === "host" ? "Broadcasting: other pilots can tune in. Click to stop" : "Broadcast: let other pilots tune in and listen with you";
-  if (!fleet.role && !fleet.note) { bar.hidden = true; return; }
-  bar.hidden = false;
   const n = fleet.crew.length - (fleet.role === "crew" ? 1 : 0);
-  bar.innerHTML = fleet.role === "host"
-    ? `<span class="fl-on">${ICON.cast}LIVE</span><span class="fl-n">${n} TUNED IN</span><button type="button" class="dock-btn fl-b" data-fl="invite" title="Copy the invite link">INVITE</button><button type="button" class="dock-btn fl-b" data-fl="end">END</button>`
-    : fleet.role === "crew"
-      ? `<span class="fl-on">⇢ TUNED IN</span><span class="fl-n">${esc((fleet.host ? known(fleet.host).nick : "…").toUpperCase())}${n > 0 ? ` +${n}` : ""}</span><button type="button" class="dock-btn fl-b" data-fl="leave">LEAVE</button>`
-      : `<span class="fl-n">${esc(fleet.note)}</span>`;
+  if (fleet.role === "host") setMode("fleet", `<b>ON AIR</b> · ${n} ${n === 1 ? "PILOT" : "PILOTS"} TUNED IN`, [{ label: "INVITE", run: copyInvite }, { label: "END", run: endBroadcast }], "live", `${ICON.cast}`);
+  else if (fleet.role === "crew") setMode("fleet", `TUNED IN TO <b>${esc((fleet.host ? known(fleet.host).nick : "…").toUpperCase())}</b>${n > 0 ? ` · +${n} ${n === 1 ? "PILOT" : "PILOTS"}` : ""}`, [{ label: "LEAVE", run: () => leave() }], "live", `${ICON.cast}`);
+  else clearMode("fleet");
 }
 export async function copyInvite() {
-  try { await navigator.clipboard.writeText(inviteLink()); toast("Invite link copied. Paste it to a friend"); return true; }
-  catch { toast(`Copy this link: ${inviteLink()}`, "err"); return false; }
+  try { await navigator.clipboard.writeText(inviteLink()); say("Invite link copied. Paste it to a friend"); return true; }
+  catch { say(`Copy this link: ${inviteLink()}`, "err"); return false; }
 }
 
 export function initFleet() {
   $("dockCast").onclick = () => (fleet.role === "host" ? endBroadcast() : startBroadcast());
-  $("fleetBar").addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>("[data-fl]"); if (!b) return;
-    const a = b.dataset.fl;
-    if (a === "end") endBroadcast(); else if (a === "leave") leave(); else if (a === "invite") copyInvite().then((ok) => { if (ok) flashKey(b, "COPIED ✓"); });
-  });
   // the host: report every change; the crew: notice flying off alone
   let last = 0, lastT = 0;
   onFrame((now) => {
@@ -210,7 +200,7 @@ export function initFleet() {
     }
     if (fleet.role === "crew" && expectYt && now - lastSync > 4000) {
       const np = state.nowPlaying, yt = np ? chunk(np.s)?.yt[np.i] : null;
-      if (yt && yt !== expectYt && offMap !== expectYt) leave("YOU FLEW OFF ON YOUR OWN COURSE. LEFT THE FLEET.");
+      if (yt && yt !== expectYt && offMap !== expectYt) leave("You flew off on your own course and left the fleet");
     }
   });
   addEventListener("beforeunload", () => { if (fleet.role === "host") fc?.send({ type: "broadcast", event: "end", payload: {} }); });

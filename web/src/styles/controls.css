@@ -1,0 +1,56 @@
+/* Controls, one family: keys (three kinds: regular, hot, icon; two sizes), tabs (two levels),
+   fields, sliders, and the short inline message under a form. */
+
+/* —— keys */
+.key {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: transparent; color: var(--ink);
+  border: 1px solid var(--line); padding: 5px 9px; cursor: var(--cur-hand, pointer); font-family: var(--f-dot); font-size: var(--fs-m);
+  letter-spacing: .1em; line-height: 1; white-space: nowrap
+}
+.key:hover { border-color: var(--ink); background: var(--wash) }
+.key.hot, .key:active { background: var(--ink); color: var(--inv-ink); text-shadow: none; box-shadow: var(--glow) }
+.key.hot kbd { border-color: var(--inv-ink); color: var(--inv-ink) }
+.key:disabled { opacity: .45; cursor: default; background: transparent; color: var(--ink); box-shadow: none }
+.key.sq { min-width: 30px; padding: 5px 7px }
+.key.sm { padding: 3px 6px; font-size: var(--fs-xs); min-height: 18px; gap: 5px }
+/* icon keys: square, a glyph or a pixel icon */
+.key.icon { padding: 0; width: 26px; height: 24px; font-size: var(--fs-m); letter-spacing: 0 }
+.key.icon.sm { width: 20px; height: 18px; min-height: 0; font-size: var(--fs-s) }
+.key.icon .ico { width: 12px; height: 12px }
+/* a dashed key in the system's colour: links into the map (cards in COMMS, plot a course) */
+.key.dashed { border: 1px dashed var(--acc); color: var(--acc) }
+.key.dashed:hover { background: color-mix(in srgb, var(--acc) 12%, transparent); box-shadow: var(--glow) }
+.key.danger { border-style: dashed }
+.key.danger:hover { background: var(--red); border-color: var(--red); color: #fff; text-shadow: none }
+/* a key confirming what it just did ("COPIED ✓") */
+.key.done { background: var(--ink) !important; color: var(--inv-ink) !important; border-color: var(--ink) !important; text-shadow: none }
+kbd { font-family: var(--f-mono); font-size: var(--fs-xs); border: 1px solid currentColor; padding: 1px 3px; line-height: 1.1; opacity: .85 }
+
+/* —— tabs: the panel's (underlined) and the sub-tabs inside it (smaller) */
+.tabs { display: flex; align-items: center; gap: 16px }
+.tabs > button { background: none; border: 0; padding: 0 0 1px; font: inherit; letter-spacing: inherit; color: var(--dim); cursor: var(--cur-hand, pointer); border-bottom: 1px solid transparent; display: inline-flex; align-items: center; gap: 5px }
+.tabs > button:hover { color: var(--ink) }
+.tabs > button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink) }
+.tabs > button b { font-weight: 400; color: var(--acc) }
+.tabs.sub { gap: 12px; font-family: var(--f-dot); font-size: var(--fs-xs); letter-spacing: .12em; flex: none }
+
+/* —— fields */
+.field { flex: 1; min-width: 0; background: transparent; border: 1px solid var(--line); color: var(--ink); font: inherit; font-size: var(--fs-m); padding: 5px 8px; outline: none }
+.field:focus { border-color: var(--ink); box-shadow: var(--glow) }
+.field::placeholder { color: var(--faint) }
+.row-in { display: flex; gap: 8px; align-items: stretch }
+
+/* —— sliders */
+input[type="range"] { appearance: none; -webkit-appearance: none; background: transparent; height: 14px; margin: 0; cursor: var(--cur-hand, pointer); width: 100% }
+input[type="range"]::-webkit-slider-runnable-track { height: 6px; border: 1px solid var(--line); background: linear-gradient(90deg, var(--acc) var(--p, 0%), transparent var(--p, 0%)) }
+input[type="range"]::-moz-range-track { height: 6px; border: 1px solid var(--line); background: transparent }
+input[type="range"]::-moz-range-progress { height: 6px; background: var(--acc) }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 6px; height: 14px; margin-top: -5px; background: var(--ink); box-shadow: var(--glow); border: 0 }
+input[type="range"]::-moz-range-thumb { width: 6px; height: 14px; background: var(--ink); border: 0; border-radius: 0 }
+
+/* —— a message right under a form, in the rail's own style */
+.fmsg { margin: 0; display: flex; gap: 8px; align-items: baseline; font-family: var(--f-dot); font-size: var(--fs-xs); letter-spacing: .1em; color: var(--dim); line-height: 1.5 }
+.fmsg::before { content: "›"; flex: none; background: var(--dim); color: var(--inv-ink); padding: 0 4px; text-shadow: none }
+.fmsg.err { color: var(--red-ink) }
+.fmsg.err::before { content: "!"; background: var(--red) }
+.fmsg.ok::before { content: "✓"; background: var(--ink) }

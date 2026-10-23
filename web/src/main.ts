@@ -29,10 +29,14 @@ import { initWormhole } from "./ui/wormhole";
 import { initTheme } from "./ui/theme";
 import { initBriefing } from "./ui/briefing";
 import { initPilot } from "./ui/pilot";
+import { initModals } from "./ui/modal";
+import { initRail } from "./ui/rail";
 import { initComms } from "./ui/comms";
 import { initFleet } from "./ui/fleet";
 import { initSync } from "./cloud/sync";
 
+initModals();
+initRail();
 initScene();
 initDock();
 initDossier();

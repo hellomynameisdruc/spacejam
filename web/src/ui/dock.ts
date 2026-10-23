@@ -9,6 +9,7 @@ import { engageOrbit, next, prev, select, toggleBeacon } from "../app/actions";
 import { onFrame, viewportEl } from "../render/scene";
 import { cam, LOD_TRACKS } from "../render/camera";
 import { ticker } from "./ticker";
+import { say } from "./rail";
 
 // Player keys use one family of pixel icons (14×14 grid), so they match in size and weight
 const svgI = (body: string) => `<svg class="ico" viewBox="0 0 14 14" aria-hidden="true" shape-rendering="crispEdges">${body}</svg>`;
@@ -70,7 +71,7 @@ export function paintOdysseyTag() {
 /** put a track on air */
 export function loadInDock(ref: TrackRef) {
   const ch = chunk(ref.s)!;
-  showDock(); $("pMsg").hidden = true;
+  showDock();
   for (const id of ["playerBox", "dockPill"]) $(id).style.setProperty("--acc", galaxy.stars[ref.s].color);
   player.play(ch.yt[ref.i]);
   paintBeaconKey(); paintOdysseyTag();
@@ -91,12 +92,11 @@ export function initDock() {
   player = new Player("yt", {
     onEnded: () => { if (!state.following && $<HTMLInputElement>("autopilot").checked) next(); },
     onError: (code) => {
-      const m = $("pMsg"); m.hidden = false;
       // removed, private (100) or not allowed on other sites (101, 150): that signal is dead for good,
       // so remember it and never steer here again. Other errors may pass, so those are only skipped.
       const gone = code === 100 || code === 101 || code === 150, np = state.nowPlaying, ch = np && chunk(np.s);
       if (gone && np && ch) { dead.add(ch.yt[np.i]); state.dirty = true; }
-      m.textContent = code === 101 || code === 150 ? "! EMBEDDING DISABLED BY OWNER. SIGNAL MARKED DARK, JUMPING ON…" : gone ? "! SIGNAL LOST: VIDEO REMOVED. MARKED DARK, JUMPING ON…" : "! VIDEO UNAVAILABLE. JUMPING TO A NEARBY SIGNAL…";
+      say(code === 101 || code === 150 ? "The owner doesn't allow this video elsewhere. Signal marked dark, jumping on" : gone ? "Signal lost: the video was removed. Marked dark, jumping on" : "Video unavailable. Jumping to a nearby signal", "err");
       setTimeout(next, gone ? 900 : 1500);
     },
     onPlayingChange: (p) => { $("live").classList.toggle("on", p); state.onAir = p; $("pToggle").innerHTML = p ? ICON.pause : ICON.play; $("pToggle").setAttribute("aria-label", p ? "Pause" : "Play"); ticker(); },

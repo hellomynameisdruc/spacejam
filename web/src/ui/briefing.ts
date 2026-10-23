@@ -1,8 +1,9 @@
 // The pre-flight safety briefing: how to use the observatory, drawn like the safety card in an
 // airliner's seat pocket. Shown on the first visit and whenever the ? key or button is pressed.
 // The music keeps playing: the player stays on top of the card, so nothing is ever drawn over the video.
-import { $, uiZoom } from "../core/dom";
+import { $ } from "../core/dom";
 import { browserKV } from "../store/storage";
+import { closeModal, openModal } from "./modal";
 
 const SEEN = "kosmos-briefed";
 
@@ -69,46 +70,33 @@ const PANELS: { t: string; p: string; d: string }[] = [
 
 function build() {
   const el = $("brief");
-  el.innerHTML = `<div class="brief-card" role="document">
-    <div class="brief-head"><span class="inv">SOUND COSMOS</span><span>PRE-FLIGHT SAFETY BRIEFING</span><button type="button" class="dock-btn" data-brief-close aria-label="Close the briefing">×</button></div>
+  el.innerHTML = `<div class="card brief-card" role="document">
+    <div class="card-head"><span class="inv">SOUND COSMOS</span><span>PRE-FLIGHT SAFETY BRIEFING</span><button type="button" class="key icon sm" data-brief-close aria-label="Close the briefing">×</button></div>
+    <div class="modal-rail" role="status" aria-live="polite" hidden></div>
     <p class="brief-sub">PLEASE READ BEFORE TAKE-OFF · THIS CARD STAYS IN THE SEAT POCKET: <b>?</b></p>
     <ol class="brief-grid">${PANELS.map((p, k) => `<li><span class="brief-n">${k + 1}</span><h3>${p.t}</h3>${p.p}<p>${p.d}</p></li>`).join("")}</ol>
     <div class="brief-foot"><span class="brief-dp">DON'T PANIC</span><span class="brief-note">If a signal is lost, the player jumps on by itself.</span><button type="button" class="key hot" data-brief-close>TAKE OFF ▸</button></div>
   </div>`;
   el.querySelectorAll<HTMLElement>("[data-brief-close]").forEach((b) => { b.onclick = closeBriefing; });
-  el.onclick = (e) => { if (e.target === el) closeBriefing(); };
 }
 
 export function openBriefing() {
   const el = $("brief"); if (!el.hidden) return;
   if (!el.firstChild) build();
-  document.body.classList.add("briefing"); // the player rises above the card
-  // on a wide screen, keep the card clear of the player instead of under it
-  el.style.paddingRight = "";
-  const dock = document.getElementById("playerBox");
-  if (dock && !dock.hidden && innerWidth > 860) {
-    el.hidden = false; const r = dock.getBoundingClientRect(), z = uiZoom(el), room = (innerWidth - r.left) / z + 12;
-    if (r.left / z > 640) el.style.paddingRight = `${room}px`;
-  }
-  el.hidden = false; el.scrollTop = 0; el.querySelector<HTMLElement>(".brief-foot .key")?.focus({ preventScroll: true });
+  el.scrollTop = 0;
+  openModal(el, closeBriefing, { focus: el.querySelector<HTMLElement>(".brief-foot .key"), keys: { Enter: closeBriefing, "?": closeBriefing } });
 }
 export function closeBriefing() {
   const el = $("brief"); if (el.hidden) return;
-  el.hidden = true; browserKV.set(SEEN, "1");
-  document.body.classList.remove("briefing");
+  closeModal(el); browserKV.set(SEEN, "1");
 }
 export const briefingOpen = () => !$("brief").hidden;
 
 export function initBriefing() {
   $("help").onclick = openBriefing;
-  // the card has the keyboard while it is open
   addEventListener("keydown", (e) => {
     const typing = (e.target as HTMLElement).tagName === "INPUT";
-    if (briefingOpen()) {
-      if (e.key === "Escape" || e.key === "Enter" || e.key === "?") { e.preventDefault(); closeBriefing(); }
-      e.stopImmediatePropagation(); return;
-    }
-    if (e.key === "?" && !typing) { e.preventDefault(); e.stopImmediatePropagation(); openBriefing(); }
+    if (e.key === "?" && !typing && !briefingOpen() && !document.body.classList.contains("modal-open")) { e.preventDefault(); e.stopImmediatePropagation(); openBriefing(); }
   }, true);
   // first visit: the briefing comes first (not for someone arriving by a shared link to a track or a route)
   if (!browserKV.get(SEEN) && !location.hash) openBriefing();

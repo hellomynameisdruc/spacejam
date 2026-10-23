@@ -1,0 +1,42 @@
+/* Design tokens: the one place for colour, type, spacing of layers. Everything else uses these.
+   A CRT terminal in one phosphor colour (three to choose from); red is kept for "live" and for trouble. */
+:root {
+  --ph: 190 184 255;          /* the phosphor, an RGB triple */
+  --bg: #07060e;              /* the tube's glass */
+  --ink: rgb(var(--ph));
+  --dim: rgb(var(--ph) / .55);
+  --faint: rgb(var(--ph) / .28);
+  --line: rgb(var(--ph) / .38);
+  --wash: rgb(var(--ph) / .07);
+  --inv-ink: #07060e;
+  --glow: 0 0 6px rgb(var(--ph) / .6), 0 0 20px rgb(var(--ph) / .22);
+  --acc: var(--ink);          /* the selected system's colour (set from code) */
+  --red: #ff4d6d;             /* on air, and anything that went wrong */
+  --red-ink: #ff9cab;         /* red text on the dark glass */
+  --red-glow: 0 0 6px rgb(255 77 109 / .6);
+
+  --f-dot: "DotGothic16", "Martian Mono", ui-monospace, Menlo, monospace;
+  --f-mono: "Martian Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* six sizes, no more */
+  --fs-xs: 10px;   /* meta: times, counts, captions, small keys */
+  --fs-s: 11px;    /* lists and secondary text */
+  --fs-m: 12px;    /* body text and keys */
+  --fs-l: 14px;    /* panel titles, the track on air, the clock */
+  --fs-xl: 16px;   /* card titles, the prompt */
+  --fs-xxl: 21px;  /* the dossier's name, DON'T PANIC */
+
+  /* layers, bottom to top */
+  --z-map: 5;            /* panels floating on the map (odyssey, banner) */
+  --z-rail: 6;           /* the message rail */
+  --z-crt: 50;           /* scanlines and vignette over the terminal */
+  --z-dock: 55;          /* the player: above the scanlines, so nothing is ever drawn over the video */
+  --z-sheet: 55;         /* the player as a bottom sheet on phones */
+  --z-popup: 56;         /* search results */
+  --z-overlay: 60;       /* cards: briefing, pilot */
+  --z-over-overlay: 61;  /* the player rises above a card: never covered */
+
+  --dossier-w: 400px;
+  color-scheme: dark;
+}
+:root[data-phosphor="green"] { --ph: 120 255 170; --bg: #040a07; --inv-ink: #04100a }
+:root[data-phosphor="amber"] { --ph: 255 184 92; --bg: #0b0704; --inv-ink: #140b02 }

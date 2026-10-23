@@ -1,0 +1,35 @@
+/* The glass itself: reset, the CRT (scanlines, vignette, flicker), cursors, focus, shared animations. */
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { height: 100%; margin: 0; overflow: hidden }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-mono); font-size: var(--fs-m); font-weight: 400;
+  letter-spacing: .02em; text-shadow: 0 0 5px rgb(var(--ph) / .45);
+}
+button { font: inherit; color: inherit; text-shadow: inherit }
+::selection { background: var(--ink); color: var(--inv-ink) }
+:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px }
+
+body::before, body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: var(--z-crt) }
+body::before { background: repeating-linear-gradient(to bottom, rgb(0 0 0 / .2) 0 1px, transparent 1px 3px) }
+body::after { background: radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / .55) 100%); animation: flicker 6s infinite steps(1) }
+
+@keyframes flicker { 0%, 100% { opacity: 1 } 47% { opacity: .92 } 48% { opacity: 1 } 82% { opacity: .96 } }
+@keyframes blink { 50% { opacity: .2 } }
+@keyframes frameblink { 50% { border-color: transparent } }
+
+/* pixel cursors (set from code in the phosphor colour) */
+html, body { cursor: var(--cur-arrow, default) }
+button, a, label, summary, select { cursor: var(--cur-hand, pointer) }
+input[type="search"], input[type="text"], input[type="email"], textarea { cursor: var(--cur-text, text) }
+
+/* no scrollbars anywhere: lists and panels still scroll with the wheel, a finger or the keys */
+* { scrollbar-width: none !important; -ms-overflow-style: none }
+*::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important }
+
+.ico { width: 14px; height: 14px; display: block }
+.ico-in .ico { width: 11px; height: 11px; display: inline-block; vertical-align: -1px }
+.inv { background: var(--ink); color: var(--inv-ink); text-shadow: none; font-family: var(--f-dot); font-size: var(--fs-xl); padding: 2px 8px 1px; letter-spacing: .08em; box-shadow: var(--glow) }
+.note { font-size: var(--fs-s); color: var(--dim); line-height: 1.6; margin: 0 }
+
+@media (prefers-reduced-motion: reduce) { body::after { animation: none } }

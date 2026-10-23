@@ -9,7 +9,7 @@ import { cloud } from "../cloud/client";
 import { avatarSvg } from "./avatar";
 import { lookup, onPilot, openPilot, pilot, roster, wake } from "./pilot";
 import { isStaff, rankKey, rankOf, rankTag, RANKS } from "./ranks";
-import { flashKey, toast } from "./toast";
+import { flashKey, say } from "./rail";
 import { ICON } from "./dock";
 import { copyInvite, fleet, fleetRoom, inviteLink, known, leave, onFleet, tuneIn, watchOnAir } from "./fleet";
 
@@ -41,26 +41,26 @@ function body(text: string, nick?: string) {
   const f = text.match(/#fleet-([\w-]{6,64})/);
   if (!f) return `<span class="m-t">${esc(text)}</span>`;
   const rest = text.replace(/\S*#fleet-[\w-]{6,64}\S*/, "").trim();
-  return `${rest ? `<span class="m-t">${esc(rest)}</span>` : ""}<button type="button" class="m-card" data-join="${esc(f[1])}">▶ JOIN ${esc((nick ?? "THE").toUpperCase())}${nick ? "’S" : ""} FLEET <i>TUNE IN</i></button>`;
+  return `${rest ? `<span class="m-t">${esc(rest)}</span>` : ""}<button type="button" class="key sm dashed m-card" data-join="${esc(f[1])}">▶ JOIN ${esc((nick ?? "THE").toUpperCase())}${nick ? "’S" : ""} FLEET <i>TUNE IN</i></button>`;
 }
 function airList() {
   if (!fleet.hosts.length) return `<p class="note">NOBODY IS BROADCASTING RIGHT NOW. START ONE WITH <span class="ico-in">${ICON.cast}</span> IN THE PLAYER.</p>`;
   return fleet.hosts.map((raw) => {
     const h = known(raw), self = h.id === pilot.me?.id, on = fleet.role === "crew" && fleet.hostId === h.id;
-    return `<div class="msg air">${avatarSvg(h.avatar, 32)}<div class="m-b"><span class="m-h">${nameTag(h)}<time>${h.n} ${h.n === 1 ? "PILOT" : "PILOTS"}</time></span><span class="m-t">♪ ${esc(h.artist)}${h.artist ? " — " : ""}${esc(h.title)}</span><span class="m-s">${esc(h.style.toUpperCase())}</span></div>${self ? `<span class="air-tag">YOU</span>` : on ? `<button type="button" class="key" data-leave>LEAVE</button>` : `<button type="button" class="key hot" data-join="${esc(h.id)}">TUNE IN</button>`}</div>`;
+    return `<div class="msg air">${avatarSvg(h.avatar, 32)}<div class="m-b"><span class="m-h">${nameTag(h)}<time>${h.n} ${h.n === 1 ? "PILOT" : "PILOTS"}</time></span><span class="m-t">♪ ${esc(h.artist)}${h.artist ? " — " : ""}${esc(h.title)}</span><span class="m-s">${esc(h.style.toUpperCase())}</span></div>${self ? `<span class="air-tag">YOU</span>` : on ? `<button type="button" class="key sm" data-leave>LEAVE</button>` : `<button type="button" class="key sm hot" data-join="${esc(h.id)}">TUNE IN</button>`}</div>`;
   }).join("");
 }
 
 function paint() {
   if (view === "fleet" && !fleet.role) view = "all";
   const el = $("commsList"), atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  const invite = fleet.role ? `<div class="fl-inv"><span>INVITE PILOTS</span><button type="button" class="key" data-fl-copy>COPY LINK</button><button type="button" class="key" data-fl-post>POST TO ALL</button></div>` : "";
+  const invite = fleet.role ? `<div class="fl-inv"><span>INVITE PILOTS</span><button type="button" class="key sm" data-fl-copy>COPY LINK</button><button type="button" class="key sm" data-fl-post>POST TO ALL</button></div>` : "";
   const msgs = list(room());
   el.innerHTML = view === "air" ? airList()
     : view === "fleet" ? invite + (msgs.length ? msgs.map(line).join("") : `<p class="note">THE FLEET'S OWN CHANNEL. ITS MESSAGES FADE A FEW HOURS ON.</p>`)
     : msgs.length ? msgs.map(line).join("") : `<p class="note">${started ? "SILENCE ON THE CHANNEL. SAY HELLO." : "TUNING IN…"}</p>`;
   if (atEnd && view !== "air") el.scrollTop = el.scrollHeight;
-  for (const b of document.querySelectorAll<HTMLElement>(".comms-ch [data-ch]")) b.setAttribute("aria-selected", String(b.dataset.ch === view));
+  for (const b of document.querySelectorAll<HTMLElement>("#comms .tabs [data-ch]")) b.setAttribute("aria-selected", String(b.dataset.ch === view));
   $("chFleet").hidden = !fleet.role;
   $("fleetN").textContent = fleet.role ? String(fleet.crew.length + 1) : "";
   $("airN").textContent = fleet.hosts.length ? String(fleet.hosts.length) : "";
@@ -69,7 +69,7 @@ function paint() {
   f.classList.toggle("off", !pilot.me);
   ($("commsIn") as HTMLInputElement).disabled = !pilot.me;
   ($("commsIn") as HTMLInputElement).placeholder = !pilot.me ? "sign in to transmit" : view === "fleet" ? "talk to your fleet" : "transmit to all pilots";
-  $("commsNote").textContent = note; $("commsNote").hidden = !note;
+  $("commsNote").textContent = note; $("commsNote").hidden = !note; $("commsNote").className = `fmsg ${/^RANKS:/.test(note) ? "" : "err"}`;
 }
 
 /** the latest messages of a room, once */
@@ -129,7 +129,7 @@ async function command(text: string) {
   const { data, error } = await (await cloud()).rpc("grant_rank", { target: nick, new_rank: r });
   if (error) note = /NOT AUTHORISED/.test(error.message) ? "ONLY THE FOUNDER GIVES RANKS." : /NO SUCH PILOT/.test(error.message) ? `NO PILOT CALLED ${nick.toUpperCase()}.` : `FAILED: ${error.message}`;
   else {
-    note = ""; toast(`${String(data)} is now ${RANKS[r].label}`); inp.value = "";
+    note = ""; say(`${String(data)} is now ${RANKS[r].label}`); inp.value = "";
     for (const p of roster.values()) if (p.nick.toLowerCase() === nick.toLowerCase()) p.rank = r;
   }
   paint();
@@ -140,16 +140,16 @@ async function act(e: Event) {
   const j = t.closest<HTMLElement>("[data-join]"); if (j) { await tuneIn(j.dataset.join!); return; }
   if (t.closest("[data-leave]")) { await leave(); return; }
   const cp = t.closest<HTMLElement>("[data-fl-copy]"); if (cp) { if (await copyInvite()) flashKey(cp, "COPIED ✓"); return; }
-  if (t.closest("[data-fl-post]")) { if (!pilot.me) { openPilot(); return; } const inp = $("commsIn") as HTMLInputElement; inp.value = `Tune in with me: ${inviteLink()}`; view = "all"; paint(); await send(); if (!note) toast("Invite posted to ALL"); return; }
+  if (t.closest("[data-fl-post]")) { if (!pilot.me) { openPilot(); return; } const inp = $("commsIn") as HTMLInputElement; inp.value = `Tune in with me: ${inviteLink()}`; view = "all"; paint(); await send(); if (!note) say("Invite posted to ALL"); return; }
   const b = t.closest<HTMLElement>("[data-del],[data-rep]"); if (!b) return;
   const sb = await cloud();
   if (b.dataset.del) {
     const id = +b.dataset.del, { error } = await sb.from("messages").delete().eq("id", id);
-    if (!error) { for (const l of rooms.values()) { const k = l.findIndex((x) => x.id === id); if (k >= 0) l.splice(k, 1); } toast("Message deleted"); }
-    else toast("Could not delete the message", "err");
+    if (!error) { for (const l of rooms.values()) { const k = l.findIndex((x) => x.id === id); if (k >= 0) l.splice(k, 1); } say("Message deleted"); }
+    else say("Could not delete the message", "err");
   } else {
     const id = +b.dataset.rep!, { error } = await sb.from("reports").insert({ message: id });
-    if (!error || error.code === "23505") { reported.add(id); toast("Reported. Thank you, pilot"); }
+    if (!error || error.code === "23505") { reported.add(id); say("Reported. Thank you, pilot"); }
   }
   paint();
 }
@@ -160,7 +160,7 @@ export function initComms() {
   $("commsForm").onsubmit = (e) => { e.preventDefault(); send(); };
   $("commsForm").onclick = () => { if (!pilot.me) openPilot(); };
   $("commsList").addEventListener("click", act);
-  document.querySelectorAll<HTMLElement>(".comms-ch [data-ch]").forEach((b) => { b.onclick = () => { view = b.dataset.ch as typeof view; note = ""; paint(); if (view !== "air") $("commsList").scrollTop = 1e9; }; });
+  document.querySelectorAll<HTMLElement>("#comms .tabs [data-ch]").forEach((b) => { b.onclick = () => { view = b.dataset.ch as typeof view; note = ""; paint(); if (view !== "air") $("commsList").scrollTop = 1e9; }; });
   // joining a fleet opens its room; leaving falls back to ALL
   let was: string | null = null;
   onFleet(() => {
