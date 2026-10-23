@@ -34,6 +34,7 @@ import { initModals } from "./ui/modal";
 import { initRail } from "./ui/rail";
 import { initComms } from "./ui/comms";
 import { initFleet } from "./ui/fleet";
+import { initShareKey } from "./ui/share";
 import { initSync } from "./cloud/sync";
 
 initModals();
@@ -46,6 +47,7 @@ initLogPanel();
 initPilot();
 initComms();
 initFleet();
+initShareKey();
 initSync();
 initSearch();
 initInput();

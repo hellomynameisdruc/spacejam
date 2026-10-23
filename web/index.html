@@ -68,8 +68,10 @@
                 <button type="button" class="key sq" id="pPrev" aria-label="Previous">◂◂</button>
                 <button type="button" class="key sq hot" id="pToggle" aria-label="Pause">❚❚</button>
                 <button type="button" class="key sq" id="pNext" aria-label="Next nearby">▸▸</button>
+                <button type="button" class="key sq" id="pShare" aria-label="Share the track on air" aria-haspopup="true" aria-expanded="false" title="Share: copy a link, or send it to COMMS"></button>
                 <button type="button" class="key sq like-k" id="pLike" aria-label="Set beacon" aria-pressed="false" title="Set a beacon: save this track to your BEACONS (L)">♥</button>
               </div>
+              <div class="share-pop" id="sharePop" role="menu" hidden><button type="button" class="key sm" data-share="copy" role="menuitem">⧉ COPY LINK</button><button type="button" class="key sm" data-share="send" role="menuitem">⇪ SEND TO COMMS</button></div>
               <div class="mix">
                 <span class="vk" aria-hidden="true">VOL</span>
                 <input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume">

@@ -23,6 +23,8 @@ export const ICON = {
   beacon: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h1v1H5zM8 2h1v1H8zM4 3h1v1H4zM9 3h1v1H9zM3 4h1v1H3zM10 4h1v1h-1zM2 5h1v1H2zM11 5h1v1h-1zM1 6h1v2H1zM12 6h1v2h-1zM2 8h1v1H2zM11 8h1v1h-1zM3 9h1v1H3zM10 9h1v1h-1zM4 10h1v1H4zM9 10h1v1H9zM5 11h1v1H5zM8 11h1v1H8zM6 12h2v1H6z"/><path fill="currentColor" opacity=".75" d="M4 5h2v1H4zM8 5h2v1H8zM3 6h8v2H3zM4 8h6v1H4zM5 9h4v1H5zM6 10h2v1H6z"/>`),
   // broadcast: a mast with a lamp on top and waves going out both ways
   cast: svgI(`<path fill="currentColor" d="M6 5h2v2H6zM6 7h2v6H6zM5 11h1v2H5zM8 11h1v2H8zM4 12h1v1H4zM9 12h1v1H9z"/><path fill="currentColor" opacity=".85" d="M4 3h1v1H4zM3 4h1v4H3zM4 8h1v1H4zM9 3h1v1H9zM10 4h1v4h-1zM9 8h1v1H9z"/><path fill="currentColor" opacity=".55" d="M2 1h1v1H2zM1 2h1v6H1zM2 8h1v1H2zM11 1h1v1h-1zM12 2h1v6h-1zM11 8h1v1h-1z"/>`),
+  // share: an arrow rising out of a tray
+  share: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h4v1H5zM4 3h6v1H4zM6 4h2v6H6zM2 7h1v5H2zM11 7h1v5h-1zM3 11h8v1H3z"/>`),
   beaconOn: svgI(`<path fill="currentColor" d="M6 1h2v1H6zM5 2h4v1H5zM4 3h6v1H4zM3 4h8v1H3zM2 5h10v1H2zM1 6h12v2H1zM2 8h10v1H2zM3 9h8v1H3zM4 10h6v1H4zM5 11h4v1H5zM6 12h2v1H6z"/><path fill="var(--bg, #000)" d="M4 5h2v1H4zM8 5h2v1H8zM3 6h8v2H3zM4 8h6v1H4zM5 9h4v1H5zM6 10h2v1H6z"/>`),
 };
 
@@ -96,7 +98,7 @@ export function initDock() {
     },
   });
   dock = $("playerBox"); pill = $("dockPill"); seekEl = $<HTMLInputElement>("seek"); volEl = $<HTMLInputElement>("vol");
-  $("pPrev").innerHTML = ICON.prev; $("pNext").innerHTML = ICON.next; $("pToggle").innerHTML = ICON.pause; $("pLike").innerHTML = ICON.beacon; $("dockCast").innerHTML = ICON.cast;
+  $("pPrev").innerHTML = ICON.prev; $("pNext").innerHTML = ICON.next; $("pToggle").innerHTML = ICON.pause; $("pLike").innerHTML = ICON.beacon; $("dockCast").innerHTML = ICON.cast; $("pShare").innerHTML = ICON.share;
 
   player = new Player("yt", {
     onEnded: () => { if (!state.following && $<HTMLInputElement>("autopilot").checked) next(); },

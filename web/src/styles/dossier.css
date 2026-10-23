@@ -99,5 +99,6 @@
   .crt > span, .crt::before, .crt::after { animation: none }
   .crt::after { display: none }
 }
-.share { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }
-.share .key { width: 100% }
+/* the quiet links under a track: copy, send to COMMS, open on YouTube */
+.outs { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline }
+button.out { background: none; border: 0; border-bottom: 1px dotted var(--faint); padding: 0; font: inherit; font-size: var(--fs-s); color: var(--dim); cursor: var(--cur-hand, pointer) }
