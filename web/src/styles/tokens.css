@@ -27,7 +27,8 @@
 
   /* layers, bottom to top */
   --z-map: 5;            /* panels floating on the map (odyssey, banner) */
-  --z-rail: 6;           /* the message rail */
+  --z-drawer: 6;         /* COMMS, sliding out over the map */
+  --z-rail: 7;           /* the message rail */
   --z-crt: 50;           /* scanlines and vignette over the terminal */
   --z-dock: 55;          /* the player: above the scanlines, so nothing is ever drawn over the video */
   --z-sheet: 55;         /* the player as a bottom sheet on phones */

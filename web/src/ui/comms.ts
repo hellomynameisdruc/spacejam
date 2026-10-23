@@ -123,12 +123,27 @@ async function act(e: Event) {
   if (rep && (await report(+rep.dataset.rep!))) { reported.add(+rep.dataset.rep!); paint(); say("Reported. Thank you, pilot"); }
 }
 
-export const openComms = () => { start(); watchOnAir().catch(() => {}); unread = 0; paintUnread(); paint(); };
+/** COMMS slides out over the left of the map; the dossier and the log below it stay where they are */
+export function openComms() {
+  const d = $("comms"); d.hidden = false; $("tabComms").setAttribute("aria-pressed", "true");
+  start(); watchOnAir().catch(() => {}); unread = 0; paintUnread(); paint();
+  if (view !== "air") $("commsList").scrollTop = 1e9;
+  if (pilot.me) $("commsIn").focus({ preventScroll: true });
+}
+export function closeComms() { $("comms").hidden = true; $("tabComms").setAttribute("aria-pressed", "false"); }
+export const toggleComms = () => ($("comms").hidden ? openComms() : closeComms());
 
 export function initComms() {
   $("commsForm").onsubmit = (e) => { e.preventDefault(); send(); };
   $("commsForm").onclick = () => { if (!pilot.me) openPilot(); };
   $("commsList").addEventListener("click", act);
+  $("commsClose").onclick = closeComms;
+  // Esc inside the drawer closes it; C (outside a field) opens or closes it
+  $("comms").addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); closeComms(); $("tabComms").focus(); } });
+  addEventListener("keydown", (e) => {
+    const t = e.target as HTMLElement;
+    if (["c", "с"].includes(e.key.toLowerCase()) && !e.metaKey && !e.ctrlKey && !e.altKey && t.tagName !== "INPUT" && t.tagName !== "TEXTAREA" && !document.body.classList.contains("modal-open")) { e.preventDefault(); toggleComms(); }
+  });
   document.querySelectorAll<HTMLElement>("#comms .tabs [data-ch]").forEach((b) => {
     b.onclick = () => { view = b.dataset.ch as View; note = null; paint(); if (view !== "air") $("commsList").scrollTop = 1e9; };
   });
