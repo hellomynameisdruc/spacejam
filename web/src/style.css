@@ -200,6 +200,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .dock-np { display: flex; flex-direction: column; gap: 2px; padding-top: 7px; min-width: 0 }
 .np-t { font-family: var(--f-dot); color: var(--acc); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--acc-glow) }
 .np-a { font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.viz { position: static; display: block; width: 100%; height: 26px; margin-top: 6px; cursor: default; touch-action: auto }
 .seek { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 6px }
 .tc { font-size: 9.5px; color: var(--dim); font-variant-numeric: tabular-nums; min-width: 26px }
 .tc:last-child { text-align: right }
@@ -399,7 +400,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .dock { position: fixed; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: auto; z-index: 40;
     padding: 0 10px calc(8px + env(safe-area-inset-bottom, 0px)); border-width: 1px 0 0;
     display: grid; grid-template-columns: 200px minmax(0, 1fr); column-gap: 10px; align-content: start;
-    grid-template-areas: "head head" "video np" "video seek" "video pbar" "video msg"; grid-template-rows: auto auto auto auto 1fr }
+    grid-template-areas: "head head" "video np" "video viz" "video seek" "video pbar" "video msg"; grid-template-rows: auto auto auto auto auto 1fr }
   .dock[hidden] { display: none }
   .dock::before, .dock::after { display: none }
   .dock-head { grid-area: head; cursor: default; padding: 4px 0 }
@@ -408,6 +409,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .video { grid-area: video }
   .dock-np { grid-area: np; padding-top: 0 }
   .seek { grid-area: seek }
+  .viz { grid-area: viz; height: 20px; margin-top: 4px }
   .pbar { grid-area: pbar }
   .pbar .key.sq { height: 30px; font-size: 11px }
   .pmsg { grid-area: msg }
