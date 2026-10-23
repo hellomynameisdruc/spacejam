@@ -7,6 +7,9 @@ import { $ } from "../core/dom";
 import { ALL, dropRoom, goLive, grantRank, loadRoom, messages, onComms, remove, report, transmit, type Msg } from "../cloud/comms";
 import { onPilot, pilot, roster, wake } from "../cloud/pilots";
 import { fleet, fleetRoom, inviteLink, known, leave, onFleet, tuneIn, watchOnAir } from "../cloud/fleet";
+import { chunk, galaxy } from "../app/state";
+import { select } from "../app/actions";
+import { find, parseSignal, placed, withoutSignal } from "../app/signal";
 import { avatarSvg } from "./avatar";
 import { openPilot } from "./pilot";
 import { isStaff, rankKey, rankOf, rankTag, RANKS } from "./ranks";
@@ -27,8 +30,22 @@ function nameTag(p: { nick?: string; rank?: string } | undefined) {
   const k = rankOf(p?.rank);
   return `${rankTag(p?.rank)}<b${k.color ? ` style="color:${k.color}"` : ""}>${esc((p?.nick ?? "PILOT").toUpperCase())}</b>`;
 }
-/** a message's text; an invite to a fleet becomes a card to board it */
+/** a shared track: its cover (in the style's colour), title, artist, label, style and year; a click plays it */
+function signalCard(text: string) {
+  const sig = parseSignal(text)!, said = withoutSignal(text), r = placed(sig);
+  const before = said ? `<span class="m-t">${esc(said)}</span>` : "";
+  if (r === undefined) { find(sig).then(() => paint()); return `${before}<div class="sig-card wait">TUNING IN TO A SIGNAL…</div>`; }
+  const ch = r && chunk(r.s);
+  if (!r || !ch) return `${before}<div class="sig-card wait">THIS SIGNAL IS NOT ON THE MAP ANY MORE</div>`;
+  const st = galaxy.stars[r.s], pi = ch.p[r.i], label = pi >= 0 ? galaxy.planets[pi].name : "ASTEROID BELT", yt = ch.yt[r.i];
+  return `${before}<button type="button" class="sig-card" data-sig="${r.s}.${r.i}" style="--acc:${st.color}" title="Fly there and play it">
+    <span class="frame thumb sig-th"><img alt="" src="https://i.ytimg.com/vi/${esc(yt)}/default.jpg" referrerpolicy="no-referrer"><span class="raster"></span></span>
+    <span class="sig-i"><b>${esc(ch.t[r.i])}</b><span>${esc(ch.an[ch.a[r.i]])}</span><i>${esc(label.toUpperCase())} · ${esc(st.name.toUpperCase())}${ch.yr[r.i] ? ` · ${ch.yr[r.i]}` : ""}</i></span>
+    <span class="sig-go">▶</span></button>`;
+}
+/** a message's text; a shared track or an invite to a fleet becomes a card */
 function body(text: string, nick?: string) {
+  if (parseSignal(text)) return signalCard(text);
   const f = text.match(/#fleet-([\w-]{6,64})/);
   if (!f) return `<span class="m-t">${esc(text)}</span>`;
   const rest = text.replace(/\S*#fleet-[\w-]{6,64}\S*/, "").trim();
@@ -107,6 +124,8 @@ async function command(text: string) {
 
 async function act(e: Event) {
   const t = e.target as HTMLElement;
+  const sg = t.closest<HTMLElement>("[data-sig]");
+  if (sg) { const [s, i] = sg.dataset.sig!.split(".").map(Number); select({ kind: "track", s, i }, true, true); return; }
   const j = t.closest<HTMLElement>("[data-join]"); if (j) { await tuneIn(j.dataset.join!); return; }
   if (t.closest("[data-leave]")) { await leave(); return; }
   const cp = t.closest<HTMLElement>("[data-fl-copy]"); if (cp) { if (await copyInvite()) flashKey(cp, "COPIED ✓"); return; }

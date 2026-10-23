@@ -7,6 +7,7 @@ import { orbitR } from "../model/galaxy";
 import { HITCHHIKE_TRACKS, pickStopTracks, planLightYears, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
 import { ui } from "./ports";
+import { signalHash } from "./signal";
 import { wormhole } from "../ui/wormhole";
 
 export const trackCode = (s: number, i: number) => `TR-${pad(s, 2)}.${pad(i, 5)}`;
@@ -50,7 +51,7 @@ export function select(o: Sel, go = true, autoplay = false) {
       else cam.fly(ch.x[o.i], ch.y[o.i], Math.max(cam.s, LOD_TITLES * 1.3));
     }
     if (autoplay) playTrack(o);
-    replaceHash(`#t${o.s}-${o.i}`);
+    replaceHash(signalHash(o.s, o.i) || `#t${o.s}-${o.i}`);
   }
   ui.showSelection(state.warping ? 900 : 380);
 }

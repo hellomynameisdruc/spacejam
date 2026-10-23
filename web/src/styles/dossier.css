@@ -99,3 +99,5 @@
   .crt > span, .crt::before, .crt::after { animation: none }
   .crt::after { display: none }
 }
+.share { display: grid; grid-template-columns: 1fr 1fr; gap: 6px }
+.share .key { width: 100% }

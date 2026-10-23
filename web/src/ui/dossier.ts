@@ -11,6 +11,12 @@ import { onFrame } from "../render/scene";
 import { drawPulsarHero, drawRadar, drawSphere, drawWave, fitCanvas, fitted } from "./scopes";
 import { ICON, player, scrub } from "./dock";
 import { decodeDossier, scramble } from "./glitch";
+import { signalLink } from "../app/signal";
+import { ALL, transmit } from "../cloud/comms";
+import { fleetRoom } from "../cloud/fleet";
+import { pilot } from "../cloud/pilots";
+import { openPilot } from "./pilot";
+import { flashKey, say } from "./rail";
 import { provide } from "../app/ports";
 
 let dosAnim: ((t: number) => void) | null = null;
@@ -144,6 +150,7 @@ function track(o: { kind: "track"; s: number; i: number }) {
       <div class="scope-c"><canvas id="wave"></canvas></div>
       ${g.meta.sample ? `<p class="note">TEST SIGNAL: videos won't play.</p>` : `<button class="play" data-r="${R(o)}" data-play="1">${isNowPlaying(o.s, o.i) ? "◉ ON AIR" : "▶ PLAY"}</button>`}
       <button class="plot like${on ? " on" : ""}" data-like="1">${beaconLabel(on)}</button>
+      <div class="share"><button type="button" class="key sm" data-share="copy" title="Copy a link to this track">⧉ COPY LINK</button><button type="button" class="key sm" data-share="send" title="Post this track to COMMS, with its card">⇪ SEND TO COMMS</button></div>
       <a class="out" href="https://www.youtube.com/watch?v=${esc(yt)}" target="_blank" rel="noopener">OPEN ON YOUTUBE ↗</a>
       ${near.length ? `<div><div class="ph-sub">NEAREST SIGNALS</div><div class="list">${near.map((r, k) => trackItem(r.s, r.i, k + 1)).join("")}</div></div>` : ""}`,
   };
@@ -174,6 +181,20 @@ export function paintDossierBeacon() {
   if (b && sel?.kind === "track") { const on = beacons.has(sel); b.innerHTML = beaconLabel(on); b.classList.toggle("on", on); }
 }
 
+/** a track's link: copied, or sent to COMMS (where it shows as a card) */
+async function shareTrack(o: { s: number; i: number }, how: "copy" | "send", key: HTMLElement) {
+  const link = signalLink(o.s, o.i);
+  if (how === "copy") {
+    try { await navigator.clipboard.writeText(link); flashKey(key, "COPIED ✓"); say("Link copied. Paste it in COMMS or anywhere"); }
+    catch { say(`Copy this link: ${link}`, "err"); }
+    return;
+  }
+  if (!pilot.me) { openPilot(); return; }
+  const e = await transmit(fleetRoom() ?? ALL, link);
+  if (e) say(e === "too-fast" ? "Too fast. One message every few seconds" : "Couldn't send it. Try again", "err");
+  else { flashKey(key, "SENT ✓"); say(fleetRoom() ? "Sent to your fleet" : "Sent to COMMS"); }
+}
+
 export function initDossier() {
   provide({ showSelection: (ms) => { renderDossier(); if (ms) decodeDossier(ms); } });
   $("detail").addEventListener("click", (e) => {
@@ -184,6 +205,7 @@ export function initDossier() {
     const nb = t.closest<HTMLElement>("[data-neb]"); if (nb) { flyToNebula(+nb.dataset.neb!); return; }
     const po = t.closest<HTMLElement>("[data-orbit]"); if (po) { playOrbit(+po.dataset.orbit!); return; }
     if (t.closest("[data-like]")) { if (state.sel?.kind === "track") toggleBeacon(state.sel); return; }
+    const sh = t.closest<HTMLElement>("[data-share]"); if (sh) { if (state.sel?.kind === "track") shareTrack(state.sel, sh.dataset.share as "copy" | "send", sh); return; }
     const b = t.closest<HTMLElement>("[data-r]"); if (!b) return;
     const o = refs[+b.dataset.r!];
     if (o?.kind === "track") { select(o, true, !!b.dataset.play); return; }

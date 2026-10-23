@@ -17,6 +17,7 @@ import "./style.css";
 import { $ } from "./core/dom";
 import { beacons, flightLog, galaxy, state, tracks } from "./app/state";
 import { routeFromHash, select } from "./app/actions";
+import { find, parseSignal } from "./app/signal";
 import { initScene, startLoop } from "./render/scene";
 import { initDock, paintBeaconKey, playTestSignal } from "./ui/dock";
 import { initDossier, paintDossierBeacon, renderDossier } from "./ui/dossier";
@@ -67,7 +68,12 @@ document.fonts?.ready.then(() => { state.dirty = true; });
 const tm = location.hash.match(/^#test-([A-Za-z0-9_-]{11})$/);
 if (tm) playTestSignal(tm[1]);
 routeFromHash();
-addEventListener("hashchange", routeFromHash);
+addEventListener("hashchange", () => {
+  if (routeFromHash()) return;
+  const s = parseSignal(location.hash); if (s) find(s).then((r) => { if (r) select({ kind: "track", ...r }); });
+});
+const sig = parseSignal(location.hash);
+if (sig) find(sig).then((r) => { if (r) select({ kind: "track", ...r }); });
 const m = location.hash.match(/^#t(\d+)-(\d+)$/);
 if (m && +m[1] < galaxy.stars.length) tracks.load(+m[1]).then((ch) => { if (+m[2] < ch.yt.length) select({ kind: "track", s: +m[1], i: +m[2] }); });
 
