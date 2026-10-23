@@ -1,10 +1,9 @@
-// Sharing a track: its stable link copied, or sent to COMMS (to your fleet's channel when you're in
-// one) where it shows as a card. From the player (the track on air) and from a track's dossier.
+// Sharing a track: its stable link copied, or sent to the open COMMS channel (ALL), where it shows as
+// a card. From the player (the track on air) and from a track's dossier.
 import { $ } from "../core/dom";
 import { state } from "../app/state";
 import { signalLink } from "../app/signal";
 import { ALL, transmit } from "../cloud/comms";
-import { fleetRoom } from "../cloud/fleet";
 import { pilot } from "../cloud/pilots";
 import { openPilot } from "./pilot";
 import { flashKey, say } from "./rail";
@@ -17,9 +16,9 @@ export async function shareTrack(o: { s: number; i: number }, how: "copy" | "sen
     return;
   }
   if (!pilot.me) { openPilot(); return; }
-  const e = await transmit(fleetRoom() ?? ALL, link);
+  const e = await transmit(ALL, link);
   if (e) say(e === "too-fast" ? "Too fast. One message every few seconds" : "Couldn't send it. Try again", "err");
-  else { if (key?.classList.contains("key")) flashKey(key, "SENT ✓"); say(fleetRoom() ? "Sent to your fleet" : "Sent to COMMS"); }
+  else { if (key?.classList.contains("key")) flashKey(key, "SENT ✓"); say("Sent to COMMS · ALL"); }
 }
 
 /** the player's share key: a small menu over it, for the track on air */
