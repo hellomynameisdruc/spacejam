@@ -10,6 +10,7 @@ import { avatarSvg } from "./avatar";
 import { lookup, onPilot, openPilot, pilot, roster, wake } from "./pilot";
 import { isStaff, rankKey, rankOf, rankTag, RANKS } from "./ranks";
 import { flashKey, toast } from "./toast";
+import { ICON } from "./dock";
 import { copyInvite, fleet, fleetRoom, inviteLink, known, leave, onFleet, tuneIn, watchOnAir } from "./fleet";
 
 const ALL = "all", KEEP = 80;
@@ -43,7 +44,7 @@ function body(text: string, nick?: string) {
   return `${rest ? `<span class="m-t">${esc(rest)}</span>` : ""}<button type="button" class="m-card" data-join="${esc(f[1])}">▶ JOIN ${esc((nick ?? "THE").toUpperCase())}${nick ? "’S" : ""} FLEET <i>TUNE IN</i></button>`;
 }
 function airList() {
-  if (!fleet.hosts.length) return `<p class="note">NOBODY IS BROADCASTING RIGHT NOW. START ONE WITH ((•)) IN THE PLAYER.</p>`;
+  if (!fleet.hosts.length) return `<p class="note">NOBODY IS BROADCASTING RIGHT NOW. START ONE WITH <span class="ico-in">${ICON.cast}</span> IN THE PLAYER.</p>`;
   return fleet.hosts.map((raw) => {
     const h = known(raw), self = h.id === pilot.me?.id, on = fleet.role === "crew" && fleet.hostId === h.id;
     return `<div class="msg air">${avatarSvg(h.avatar, 32)}<div class="m-b"><span class="m-h">${nameTag(h)}<time>${h.n} ${h.n === 1 ? "PILOT" : "PILOTS"}</time></span><span class="m-t">♪ ${esc(h.artist)}${h.artist ? " — " : ""}${esc(h.title)}</span><span class="m-s">${esc(h.style.toUpperCase())}</span></div>${self ? `<span class="air-tag">YOU</span>` : on ? `<button type="button" class="key" data-leave>LEAVE</button>` : `<button type="button" class="key hot" data-join="${esc(h.id)}">TUNE IN</button>`}</div>`;

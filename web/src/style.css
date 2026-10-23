@@ -198,6 +198,7 @@ kbd { font-family: var(--f-mono); font-size: 9.5px; border: 1px solid currentCol
 .video { width: 200px; height: 200px; background: #000; position: relative; z-index: 60 }
 .video iframe, .video > div { width: 100%; height: 100%; display: block; border: 0 }
 .dock-np { display: flex; flex-direction: column; gap: 2px; padding-top: 7px; min-width: 0 }
+.dock-np .dock-ody { align-self: flex-start; margin-bottom: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .np-t { font-family: var(--f-dot); color: var(--acc); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--acc-glow) }
 .np-a { font-size: 10.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .seek { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; padding-top: 6px }
@@ -405,7 +406,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
   .dock::before, .dock::after { display: none }
   .dock-head { grid-area: head; cursor: default; padding: 4px 0 }
   .grip { visibility: hidden }
-  #dockMin, #dockFind { width: 36px; height: 26px; font-size: 14px }
+  #dockMin, #dockFind, #dockCast { width: 36px; height: 26px; font-size: 14px }
   .video { grid-area: video }
   .dock-np { grid-area: np; padding-top: 0 }
   .seek { grid-area: seek }
@@ -431,7 +432,7 @@ input[type="search"], input[type="text"], textarea { cursor: var(--cur-text, tex
 #dockFind.far { color: var(--acc); border-color: var(--acc); box-shadow: 0 0 8px color-mix(in srgb, var(--acc) 60%, transparent); animation: blink 1.6s steps(1) infinite }
 /* room for the mode tag: the whole header is the drag handle, so the grip mark steps aside */
 .dock-head .grip { display: none }
-#dockFind { margin-left: auto }
+#dockCast { margin-left: auto }
 
 /* ---------- pre-flight safety briefing ---------- */
 .help { width: 18px; height: 18px; padding: 0; border: 1px solid var(--line); background: transparent; color: var(--ink); font-family: var(--f-dot); font-size: 12px; line-height: 1; cursor: var(--cur-hand, pointer) }
@@ -525,7 +526,9 @@ body.briefing .dock { border-color: var(--faint); box-shadow: none }
 .m-h { flex-wrap: wrap; row-gap: 2px }
 
 /* fleets: the broadcast key, the bar in the player, the channels in COMMS, ships on the map */
-.dock-btn.cast { width: auto; padding: 0 4px 2px; font-size: 9px; letter-spacing: 0 }
+.dock-btn.cast { padding: 0; display: inline-grid; place-items: center }
+.dock-btn.cast .ico, .fl-on .ico { width: 12px; height: 12px; display: block }
+.fl-on { display: inline-flex; gap: 5px; align-items: center }
 .dock-btn.cast.on { background: var(--acc); border-color: var(--acc); color: var(--bg); animation: castblink 1.1s steps(1) infinite }
 @keyframes castblink { 50% { opacity: .55 } }
 .fleet-bar { display: flex; align-items: center; gap: 8px; padding: 0 0 6px; font-family: var(--f-dot); font-size: 10px; letter-spacing: .12em; min-width: 0 }
@@ -575,3 +578,4 @@ body.docked .toast { bottom: 270px }
 @media (min-width: 861px) { body.docked .toast { bottom: 64px } }
 .key.done, .dock-btn.done { background: var(--ink) !important; color: var(--inv-ink) !important; border-color: var(--ink) !important; text-shadow: none }
 @media (prefers-reduced-motion: reduce) { .ct-dot, .comms-tab.news { animation: none } .toast { transition: none } }
+.ico-in .ico { width: 11px; height: 11px; display: inline-block; vertical-align: -1px }

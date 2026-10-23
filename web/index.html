@@ -51,15 +51,14 @@
                Minimising pauses playback, so audio never plays from a hidden player. -->
           <div class="dock" id="playerBox" hidden>
             <div class="dock-head" id="dockHead">
-              <span class="live" id="live">●</span><span class="dock-k">ON AIR</span><span class="dock-ody" id="dockOdy" hidden>ODYSSEY <b id="dockOdyN"></b></span>
-              <span class="grip" aria-hidden="true">⠿</span>
-              <button type="button" class="dock-btn cast" id="dockCast" aria-label="Broadcast">((•))</button>
+              <span class="live" id="live">●</span><span class="dock-k">ON AIR</span>              <span class="grip" aria-hidden="true">⠿</span>
+              <button type="button" class="dock-btn cast" id="dockCast" aria-label="Broadcast"></button>
               <button type="button" class="dock-btn" id="dockFind" aria-label="Fly back to the track on air" title="Fly back to the track on air">◎</button>
               <button type="button" class="dock-btn" id="dockMin" aria-label="Minimise and pause">_</button>
             </div>
             <div class="fleet-bar" id="fleetBar" hidden></div>
             <div class="video" id="videoWrap"><div id="yt"></div></div>
-            <div class="dock-np"><span class="np-t" id="npTitle">—</span><span class="np-a" id="npArtist"></span></div>
+            <div class="dock-np"><span class="dock-ody" id="dockOdy" hidden>ODYSSEY <b id="dockOdyN"></b></span><span class="np-t" id="npTitle">—</span><span class="np-a" id="npArtist"></span></div>
             <div class="seek">
               <span class="tc" id="tCur">0:00</span>
               <input type="range" id="seek" min="0" max="1000" value="0" step="1" aria-label="Seek">

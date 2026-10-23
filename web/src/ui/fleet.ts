@@ -13,7 +13,7 @@ import { chunk, galaxy, state, tracks } from "../app/state";
 import { select } from "../app/actions";
 import { cloud } from "../cloud/client";
 import { onFrame } from "../render/scene";
-import { player, playTestSignal } from "./dock";
+import { ICON, player, playTestSignal } from "./dock";
 import { lookup, openPilot, pilot, roster } from "./pilot";
 import { rankOf } from "./ranks";
 import { flashKey, toast } from "./toast";
@@ -181,7 +181,7 @@ function paintBar() {
   bar.hidden = false;
   const n = fleet.crew.length - (fleet.role === "crew" ? 1 : 0);
   bar.innerHTML = fleet.role === "host"
-    ? `<span class="fl-on">((•)) LIVE</span><span class="fl-n">${n} TUNED IN</span><button type="button" class="dock-btn fl-b" data-fl="invite" title="Copy the invite link">INVITE</button><button type="button" class="dock-btn fl-b" data-fl="end">END</button>`
+    ? `<span class="fl-on">${ICON.cast}LIVE</span><span class="fl-n">${n} TUNED IN</span><button type="button" class="dock-btn fl-b" data-fl="invite" title="Copy the invite link">INVITE</button><button type="button" class="dock-btn fl-b" data-fl="end">END</button>`
     : fleet.role === "crew"
       ? `<span class="fl-on">⇢ TUNED IN</span><span class="fl-n">${esc((fleet.host ? known(fleet.host).nick : "…").toUpperCase())}${n > 0 ? ` +${n}` : ""}</span><button type="button" class="dock-btn fl-b" data-fl="leave">LEAVE</button>`
       : `<span class="fl-n">${esc(fleet.note)}</span>`;
