@@ -1,18 +1,18 @@
-// The visualiser in the player: a strip of LED bars under the title. The music itself plays inside
-// YouTube's player, which a page cannot listen to, so the bars are driven by the style's tempo instead —
-// a kick in the low bands on every beat, the snare in the mids on two and four, hats in the highs on the
-// eighths — shaped by the track (its own mix of bands), building up from the intro, and falling to rest
-// on pause. Drawn like the rest: segments in the system's phosphor, peak caps that drift down.
+// The visualiser: a ring of LED bars round the planet that is playing, rising off its surface. The
+// music itself plays inside YouTube's player, which a page cannot listen to, so the bars are driven by the
+// style's tempo instead — a kick in the low bands on every beat, the snare in the mids on two and four,
+// hats in the highs on the eighths — shaped by the track (its own mix of bands), building up from the
+// intro, and falling to rest on pause. The spectrum runs lows to highs round each half and mirrors, so the
+// ring stays symmetric; drawn in segments of the system's phosphor, like the rest.
 import { reduce } from "../core/dom";
-import { chunk, galaxy, state } from "../app/state";
+import { baseChunk, chunk, galaxy, motion, state } from "../app/state";
 import { sc } from "../render/palette";
-import { cam } from "../render/camera";
+import { cam, LOD_PLANETS } from "../render/camera";
 import { player } from "./dock";
 
-const BANDS = 28, SEG = 2, GAP = 1; // bars; segment height and gap, css px
-let cv: HTMLCanvasElement, g: CanvasRenderingContext2D;
+const BANDS = 24; // per half of the ring
 const level = new Float32Array(BANDS), peak = new Float32Array(BANDS), mix = new Float32Array(BANDS);
-let mixKey = "", lastT = 0, still = false;
+let mixKey = "", lastT = 0;
 const hash = (n: number) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
 
 /** each track gets its own balance of bands, from its YouTube id */
@@ -22,26 +22,10 @@ function shapeFor(yt: string) {
   for (let k = 0; k < BANDS; k++) mix[k] = 0.55 + 0.45 * hash(h + k * 3.1);
 }
 
-export function initVisualizer() {
-  cv = document.getElementById("viz") as HTMLCanvasElement; g = cv.getContext("2d")!;
-  // its own clock: the map only redraws while something on it moves, the meter must keep running
-  const tick = (t: number) => { frame(t); requestAnimationFrame(tick); };
-  requestAnimationFrame(tick);
-}
-
-function frame(now: number) {
-  const np = state.nowPlaying, dock = document.getElementById("playerBox");
-  if (!np || !dock || dock.hidden || document.hidden) { lastT = now; return; }
-  const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
-  const dpr = Math.min(2, cam.DPR);
-  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { still = false; cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-  const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
-  const si = np.s, ch = chunk(si); if (ch) shapeFor(ch.yt[np.i]);
+/** the meter's levels for this moment */
+function tick(now: number, si: number) {
+  const dt = Math.min(0.1, Math.max(0, (now - lastT) / 1000)); lastT = now;
   const playing = state.onAir && !reduce;
-  const rest = !playing && peak.every((v) => v < 0.005);
-  if (rest && still) { lastT = now; return; } // at rest and already drawn so: nothing to redraw
-  still = rest;
-  // the beat clock: the style's tempo
   const beat = (now / 1000) * galaxy.bpm[si] / 60 + galaxy.phase0[si], ph = beat % 1, eighth = (beat * 2) % 1;
   const kick = Math.exp(-ph * 7), snare = Math.floor(beat) % 2 === 1 ? Math.exp(-ph * 9) : 0, hat = Math.exp(-eighth * 14);
   const pos = player?.time() ?? 0, build = Math.min(1, 0.7 + pos / 60); // the intro builds up
@@ -56,17 +40,36 @@ function frame(now: number) {
     level[k] += (target - level[k]) * (target > level[k] ? 0.6 : Math.min(1, dt * 7));
     peak[k] = Math.max(level[k], peak[k] - dt * 0.6);
   }
-  // draw: bars of segments, a peak cap above each, the top segments brighter
-  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const bw = W / BANDS, segs = Math.floor(H / (SEG + GAP));
-  for (let k = 0; k < BANDS; k++) {
-    const x = Math.round(k * bw) + 0.5, w = Math.max(1, Math.round(bw) - 2), n = Math.round(level[k] * segs);
+}
+
+/** drawn on the live layer, after the planets */
+export function drawVisualizer(ctx: CanvasRenderingContext2D, t: number) {
+  const np = state.nowPlaying; if (!np || cam.s < LOD_PLANETS) { lastT = t; return; }
+  const pi = baseChunk(np.s)?.p[np.i] ?? -1; if (pi < 0) { lastT = t; return; }
+  const ch = chunk(np.s); if (ch) shapeFor(ch.yt[np.i]);
+  tick(t, np.s);
+  const pl = galaxy.planets[pi], q = motion.planetPos(pi, t), c = cam.toScreen(q.x, q.y), r = pl.r * cam.s;
+  if (r < 4) return;
+  const L = Math.max(8, Math.min(r * 0.24, 44)); // tall enough to read, reaching out into the belt
+  if (c.x < -r - L || c.y < -r - L || c.x > cam.W + r + L || c.y > cam.H + r + L) return;
+  const seg = L >= 24 ? 4 : L >= 12 ? 3 : 2, segs = Math.max(2, Math.floor(L / seg)), r0 = r + 2;
+  const n = BANDS * 2, w = Math.max(1, Math.min(7, ((2 * Math.PI * r0) / n) * 0.42));
+  ctx.save(); ctx.translate(c.x, c.y); ctx.lineCap = "butt"; ctx.lineWidth = w;
+  for (let j = 0; j < n; j++) {
+    const k = j < BANDS ? j : n - 1 - j; // mirrored: lows at the top, highs at the bottom
+    const a = -Math.PI / 2 + ((j + 0.5) / n) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    const lit = Math.round(level[k] * segs);
     for (let s = 0; s < segs; s++) {
-      const y = H - (s + 1) * (SEG + GAP);
-      if (s < n) { g.fillStyle = sc(si, 0.45 + 0.55 * (s / segs)); g.fillRect(x, y, w, SEG); }
-      else if (s % 2 === 0 && k % 2 === 0) { g.fillStyle = sc(si, 0.07); g.fillRect(x, y, w, SEG); } // the unlit grid, faintly
+      const d0 = r0 + s * seg, d1 = d0 + seg - 1;
+      if (s < lit) ctx.strokeStyle = sc(np.s, 0.4 + 0.6 * (s / segs));
+      else if (s % 2 === 0 && j % 2 === 0) ctx.strokeStyle = sc(np.s, 0.06); // the unlit grid, faintly
+      else continue;
+      ctx.beginPath(); ctx.moveTo(ca * d0, sa * d0); ctx.lineTo(ca * d1, sa * d1); ctx.stroke();
     }
-    const py = H - Math.max(1, Math.round(peak[k] * segs)) * (SEG + GAP);
-    if (peak[k] > 0.02) { g.fillStyle = "rgba(255,255,255,.85)"; g.fillRect(x, py, w, 1); }
+    if (peak[k] > 0.02) { // the peak cap drifts down
+      const d = r0 + Math.max(1, Math.round(peak[k] * segs)) * seg - 1;
+      ctx.strokeStyle = "rgba(255,255,255,.8)"; ctx.beginPath(); ctx.moveTo(ca * d, sa * d); ctx.lineTo(ca * (d + 1), sa * (d + 1)); ctx.stroke();
+    }
   }
+  ctx.restore();
 }

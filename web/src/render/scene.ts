@@ -10,6 +10,7 @@ import { drawPulsar, pulseOf, starSize } from "./pulsar";
 import { drawPlanets, tickSprites } from "./planets";
 import { drawSatellites } from "./satellites";
 import { drawStation } from "./station";
+import { drawVisualizer } from "../ui/visualizer";
 import { drawRoute } from "./routeLine";
 import { drawMarker } from "./markers";
 import { drawNames, drawStatic, farView, painted, readout } from "./staticLayer";
@@ -85,6 +86,7 @@ function drawLive(t: number) {
   drawRoute(ctx, t);
   tickSprites(); if (++frameNo % 6 === 0) readout();
   drawPlanets(ctx, t);
+  drawVisualizer(ctx, t); // the bars round the playing planet
   drawSatellites(ctx, t);
   galaxy.stars.forEach((s, si) => {
     if (!inView(s.x, s.y, starSize(si) * 9 / cam.s)) return;
