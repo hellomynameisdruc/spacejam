@@ -517,3 +517,6 @@ body.briefing .dock { border-color: var(--faint); box-shadow: none }
 .comms-form.off { cursor: var(--cur-hand, pointer) }
 .comms-form.off input { pointer-events: none }
 @media (max-width: 600px) { .pilot-btn .ava + span { display: none } .pilot-btn { padding: 0 3px } }
+.pl-traits { margin: 0; font-family: var(--f-dot); font-size: 10px; letter-spacing: .12em; line-height: 1.6; color: var(--dim) }
+.msg .ava { border: 1px solid var(--faint) }
+.pilot-btn .ava { image-rendering: pixelated }

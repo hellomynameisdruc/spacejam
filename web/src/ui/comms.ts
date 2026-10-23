@@ -19,7 +19,7 @@ function line(m: Msg) {
   const act = !pilot.me ? "" : mine
     ? `<button class="m-x" data-del="${m.id}" aria-label="Delete your message" title="Delete">×</button>`
     : `<button class="m-x" data-rep="${m.id}" aria-label="Report this message" title="${reported.has(m.id) ? "Reported" : "Report"}" ${reported.has(m.id) ? "disabled" : ""}>!</button>`;
-  return `<div class="msg${mine ? " mine" : ""}">${avatarSvg(p?.avatar ?? 0, 18)}<div class="m-b"><span class="m-h"><b>${esc((p?.nick ?? "PILOT").toUpperCase())}</b><time>${time(m.created_at)}</time>${act}</span><span class="m-t">${esc(m.body)}</span></div></div>`;
+  return `<div class="msg${mine ? " mine" : ""}">${avatarSvg(p?.avatar ?? 0, 32)}<div class="m-b"><span class="m-h"><b>${esc((p?.nick ?? "PILOT").toUpperCase())}</b><time>${time(m.created_at)}</time>${act}</span><span class="m-t">${esc(m.body)}</span></div></div>`;
 }
 
 function paint() {

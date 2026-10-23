@@ -5,7 +5,7 @@ import { esc } from "../core/util";
 import { $ } from "../core/dom";
 import { beacons, flightLog } from "../app/state";
 import { cloud, cloudWanted } from "../cloud/client";
-import { avatarSvg } from "./avatar";
+import { avatarSvg, avatarTraits } from "./avatar";
 
 export type Pilot = { id: string; nick: string; avatar: number };
 export const pilot = { session: null as Session | null, me: null as Pilot | null };
@@ -61,6 +61,7 @@ function render() {
           <label for="plNick">CALL SIGN</label>
           <div class="pl-row"><input id="plNick" value="${esc(me.nick)}" maxlength="20" autocomplete="off" spellcheck="false"><button type="button" class="key" id="plSave">SAVE</button></div>
           <button type="button" class="key" id="plFace">↻ NEW PORTRAIT</button>
+          <p class="pl-traits">${avatarTraits(me.avatar).map((t) => esc(t.toUpperCase())).join(" · ")}</p>
         </div></div>
       <dl class="pl-stats"><dt>BEACONS</dt><dd>${beacons.size}</dd><dt>FLIGHTS LOGGED</dt><dd>${flightLog.size}</dd><dt>EMAIL</dt><dd>${esc(pilot.session?.user.email ?? "")}</dd></dl>
       <p class="pl-small">Beacons and the flight log live in this browser for now.</p>
