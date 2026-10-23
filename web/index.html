@@ -29,6 +29,7 @@
       <div class="brand"><span class="inv">SOUND COSMOS</span><span class="sub">OBSERVATORY // SECTOR <b id="sector">HOUSE</b></span></div>
       <div class="ticker" aria-hidden="true"><div class="ticker-in" id="ticker"></div></div>
       <div class="sys">
+        <button type="button" class="pilot-btn" id="pilotBtn"><span>SIGN IN</span></button>
         <button type="button" class="help" id="help" aria-label="Safety briefing: how to use the observatory" title="Safety briefing: how it works (?)">?</button>
         <div class="phos" role="group" aria-label="Phosphor colour">
           <button type="button" data-ph="violet" aria-label="Violet phosphor"></button>
@@ -111,10 +112,16 @@
           <div class="ph-head logtabs" role="tablist">
             <button type="button" role="tab" id="tabLog" aria-selected="true">FLIGHT LOG</button>
             <button type="button" role="tab" id="tabLiked" aria-selected="false">BEACONS <b id="likedN">0</b></button>
+            <button type="button" role="tab" id="tabComms" aria-selected="false">COMMS</button>
           </div>
           <div class="log">
             <div class="loglines" id="log"></div>
             <div class="loglines" id="liked" hidden></div>
+          </div>
+          <div class="comms" id="comms" hidden>
+            <div class="comms-list" id="commsList" aria-live="polite"></div>
+            <p class="comms-note" id="commsNote" role="status" hidden></p>
+            <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key">SEND</button></form>
           </div>
         </section>
       </div>
@@ -131,6 +138,7 @@
     </footer>
   </div>
 
+  <div class="brief pilot-box" id="pilotBox" role="dialog" aria-modal="true" aria-label="Pilot profile" hidden></div>
   <div class="brief" id="brief" role="dialog" aria-modal="true" aria-label="Pre-flight safety briefing" hidden></div>
 
   <script type="module" src="/src/main.ts"></script>

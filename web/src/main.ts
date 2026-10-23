@@ -28,12 +28,16 @@ import { initInput } from "./ui/input";
 import { initWormhole } from "./ui/wormhole";
 import { initTheme } from "./ui/theme";
 import { initBriefing } from "./ui/briefing";
+import { initPilot } from "./ui/pilot";
+import { initComms } from "./ui/comms";
 
 initScene();
 initDock();
 initDossier();
 initRoutePanel();
 initLogPanel();
+initPilot();
+initComms();
 initSearch();
 initInput();
 initWormhole();
