@@ -87,7 +87,7 @@ export function initDock() {
   $("pPrev").innerHTML = ICON.prev; $("pNext").innerHTML = ICON.next; $("pToggle").innerHTML = ICON.pause; $("pLike").innerHTML = ICON.beacon;
 
   player = new Player("yt", {
-    onEnded: () => { if ($<HTMLInputElement>("autopilot").checked) next(); },
+    onEnded: () => { if (!state.following && $<HTMLInputElement>("autopilot").checked) next(); },
     onError: (code) => {
       const m = $("pMsg"); m.hidden = false;
       // removed, private (100) or not allowed on other sites (101, 150): that signal is dead for good,

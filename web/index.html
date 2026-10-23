@@ -53,9 +53,11 @@
             <div class="dock-head" id="dockHead">
               <span class="live" id="live">●</span><span class="dock-k">ON AIR</span><span class="dock-ody" id="dockOdy" hidden>ODYSSEY <b id="dockOdyN"></b></span>
               <span class="grip" aria-hidden="true">⠿</span>
+              <button type="button" class="dock-btn cast" id="dockCast" aria-label="Broadcast">((•))</button>
               <button type="button" class="dock-btn" id="dockFind" aria-label="Fly back to the track on air" title="Fly back to the track on air">◎</button>
               <button type="button" class="dock-btn" id="dockMin" aria-label="Minimise and pause">_</button>
             </div>
+            <div class="fleet-bar" id="fleetBar" hidden></div>
             <div class="video" id="videoWrap"><div id="yt"></div></div>
             <div class="dock-np"><span class="np-t" id="npTitle">—</span><span class="np-a" id="npArtist"></span></div>
             <div class="seek">
@@ -119,6 +121,7 @@
             <div class="loglines" id="liked" hidden></div>
           </div>
           <div class="comms" id="comms" hidden>
+            <div class="comms-ch" role="tablist"><button type="button" data-ch="all" aria-selected="true">ALL</button><button type="button" data-ch="fleet" id="chFleet" hidden>FLEET <b id="fleetN"></b></button><button type="button" data-ch="air">ON AIR <b id="airN"></b></button></div>
             <div class="comms-list" id="commsList" aria-live="polite"></div>
             <p class="comms-note" id="commsNote" role="status" hidden></p>
             <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key">SEND</button></form>

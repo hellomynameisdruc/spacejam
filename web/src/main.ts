@@ -30,6 +30,7 @@ import { initTheme } from "./ui/theme";
 import { initBriefing } from "./ui/briefing";
 import { initPilot } from "./ui/pilot";
 import { initComms } from "./ui/comms";
+import { initFleet } from "./ui/fleet";
 
 initScene();
 initDock();
@@ -38,6 +39,7 @@ initRoutePanel();
 initLogPanel();
 initPilot();
 initComms();
+initFleet();
 initSearch();
 initInput();
 initWormhole();

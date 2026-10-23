@@ -51,6 +51,10 @@ export const state = {
   played: new Set<string>(),
   /** tracks in play order, for the ◂◂ key */
   history: [] as TrackRef[],
+  /** tuned in to another pilot's broadcast: the host picks the tracks, autopilot stands down */
+  following: false,
+  /** the other ships of the fleet, drawn round the track on air */
+  fleetShips: [] as { nick: string; color: string }[],
 };
 
 export const sameSel = (a: Sel, b: Sel) => !!a && !!b && JSON.stringify(a) === JSON.stringify(b);

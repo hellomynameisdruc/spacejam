@@ -96,11 +96,28 @@ function drawLive(t: number) {
     const q = motion.trackPos(np.s, np.i, t), p = cam.toScreen(q.x, q.y), { bar } = pulseOf(np.s, t);
     ctx.strokeStyle = sc(np.s, 0.9 * (1 - bar)); ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.arc(p.x, p.y, 6 + bar * 26, 0, 7); ctx.stroke();
+    if (state.fleetShips.length) drawFleet(ctx, np.s, p.x, p.y, t);
   }
   if (state.hover && !sameSel(state.hover, state.sel)) drawMarker(state.hover, false);
   drawMarker(state.sel, true);
   drawStation(ctx, t); // over the markers: the station is the point of SOLARIS
   labels.g = lc;
+}
+
+/** the fleet: the other pilots listening along, small ships circling the track on air, with their call signs */
+function drawFleet(ctx: CanvasRenderingContext2D, si: number, x: number, y: number, t: number) {
+  const ships = state.fleetShips, n = ships.length;
+  ctx.save(); ctx.font = "9px 'Martian Mono', monospace"; ctx.textAlign = "center";
+  ships.slice(0, 12).forEach((sh, k) => {
+    const a = t / 5200 + (k / Math.min(n, 12)) * Math.PI * 2, r = 30 + (k % 2) * 9, sx = x + Math.cos(a) * r, sy = y + Math.sin(a) * r * 0.8;
+    const h = a + Math.PI / 2; // heading along the orbit
+    ctx.fillStyle = sh.color || sc(si, 0.95);
+    ctx.beginPath(); ctx.moveTo(sx + Math.cos(h) * 5, sy + Math.sin(h) * 5);
+    ctx.lineTo(sx + Math.cos(h + 2.5) * 4, sy + Math.sin(h + 2.5) * 4); ctx.lineTo(sx + Math.cos(h - 2.5) * 4, sy + Math.sin(h - 2.5) * 4); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = sh.color || sc(si, 0.7); ctx.fillText(sh.nick.toUpperCase().slice(0, 14), sx, sy - 7);
+  });
+  if (n > 12) { ctx.fillStyle = sc(si, 0.7); ctx.fillText(`+${n - 12}`, x, y + 52); }
+  ctx.restore();
 }
 
 function frame(now: number) {
