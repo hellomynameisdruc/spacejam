@@ -87,7 +87,7 @@ function render() {
     <div class="brief-head"><span class="inv">PILOT</span><span>${me ? "REGISTRY // PROFILE" : "REGISTRY // SIGN IN"}</span><button type="button" class="dock-btn" id="plClose" aria-label="Close">×</button></div>
     ${body}
     ${note ? `<p class="pl-note" role="status">${esc(note)}</p>` : ""}
-    <p class="pl-small pl-priv">We keep your email (to sign you in), your call sign, portrait number and the messages you send. Deleting the account removes all of it.</p>
+    <p class="pl-small pl-priv">We keep your email (to sign you in), your call sign, portrait number and the messages you send. Deleting the account removes all of it. <a href="./privacy.html" target="_blank" rel="noopener">Privacy</a></p>
   </div>`;
   const on = (id: string, f: () => void) => { const b = document.getElementById(id); if (b) b.onclick = f; };
   on("plClose", closePilot);
