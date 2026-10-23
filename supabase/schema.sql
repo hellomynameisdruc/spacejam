@@ -103,3 +103,33 @@ grant execute on function public.grant_rank(text, text) to authenticated;
 
 -- the first pilot to sign up (the founder) gets the keys
 update public.pilots set admin = true, rank = 'founder' where id = (select id from auth.users order by created_at limit 1);
+-- LOGBOOKS: a pilot's beacons and flight log, kept with the account
+create table public.logbooks (
+  pilot uuid primary key default auth.uid() references public.pilots on delete cascade,
+  beacons jsonb not null default '[]',
+  gone jsonb not null default '{}',
+  flights jsonb not null default '[]',
+  updated_at timestamptz not null default now(),
+  check (pg_column_size(beacons) + pg_column_size(gone) + pg_column_size(flights) < 400000)
+);
+alter table public.logbooks enable row level security;
+create policy "pilots keep their own logbook" on public.logbooks for all to authenticated
+  using (pilot = auth.uid()) with check (pilot = auth.uid());
+grant select, insert, update on public.logbooks to authenticated;
+
+-- FLEET CHAT: stored like the open channel (so nobody can speak under another's name), and it fades:
+-- a fleet's messages are gone after six hours
+create function public.fleet_chat_fades() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.messages where room like 'f:%' and created_at < now() - interval '6 hours';
+  return null;
+end $$;
+create trigger fleet_chat_fades after insert on public.messages for each statement execute function public.fleet_chat_fades();
+
+-- LIVE CHANNELS: anyone may listen; signed-in pilots may show up; only a fleet's own host steers it
+create policy "anyone listens" on realtime.messages for select to anon, authenticated
+  using (realtime.topic() = 'onair' or realtime.topic() like 'fleet:%' or realtime.topic() like 'comms:%');
+create policy "pilots show up" on realtime.messages for insert to authenticated
+  with check (realtime.messages.extension = 'presence' and (realtime.topic() = 'onair' or realtime.topic() like 'fleet:%'));
+create policy "only the host steers" on realtime.messages for insert to authenticated
+  with check (realtime.messages.extension = 'broadcast' and realtime.topic() = 'fleet:' || auth.uid()::text);

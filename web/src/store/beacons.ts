@@ -34,6 +34,11 @@ export class Beacons {
     if (!this.ids.delete(y)) return;
     this.list = this.list.filter((b) => b.y !== y); this.save();
   }
+  /** take a merged list (from the account): replaces what this browser has */
+  replaceAll(list: Beacon[]) {
+    this.list = list.filter((b) => !!b && typeof b.y === "string" && Number.isInteger(b.s) && Number.isInteger(b.i));
+    this.ids = new Set(this.list.map((b) => b.y)); this.save();
+  }
   /** where a beacon's track sits on the current map, or null if it moved out of reach */
   ref(b: Beacon, s = b.s): TrackRef | null {
     const ch = this.chunk(s);

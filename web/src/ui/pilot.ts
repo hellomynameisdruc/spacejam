@@ -17,6 +17,13 @@ export async function readPilots<T>(q: (cols: string) => PromiseLike<{ data: T; 
   return r;
 }
 export const pilot = { session: null as Session | null, me: null as Pilot | null };
+/** pilots seen so far, by id: names, portraits and ranks as the registry has them (never as a client claims) */
+export const roster = new Map<string, Pilot>();
+export async function lookup(ids: string[]) {
+  const need = [...new Set(ids)].filter((id) => id && !roster.has(id) && /^[0-9a-f-]{36}$/.test(id)); if (!need.length) return;
+  const sb = await cloud(), { data } = await readPilots((c) => sb.from("pilots").select(c).in("id", need));
+  for (const p of (data ?? []) as unknown as Pilot[]) roster.set(p.id, p);
+}
 const listeners: (() => void)[] = [];
 export const onPilot = (fn: () => void) => { listeners.push(fn); };
 const changed = () => { paintButton(); if (!$("pilotBox").hidden) render(); listeners.forEach((f) => f()); };
@@ -30,7 +37,7 @@ async function loadMe() {
   // the pilot row is made by the database on sign-up; give it a moment on the very first sign-in
   for (let k = 0; k < 4; k++) {
     const { data } = await readPilots((c) => sb.from("pilots").select(c).eq("id", s.user.id).maybeSingle());
-    if (data) { pilot.me = data as unknown as Pilot; return; }
+    if (data) { pilot.me = data as unknown as Pilot; roster.set(pilot.me.id, pilot.me); return; }
     await new Promise((r) => setTimeout(r, 600));
   }
 }
@@ -72,7 +79,7 @@ function render() {
           <p class="pl-traits">${avatarTraits(me.avatar).map((t) => esc(t.toUpperCase())).join(" · ")}</p>
         </div></div>
       <dl class="pl-stats"><dt>BEACONS</dt><dd>${beacons.size}</dd><dt>FLIGHTS LOGGED</dt><dd>${flightLog.size}</dd><dt>EMAIL</dt><dd>${esc(pilot.session?.user.email ?? "")}</dd></dl>
-      <p class="pl-small">Beacons and the flight log live in this browser for now.</p>
+      <p class="pl-small">Beacons and the flight log are kept with your account, on every device you sign in on.</p>
       <div class="pl-foot"><button type="button" class="key" id="plOut">SIGN OUT</button>
         <button type="button" class="key danger" id="plDel">${confirmDelete ? "CONFIRM: DELETE FOREVER" : "DELETE ACCOUNT"}</button></div>`
     : pilot.session

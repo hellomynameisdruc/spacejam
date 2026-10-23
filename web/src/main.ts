@@ -31,6 +31,7 @@ import { initBriefing } from "./ui/briefing";
 import { initPilot } from "./ui/pilot";
 import { initComms } from "./ui/comms";
 import { initFleet } from "./ui/fleet";
+import { initSync } from "./cloud/sync";
 
 initScene();
 initDock();
@@ -40,6 +41,7 @@ initLogPanel();
 initPilot();
 initComms();
 initFleet();
+initSync();
 initSearch();
 initInput();
 initWormhole();

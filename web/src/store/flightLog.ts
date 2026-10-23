@@ -26,6 +26,11 @@ export class FlightLog {
     this.list = [e, ...this.list.filter((x) => (e.y && x.y ? x.y !== e.y : x.k !== k))].slice(0, MAX);
     this.kv.set(KEY, JSON.stringify(this.list)); this.changed.emit();
   }
+  /** take a merged log (from the account): newest first, at most MAX */
+  replaceAll(list: LogEntry[]) {
+    this.list = list.filter((x) => !!x && typeof x.k === "string" && /^\d+-\d+$/.test(x.k) && typeof x.t === "number").sort((a, b) => b.t - a.t).slice(0, MAX);
+    this.kv.set(KEY, JSON.stringify(this.list)); this.changed.emit();
+  }
   /** entries as track references (as saved; see locate() for finding them on the current map) */
   refs(): LogRef[] {
     return this.list.map((x) => { const [s, i] = x.k.split("-").map(Number); return { s, i, t: x.t, b: x.b, y: x.y, st: x.st }; });
