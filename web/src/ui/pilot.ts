@@ -80,7 +80,8 @@ function render() {
       : sentTo
         ? `<p class="pl-text">A SIGN-IN LINK IS ON ITS WAY TO <b>${esc(sentTo)}</b>.</p><p class="pl-small">Open it in this browser. No mail? Check spam, or wait a minute and try again.</p>
            <div class="pl-foot"><button type="button" class="key" id="plAgain">USE ANOTHER EMAIL</button></div>`
-        : `<p class="pl-text">SIGN IN WITH A LINK SENT TO YOUR EMAIL. NO PASSWORD. A NEW EMAIL MAKES A NEW PILOT.</p>
+        : `<button type="button" class="key hot pl-google" id="plGoogle"><svg viewBox="0 0 14 14" aria-hidden="true" shape-rendering="crispEdges"><path fill="currentColor" d="M5 1h5v1h2v1h-2v1H9V3H5v1H4v1H3v4h1v1h1v1h4v-1h1V9H7V7h5v4h-1v1h-1v1H5v-1H3v-1H2v-1H1V4h1V3h1V2h2z"/></svg>SIGN IN WITH GOOGLE</button>
+           <p class="pl-or">OR A LINK SENT TO YOUR EMAIL, NO PASSWORD</p>
            <form class="pl-row" id="plForm"><input id="plMail" type="email" required placeholder="you@example.com" autocomplete="email" spellcheck="false"><button class="key hot" ${busy ? "disabled" : ""}>SEND LINK ▸</button></form>`;
   el.innerHTML = `<div class="pl-card" role="document">
     <div class="brief-head"><span class="inv">PILOT</span><span>${me ? "REGISTRY // PROFILE" : "REGISTRY // SIGN IN"}</span><button type="button" class="dock-btn" id="plClose" aria-label="Close">×</button></div>
@@ -95,10 +96,18 @@ function render() {
   on("plFace", newFace);
   on("plOut", signOut);
   on("plDel", deleteMe);
+  on("plGoogle", google);
   const f = document.getElementById("plForm") as HTMLFormElement | null;
   if (f) { f.onsubmit = (e) => { e.preventDefault(); sendLink(); }; ($("plMail") as HTMLInputElement).focus(); }
   const n = document.getElementById("plNick") as HTMLInputElement | null;
   if (n) n.onkeydown = (e) => { if (e.key === "Enter") saveNick(); };
+}
+
+async function google() {
+  busy = true; note = ""; render();
+  const { error } = await (await cloud()).auth.signInWithOAuth({ provider: "google", options: { redirectTo: location.origin + location.pathname } });
+  busy = false;
+  if (error) { note = /not enabled|provider/i.test(error.message) ? "GOOGLE SIGN-IN IS NOT SWITCHED ON YET." : `COULD NOT SIGN IN: ${error.message}`; render(); }
 }
 
 async function sendLink() {
