@@ -54,7 +54,6 @@ function showTab(tab: Tab) {
   ($("log").parentElement as HTMLElement).hidden = tab === "comms";
   $("tabLog").setAttribute("aria-selected", String(tab === "log")); $("tabLiked").setAttribute("aria-selected", String(tab === "liked"));
   $("tabComms").setAttribute("aria-selected", String(tab === "comms"));
-  $("log").closest(".logp")!.classList.toggle("comms-on", tab === "comms");
   if (tab === "liked") renderBeacons();
   if (tab === "comms") openComms();
 }
