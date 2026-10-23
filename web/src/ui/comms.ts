@@ -9,11 +9,15 @@ import { cloud } from "../cloud/client";
 import { avatarSvg } from "./avatar";
 import { lookup, onPilot, openPilot, pilot, roster, wake } from "./pilot";
 import { isStaff, rankKey, rankOf, rankTag, RANKS } from "./ranks";
+import { flashKey, toast } from "./toast";
 import { copyInvite, fleet, fleetRoom, inviteLink, known, leave, onFleet, tuneIn, watchOnAir } from "./fleet";
 
 const ALL = "all", KEEP = 80;
 type Msg = { id: number; pilot: string; body: string; created_at: string; room?: string };
 const rooms = new Map<string, Msg[]>(), loaded = new Set<string>(), reported = new Set<number>();
+let unread = 0;
+const seen = () => !$("comms").hidden && !document.hidden;
+function paintUnread() { const b = $("commsUnread"); b.hidden = !unread; b.textContent = unread > 99 ? "99+" : String(unread); $("tabComms").classList.toggle("news", unread > 0); }
 let started = false, channel: RealtimeChannel | null = null, note = "", view: "all" | "fleet" | "air" = "all";
 const room = () => (view === "fleet" ? fleetRoom() : ALL);
 const list = (r: string | null) => { if (!r) return []; let l = rooms.get(r); if (!l) rooms.set(r, (l = [])); return l; };
@@ -91,6 +95,7 @@ async function start() {
       const l = list(m.room); if (l.some((x) => x.id === m.id)) return;
       await lookup([m.pilot]).catch(() => {});
       l.push(m); if (l.length > KEEP) l.shift(); paint();
+      if (m.pilot !== pilot.me?.id && !seen()) { unread++; paintUnread(); }
     })
     .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (e) => {
       const id = (e.old as { id?: number }).id;
@@ -123,7 +128,7 @@ async function command(text: string) {
   const { data, error } = await (await cloud()).rpc("grant_rank", { target: nick, new_rank: r });
   if (error) note = /NOT AUTHORISED/.test(error.message) ? "ONLY THE FOUNDER GIVES RANKS." : /NO SUCH PILOT/.test(error.message) ? `NO PILOT CALLED ${nick.toUpperCase()}.` : `FAILED: ${error.message}`;
   else {
-    note = `${String(data).toUpperCase()} IS NOW ${RANKS[r].label}.`; inp.value = "";
+    note = ""; toast(`${String(data)} is now ${RANKS[r].label}`); inp.value = "";
     for (const p of roster.values()) if (p.nick.toLowerCase() === nick.toLowerCase()) p.rank = r;
   }
   paint();
@@ -133,21 +138,22 @@ async function act(e: Event) {
   const t = e.target as HTMLElement;
   const j = t.closest<HTMLElement>("[data-join]"); if (j) { await tuneIn(j.dataset.join!); return; }
   if (t.closest("[data-leave]")) { await leave(); return; }
-  if (t.closest("[data-fl-copy]")) { copyInvite(); return; }
-  if (t.closest("[data-fl-post]")) { if (!pilot.me) { openPilot(); return; } const inp = $("commsIn") as HTMLInputElement; inp.value = `Tune in with me: ${inviteLink()}`; view = "all"; paint(); await send(); return; }
+  const cp = t.closest<HTMLElement>("[data-fl-copy]"); if (cp) { if (await copyInvite()) flashKey(cp, "COPIED ✓"); return; }
+  if (t.closest("[data-fl-post]")) { if (!pilot.me) { openPilot(); return; } const inp = $("commsIn") as HTMLInputElement; inp.value = `Tune in with me: ${inviteLink()}`; view = "all"; paint(); await send(); if (!note) toast("Invite posted to ALL"); return; }
   const b = t.closest<HTMLElement>("[data-del],[data-rep]"); if (!b) return;
   const sb = await cloud();
   if (b.dataset.del) {
     const id = +b.dataset.del, { error } = await sb.from("messages").delete().eq("id", id);
-    if (!error) for (const l of rooms.values()) { const k = l.findIndex((x) => x.id === id); if (k >= 0) l.splice(k, 1); }
+    if (!error) { for (const l of rooms.values()) { const k = l.findIndex((x) => x.id === id); if (k >= 0) l.splice(k, 1); } toast("Message deleted"); }
+    else toast("Could not delete the message", "err");
   } else {
     const id = +b.dataset.rep!, { error } = await sb.from("reports").insert({ message: id });
-    if (!error || error.code === "23505") { reported.add(id); note = "REPORTED. THANK YOU, PILOT."; }
+    if (!error || error.code === "23505") { reported.add(id); toast("Reported. Thank you, pilot"); }
   }
   paint();
 }
 
-export const openComms = () => { start(); watchOnAir().catch(() => {}); paint(); };
+export const openComms = () => { start(); watchOnAir().catch(() => {}); unread = 0; paintUnread(); paint(); };
 
 export function initComms() {
   $("commsForm").onsubmit = (e) => { e.preventDefault(); send(); };
@@ -163,4 +169,7 @@ export function initComms() {
   });
   onPilot(() => { if (!$("comms").hidden || started) paint(); });
   addEventListener("beforeunload", () => { channel?.unsubscribe(); });
+  document.addEventListener("visibilitychange", () => { if (seen()) { unread = 0; paintUnread(); } });
+  // tune in to the channel a moment after the map is up, so new messages show on the tab
+  setTimeout(() => { start(); watchOnAir().catch(() => {}); }, 4000);
 }

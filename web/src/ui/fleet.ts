@@ -16,6 +16,7 @@ import { onFrame } from "../render/scene";
 import { player, playTestSignal } from "./dock";
 import { lookup, openPilot, pilot, roster } from "./pilot";
 import { rankOf } from "./ranks";
+import { flashKey, toast } from "./toast";
 
 export type Who = { id: string; nick: string; avatar: number; rank?: string };
 export type Host = Who & { title: string; artist: string; style: string; n: number };
@@ -112,19 +113,23 @@ export async function startBroadcast() {
   await watchOnAir().catch(() => {});
   await board(pilot.me.id, "host");
   announce();
+  if (fleet.role === "host") toast("You are on air: pilots can tune in from ON AIR or your invite link");
 }
 export async function endBroadcast() {
   if (fleet.role !== "host") return;
   fc?.send({ type: "broadcast", event: "end", payload: {} });
   air?.untrack(); lastAnnounce = "";
   await disembark(); fleet.role = null; fleet.crew = []; emit();
+  toast("Broadcast ended");
 }
 export async function tuneIn(hostId: string) {
   if (fleet.role === "host") await endBroadcast();
   if (pilot.me && hostId === pilot.me.id) return;
   await board(hostId, "crew");
+  if (fleet.role === "crew") toast("Tuned in: you hear what the host hears");
 }
 export async function leave(why = "") {
+  if (!why && fleet.role === "crew") toast("You left the fleet");
   await disembark(); fleet.role = null; fleet.host = null; fleet.crew = []; fleet.note = why; emit();
   if (why) setTimeout(() => { if (fleet.note === why) { fleet.note = ""; emit(); } }, 6000);
 }
@@ -182,8 +187,8 @@ function paintBar() {
       : `<span class="fl-n">${esc(fleet.note)}</span>`;
 }
 export async function copyInvite() {
-  try { await navigator.clipboard.writeText(inviteLink()); fleet.note = "INVITE LINK COPIED."; } catch { fleet.note = inviteLink(); }
-  emit(); setTimeout(() => { fleet.note = ""; emit(); }, 3000);
+  try { await navigator.clipboard.writeText(inviteLink()); toast("Invite link copied. Paste it to a friend"); return true; }
+  catch { toast(`Copy this link: ${inviteLink()}`, "err"); return false; }
 }
 
 export function initFleet() {
@@ -191,7 +196,7 @@ export function initFleet() {
   $("fleetBar").addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-fl]"); if (!b) return;
     const a = b.dataset.fl;
-    if (a === "end") endBroadcast(); else if (a === "leave") leave(); else if (a === "invite") copyInvite();
+    if (a === "end") endBroadcast(); else if (a === "leave") leave(); else if (a === "invite") copyInvite().then((ok) => { if (ok) flashKey(b, "COPIED ✓"); });
   });
   // the host: report every change; the crew: notice flying off alone
   let last = 0, lastT = 0;

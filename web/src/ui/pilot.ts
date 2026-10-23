@@ -7,6 +7,7 @@ import { beacons, flightLog } from "../app/state";
 import { cloud, cloudWanted } from "../cloud/client";
 import { avatarSvg, avatarTraits } from "./avatar";
 import { rankTag } from "./ranks";
+import { toast } from "./toast";
 
 export type Pilot = { id: string; nick: string; avatar: number; rank?: string; admin?: boolean };
 /** the pilot columns to read; without ranks if the database hasn't got them yet */
@@ -59,6 +60,7 @@ async function connect() {
     const err = q.get("error_description");
     history.replaceState(null, "", location.pathname + location.hash);
     if (err || !pilot.session) { note = err ? `SIGN-IN FAILED: ${err}` : "SIGN-IN FAILED. OPEN THE LINK IN THE SAME BROWSER YOU ASKED FOR IT IN, OR ASK FOR A NEW ONE."; openPilot(); }
+    else toast(`Signed in. Welcome aboard, ${pilot.me?.nick ?? "pilot"}`);
   }
 }
 
@@ -134,7 +136,8 @@ async function saveNick() {
   if (!NICK.test(v)) { note = "CALL SIGN: 3–20 LETTERS, DIGITS, . _ OR -"; render(); return; }
   if (v === me.nick) return;
   const { error } = await (await cloud()).from("pilots").update({ nick: v }).eq("id", me.id);
-  note = error ? (error.code === "23505" ? "THAT CALL SIGN IS TAKEN." : `COULD NOT SAVE: ${error.message}`) : "CALL SIGN SAVED.";
+  note = error ? (error.code === "23505" ? "THAT CALL SIGN IS TAKEN." : `COULD NOT SAVE: ${error.message}`) : "";
+  if (!error) toast(`Call sign saved: ${v}`);
   if (!error) me.nick = v;
   changed();
 }
@@ -143,13 +146,13 @@ async function newFace() {
   const me = pilot.me; if (!me) return;
   const avatar = Math.floor(Math.random() * 2147483647);
   const { error } = await (await cloud()).from("pilots").update({ avatar }).eq("id", me.id);
-  if (error) note = `COULD NOT SAVE: ${error.message}`; else { me.avatar = avatar; note = ""; }
+  if (error) note = `COULD NOT SAVE: ${error.message}`; else { me.avatar = avatar; note = ""; toast("New portrait saved"); }
   changed();
 }
 
 async function signOut() {
   await (await cloud()).auth.signOut();
-  pilot.session = null; pilot.me = null; note = ""; sentTo = ""; changed();
+  pilot.session = null; pilot.me = null; note = ""; sentTo = ""; changed(); toast("Signed out");
 }
 
 async function deleteMe() {
@@ -158,7 +161,7 @@ async function deleteMe() {
   confirmDelete = false;
   if (error) { note = `COULD NOT DELETE: ${error.message}`; render(); return; }
   await sb.auth.signOut().catch(() => {});
-  pilot.session = null; pilot.me = null; note = "ACCOUNT DELETED."; changed();
+  pilot.session = null; pilot.me = null; note = "ACCOUNT DELETED."; changed(); toast("Account deleted");
 }
 
 export function openPilot() {
