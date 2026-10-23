@@ -122,6 +122,14 @@ export function playOrbit(pi: number) {
   state.orbit = pi;
   select({ kind: "track", s: p.s, i }, true, true);
 }
+/**
+ * A station takes up orbit round the planet that is already playing, without changing the track: what
+ * happens on its own after a while on one planet (see the dock), so a long stay becomes that label's radio.
+ */
+export function engageOrbit(pi: number) {
+  if (state.orbit === pi || (state.route && state.routeIdx >= 0)) return;
+  state.orbitSince = Date.now(); state.orbit = pi; state.dirty = true;
+}
 export function toggleBeacon(r: TrackRef | null) { beacons.toggle(r, r ? galaxy.stars[r.s]?.name : undefined); }
 
 // ---------- routes ----------

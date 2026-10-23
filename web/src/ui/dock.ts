@@ -5,7 +5,7 @@ import { lampLit, mmss, pad } from "../core/util";
 import { $, uiZoom } from "../core/dom";
 import { Player } from "./youtubePlayer";
 import { beacons, chunk, dead, galaxy, motion, prefs, state } from "../app/state";
-import { next, prev, select, toggleBeacon } from "../app/actions";
+import { engageOrbit, next, prev, select, toggleBeacon } from "../app/actions";
 import { onFrame, viewportEl } from "../render/scene";
 import { cam, LOD_TRACKS } from "../render/camera";
 import { ticker } from "./ticker";
@@ -41,6 +41,9 @@ export function paintBeaconKey() {
 }
 
 /** "ODYSSEY 07/24" next to ON AIR while the track on air is a stop of the playing odyssey */
+/** how long on one planet's tracks before the station comes on its own */
+const AUTO_SOLARIS_MS = 75_000;
+
 export function paintOdysseyTag() {
   const r = state.route, k = state.routeIdx, np = state.nowPlaying, cur = r && k >= 0 ? r.flat[k] : null;
   const on = !!(cur && np && cur.s === np.s && cur.i === np.i);
@@ -105,6 +108,16 @@ export function initDock() {
   $("dockFind").onclick = () => { const np = state.nowPlaying; if (np) select({ kind: "track", ...np }); };
   // the ON AIR lamp blinks on the same clock as the station's beacon
   const live = $("live");
+  // a while on one planet — playing its tracks, outside an odyssey — and a SOLARIS station drifts in to stay
+  let stayP = -1, stayMs = 0, lastT = 0;
+  onFrame((t) => {
+    const dt = Math.min(250, t - lastT); lastT = t;
+    const np = state.nowPlaying, ch = np && chunk(np.s), pi = ch ? ch.p[np!.i] : -1;
+    if (pi < 0 || state.orbit !== null || (state.route && state.routeIdx >= 0)) { stayP = pi; stayMs = 0; return; }
+    if (pi !== stayP) { stayP = pi; stayMs = 0; }
+    if (state.onAir) stayMs += dt;
+    if (stayMs >= AUTO_SOLARIS_MS) { engageOrbit(pi); paintOdysseyTag(); stayMs = 0; }
+  });
   onFrame((t) => { const lit = !state.onAir || lampLit(t); if (live.classList.contains("dim") === lit) live.classList.toggle("dim", !lit); });
   onFrame(() => {
     const np = state.nowPlaying, b = $("dockFind"); if (!np || !chunk(np.s)) { b.classList.remove("far"); return; }
