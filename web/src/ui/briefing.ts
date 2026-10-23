@@ -22,6 +22,15 @@ const BEACON = (x: number, y: number, k: number) => {
 
 const PANELS: { t: string; p: string; d: string }[] = [
   {
+    t: "PILOT REGISTRY",
+    p: pic(`${r(3, 3, 54, 1)}${r(3, 30, 54, 1)}${r(3, 3, 1, 28)}${r(56, 3, 1, 28)}
+      ${r(9, 8, 14, 1)}${r(8, 9, 1, 12)}${r(23, 9, 1, 12)}${r(9, 21, 14, 1)}${r(11, 11, 10, 8, 0.35)}${r(12, 13, 8, 2)}${r(13, 13, 2, 1, 0.4)}${r(10, 23, 12, 3, 0.6)}
+      ${r(28, 9, 20, 2)}${r(28, 14, 14, 1, 0.6)}${r(28, 18, 17, 1, 0.45)}
+      ${r(28, 22, 13, 4, 0.9)}${r(29, 23, 1, 2, 0.2)}${r(31, 23, 9, 2, 0.2)}
+      ${[[51, 22], [50, 23], [51, 23], [52, 23], [51, 24]].map(([x, y]) => r(x, y, 1, 1)).join("")}`),
+    d: "Sign in with Google or a link sent to your email. You get a call sign and a portrait drawn from traits; ranks are given by the founder. Your beacons and flight log come along on every device.",
+  },
+  {
     t: "FASTEN YOUR SCROLL WHEEL",
     p: pic(`${r(8, 6, 1, 20)}${r(19, 6, 1, 20)}${r(9, 5, 10, 1)}${r(9, 26, 10, 1)}${r(9, 14, 10, 1, 0.5)}${r(13, 7, 2, 5)}
       ${r(13, 1, 2, 2)}${r(12, 2, 4, 1)}${r(13, 29, 2, 2)}${r(12, 29, 4, 1)}
@@ -57,15 +66,6 @@ const PANELS: { t: string; p: string; d: string }[] = [
       <path d="M7 24 L23 10 L38 22 L53 8" fill="none" stroke="currentColor" stroke-dasharray="2 1.5"/>
       ${ring(23, 10, 5, 0.5)}${ring(38, 22, 5, 0.5)}${txt(7, 32, "FROM")}${txt(53, 17, "TO")}`),
     d: "<b>On a star:</b> an odyssey across five systems, or hitchhike round its labels, 42 tracks. <b>On a planet:</b> Solaris station, the label as a radio; or time warp through its history.",
-  },
-  {
-    t: "PILOT REGISTRY",
-    p: pic(`${r(3, 3, 54, 1)}${r(3, 30, 54, 1)}${r(3, 3, 1, 28)}${r(56, 3, 1, 28)}
-      ${r(9, 8, 14, 1)}${r(8, 9, 1, 12)}${r(23, 9, 1, 12)}${r(9, 21, 14, 1)}${r(11, 11, 10, 8, 0.35)}${r(12, 13, 8, 2)}${r(13, 13, 2, 1, 0.4)}${r(10, 23, 12, 3, 0.6)}
-      ${r(28, 9, 20, 2)}${r(28, 14, 14, 1, 0.6)}${r(28, 18, 17, 1, 0.45)}
-      ${r(28, 22, 13, 4, 0.9)}${r(29, 23, 1, 2, 0.2)}${r(31, 23, 9, 2, 0.2)}
-      ${[[51, 22], [50, 23], [51, 23], [52, 23], [51, 24]].map(([x, y]) => r(x, y, 1, 1)).join("")}`),
-    d: "Sign in with Google or a link sent to your email. You get a call sign and a portrait drawn from traits; ranks are given by the founder. Your beacons and flight log come along on every device.",
   },
   {
     t: "COMMS",
