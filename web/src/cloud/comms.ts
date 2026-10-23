@@ -71,6 +71,16 @@ export async function remove(id: number) {
   if (error) return false;
   forget(id); emit({ kind: "removed" }); return true;
 }
+/** a pilot's invites to their own fleet, everywhere in the chat: only one is ever current */
+export async function clearInvites(hostId: string) {
+  const tag = `#fleet-${hostId}`;
+  const { error } = await (await cloud()).from("messages").delete().eq("pilot", hostId).like("body", `%${tag}%`);
+  if (error) return false;
+  let hit = false;
+  for (const l of rooms.values()) for (let k = l.length - 1; k >= 0; k--) if (l[k].pilot === hostId && l[k].body.includes(tag)) { l.splice(k, 1); hit = true; }
+  if (hit) emit({ kind: "removed" });
+  return true;
+}
 export async function report(id: number) {
   const { error } = await (await cloud()).from("reports").insert({ message: id });
   return !error || error.code === "23505"; // reported before counts too

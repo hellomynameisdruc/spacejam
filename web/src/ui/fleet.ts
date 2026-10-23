@@ -4,8 +4,16 @@ import { esc } from "../core/util";
 import { $ } from "../core/dom";
 import { endBroadcast, fleet, inviteLink, known, leave, onFleet, onFleetNote, startBroadcast, startFleets } from "../cloud/fleet";
 import { ICON } from "./dock";
+import { clearInvites } from "../cloud/comms";
 import { openPilot } from "./pilot";
 import { clearMode, say, setMode } from "./rail";
+
+/** the broadcast ends, and its invites leave the chat with it */
+async function end() {
+  const host = fleet.hostId;
+  await endBroadcast();
+  if (host) clearInvites(host).catch(() => {});
+}
 
 export async function copyInvite() {
   try { await navigator.clipboard.writeText(inviteLink()); say("Invite link copied. Paste it to a friend"); return true; }
@@ -17,13 +25,13 @@ function paint() {
   cast.classList.toggle("on", fleet.role === "host"); cast.hidden = fleet.role === "crew";
   cast.title = fleet.role === "host" ? "Broadcasting: other pilots can tune in. Click to stop" : "Broadcast: let other pilots tune in and listen with you";
   const n = fleet.crew.length - (fleet.role === "crew" ? 1 : 0), pilots = `${n} ${n === 1 ? "PILOT" : "PILOTS"}`;
-  if (fleet.role === "host") setMode("fleet", `<b>ON AIR</b> · ${pilots} TUNED IN`, [{ label: "INVITE", run: copyInvite }, { label: "END", run: endBroadcast }], "live", ICON.cast);
+  if (fleet.role === "host") setMode("fleet", `<b>ON AIR</b> · ${pilots} TUNED IN`, [{ label: "INVITE", run: copyInvite }, { label: "END", run: end }], "live", ICON.cast);
   else if (fleet.role === "crew") setMode("fleet", `TUNED IN TO <b>${esc((fleet.host ? known(fleet.host).nick : "…").toUpperCase())}</b>${n > 0 ? ` · +${pilots}` : ""}`, [{ label: "LEAVE", run: () => leave() }], "live", ICON.cast);
   else clearMode("fleet");
 }
 
 export function initFleet() {
-  $("dockCast").onclick = async () => { if (fleet.role === "host") endBroadcast(); else if (!(await startBroadcast())) openPilot(); };
+  $("dockCast").onclick = async () => { if (fleet.role === "host") end(); else if (!(await startBroadcast())) openPilot(); };
   onFleet(paint);
   onFleetNote(say);
   startFleets();

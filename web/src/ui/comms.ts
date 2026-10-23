@@ -4,7 +4,7 @@
 // The messages themselves live in cloud/comms.ts, the fleets in cloud/fleet.ts.
 import { esc, pad } from "../core/util";
 import { $ } from "../core/dom";
-import { ALL, dropRoom, goLive, grantRank, loadRoom, messages, onComms, remove, report, transmit, type Msg } from "../cloud/comms";
+import { ALL, clearInvites, dropRoom, goLive, grantRank, loadRoom, messages, onComms, remove, report, transmit, type Msg } from "../cloud/comms";
 import { lookup, onPilot, pilot, roster, wake } from "../cloud/pilots";
 import { fleet, fleetRoom, inviteLink, known, leave, onFleet, tuneIn, watchOnAir } from "../cloud/fleet";
 import { chunk, galaxy } from "../app/state";
@@ -145,6 +145,7 @@ async function act(e: Event) {
   if (t.closest("[data-fl-post]")) {
     if (!pilot.me) { openPilot(); return; }
     view = "all"; paint();
+    await clearInvites(pilot.me.id); // one invite at a time: the new one replaces the old
     const err = await transmit(ALL, inviteLink());
     if (err) tell(err === "too-fast" ? "Too fast. One message every few seconds" : "Transmission failed. Try again"); else say("Invite posted to ALL");
     return;
