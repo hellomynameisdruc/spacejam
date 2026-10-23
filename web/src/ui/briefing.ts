@@ -49,7 +49,7 @@ const PANELS: { t: string; p: string; d: string }[] = [
     t: "BEACONS = LIKES",
     p: pic(`${BEACON(6, 3, 2)}${r(36, 9, 18, 1)}${r(36, 15, 14, 1, 0.7)}${r(36, 21, 16, 1, 0.5)}${r(36, 27, 11, 1, 0.3)}
       ${r(33, 9, 1, 1)}${r(33, 15, 1, 1, 0.7)}${r(33, 21, 1, 1, 0.5)}${r(33, 27, 1, 1, 0.3)}`),
-    d: "Love a track? Press the beacon key (or L) to set a beacon. The BEACONS tab keeps them all and plays them as a YouTube playlist.",
+    d: "Love a track? Press the beacon key (or L) to set a beacon. The BEACONS tab keeps them all and plays them as a YouTube playlist. Signed in, they follow you to every device.",
   },
   {
     t: "MISSIONS AVAILABLE",
@@ -57,6 +57,32 @@ const PANELS: { t: string; p: string; d: string }[] = [
       <path d="M7 24 L23 10 L38 22 L53 8" fill="none" stroke="currentColor" stroke-dasharray="2 1.5"/>
       ${ring(23, 10, 5, 0.5)}${ring(38, 22, 5, 0.5)}${txt(7, 32, "FROM")}${txt(53, 17, "TO")}`),
     d: "<b>On a star:</b> an odyssey across five systems, or hitchhike round its labels, 42 tracks. <b>On a planet:</b> Solaris station, the label as a radio; or time warp through its history.",
+  },
+  {
+    t: "PILOT REGISTRY",
+    p: pic(`${r(3, 3, 54, 1)}${r(3, 30, 54, 1)}${r(3, 3, 1, 28)}${r(56, 3, 1, 28)}
+      ${r(9, 8, 14, 1)}${r(8, 9, 1, 12)}${r(23, 9, 1, 12)}${r(9, 21, 14, 1)}${r(11, 11, 10, 8, 0.35)}${r(12, 13, 8, 2)}${r(13, 13, 2, 1, 0.4)}${r(10, 23, 12, 3, 0.6)}
+      ${r(28, 9, 20, 2)}${r(28, 14, 14, 1, 0.6)}${r(28, 18, 17, 1, 0.45)}
+      ${r(28, 22, 13, 4, 0.9)}${r(29, 23, 1, 2, 0.2)}${r(31, 23, 9, 2, 0.2)}
+      ${[[51, 22], [50, 23], [51, 23], [52, 23], [51, 24]].map(([x, y]) => r(x, y, 1, 1)).join("")}`),
+    d: "Sign in with Google or a link sent to your email. You get a call sign and a portrait drawn from traits; ranks are given by the founder. Your beacons and flight log come along on every device.",
+  },
+  {
+    t: "COMMS",
+    p: pic(`${r(3, 3, 26, 1)}${r(3, 12, 26, 1)}${r(3, 3, 1, 10)}${r(28, 3, 1, 10)}${r(5, 13, 2, 2)}${r(6, 6, 18, 1, 0.6)}${r(6, 9, 12, 1, 0.45)}
+      ${r(22, 17, 35, 1)}${r(22, 31, 35, 1)}${r(22, 17, 1, 15)}${r(56, 17, 1, 15)}
+      ${r(25, 20, 9, 9, 0.5)}${r(26, 22, 3, 2)}${r(37, 21, 14, 2)}${r(37, 25, 10, 1, 0.6)}${r(37, 28, 12, 1, 0.4)}
+      ${r(52, 22, 3, 5, 0.9)}`),
+    d: "The pilots' channel, in the log panel. Share a track from its dossier (SEND TO COMMS): it arrives as a card — one click flies there and plays it.",
+  },
+  {
+    t: "FLY IN FORMATION",
+    p: pic(`${r(8, 12, 2, 18)}${r(7, 10, 4, 3)}${r(6, 28, 6, 2)}
+      ${r(4, 8, 1, 7, 0.8)}${r(13, 8, 1, 7, 0.8)}${r(2, 6, 1, 11, 0.5)}${r(15, 6, 1, 11, 0.5)}
+      <path d="M20 17 L56 17" stroke="currentColor" stroke-dasharray="2 2" opacity=".5"/>
+      ${[24, 36, 48].map((x, k) => `<path d="M${x} ${17 + (k % 2 ? 5 : -5)} l7 3 l-7 3 z" fill="currentColor"${k ? ` opacity="${1 - k * 0.2}"` : ""}/>`).join("")}
+      ${txt(30, 31, "ON AIR")}${txt(50, 31, "TUNE IN")}`),
+    d: "Press the mast in the player to go on air. Pilots tune in from ON AIR or your invite and hear what you hear, in step; the fleet gets its own channel.",
   },
   {
     t: "EMERGENCY EXITS",
