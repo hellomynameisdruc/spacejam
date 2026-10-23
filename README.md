@@ -115,12 +115,21 @@ web/src/
   model/     pure logic: galaxy (planet types, star classes, tempo), motion (orbits), routes
   data/      fetching the map and each star's tracks
   store/     the visitor's own data: beacons, flight log, prefs
-  app/       shared state and actions (select, play, next, plot an odyssey, wormhole)
+  cloud/     accounts and live data (Supabase): pilots, COMMS, fleets, the synced logbook
+  app/       shared state, actions (select, play, next, plot an odyssey, wormhole), and the
+             ports: what actions ask of the UI, filled in by the UI (so nothing imports in a circle)
   render/    camera, palette, layers, pulsars, planets, satellites, route line, picking
-  ui/        dossier, player dock, odyssey panel, log & beacons, search, input, effects
+  ui/        dossier, player, odyssey panel, log & beacons, COMMS, pilot card, the message rail,
+             overlays, search, input, effects
+  styles/    tokens (type sizes, colours, layers), then one file per part of the terminal
 web/test/    Vitest
+web/e2e/     two browsers against a stand-in for Supabase: fleets, tune in, fleet chat
 pipeline/    Python: parse → catalogue → map, with pytest
+supabase/    the database: tables, rules, live channels (schema.sql)
 ```
+
+The interface speaks in one place: the **message rail** along the top of the map (a mode in progress,
+on air, ✓ done, ! trouble), or the top of an open card. Errors in a form show right under it.
 
 Every push runs types, lint (ESLint, ruff) and tests for the site and the pipeline. The site is deployed only if they pass.
 

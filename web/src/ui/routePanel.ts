@@ -7,6 +7,7 @@ import { clearRoute, endPick, fitRoute, playRouteAt, select, toggleRoutePlayback
 import { cam } from "../render/camera";
 import { paintOdysseyTag } from "./dock";
 import { clearMode, say, setMode } from "./rail";
+import { provide } from "../app/ports";
 
 export function showPickHint(fromName: string) {
   setMode("pick", `ODYSSEY FROM <b>${esc(fromName.toUpperCase())}</b> · CLICK A DESTINATION PLANET OR STAR`, [{ label: "CANCEL", kbd: "ESC", run: endPick }]);
@@ -42,6 +43,13 @@ export function renderRoutePanel() {
 }
 
 export function initRoutePanel() {
+  provide({
+    showRoute: () => { renderRoutePanel(); $("routeList").querySelector(".rt.on")?.scrollIntoView({ block: "nearest" }); },
+    routeEnded: (note) => { $("routeMeta").textContent = note; },
+    routePanelWidth,
+    pickHint: (from) => (from ? showPickHint(from) : hidePickHint()),
+    pickDenied: denyPick,
+  });
   $("routeList").addEventListener("click", (e) => {
     const t = (e.target as HTMLElement).closest<HTMLElement>("[data-k],[data-p]"); if (!t) return;
     if (t.dataset.k) playRouteAt(+t.dataset.k); else select({ kind: "planet", p: +t.dataset.p! });

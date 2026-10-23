@@ -7,7 +7,7 @@ import type { Beacon } from "../store/beacons";
 import type { LogEntry } from "../store/flightLog";
 import { browserKV, readJSON } from "../store/storage";
 import { cloud } from "./client";
-import { onPilot, pilot } from "../ui/pilot";
+import { onPilot, pilot } from "./pilots";
 
 const GONE = "kosmos-gone", MAX_GONE = 500;
 let uid: string | null = null, applying = false, timer = 0, ready = false;

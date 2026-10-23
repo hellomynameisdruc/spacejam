@@ -2,16 +2,11 @@
 // these; these change the state and the camera and ask the UI to refresh.
 import type { Sel, TrackRef } from "../core/types";
 import { pad } from "../core/util";
-import { $ } from "../core/dom";
 import { beacons, chunk, dead, flightLog, galaxy, motion, state, tracks } from "./state";
 import { orbitR } from "../model/galaxy";
 import { HITCHHIKE_TRACKS, pickStopTracks, planLightYears, planRoute, planSystemTour, starEnd } from "../model/routes";
 import { cam, LOD_PLANETS, LOD_TITLES, LOD_TRACKS, MAX_SCALE } from "../render/camera";
-import { renderDossier } from "../ui/dossier";
-import { decodeDossier } from "../ui/glitch";
-import { loadInDock, player } from "../ui/dock";
-import { denyPick, hidePickHint, renderRoutePanel, routePanelWidth, showPickHint } from "../ui/routePanel";
-import { ticker } from "../ui/ticker";
+import { ui } from "./ports";
 import { wormhole } from "../ui/wormhole";
 
 export const trackCode = (s: number, i: number) => `TR-${pad(s, 2)}.${pad(i, 5)}`;
@@ -29,7 +24,7 @@ export function pickBlocked(o: Sel): boolean {
 export function select(o: Sel, go = true, autoplay = false) {
   // a satellite clicked a moment after it appeared: wait for its title and artist
   if (o?.kind === "track" && !chunk(o.s)) { tracks.load(o.s).then(() => select(o, go, autoplay)); return; }
-  if (pickBlocked(o)) { denyPick(galaxy.stars[starOf(o!)].name); return; }
+  if (pickBlocked(o)) { ui.pickDenied(galaxy.stars[starOf(o!)].name); return; }
   // while picking an odyssey's destination, a planet, a track's planet or a whole star finishes it;
   // a star at either end is entered through its gate facing the other end
   const rp = state.routePick;
@@ -57,8 +52,7 @@ export function select(o: Sel, go = true, autoplay = false) {
     if (autoplay) playTrack(o);
     replaceHash(`#t${o.s}-${o.i}`);
   }
-  renderDossier();
-  decodeDossier(state.warping ? 900 : 380);
+  ui.showSelection(state.warping ? 900 : 380);
 }
 
 // ---------- playback ----------
@@ -70,8 +64,8 @@ export function playTrack(ref: TrackRef) {
   state.nowPlaying = ref; state.played.add(ch.yt[ref.i]);
   const h = state.history, last = h[h.length - 1];
   if (!last || last.i !== ref.i || last.s !== ref.s) h.push(ref);
-  loadInDock(ref);
-  flightLog.add(ref, Date.now(), { b: galaxy.meta.build, y: ch.yt[ref.i], st: galaxy.stars[ref.s].name }); ticker(); state.dirty = true;
+  ui.loadTrack(ref);
+  flightLog.add(ref, Date.now(), { b: galaxy.meta.build, y: ch.yt[ref.i], st: galaxy.stars[ref.s].name }); ui.stats(); state.dirty = true;
 }
 
 /** the k nearest tracks of the same system, optionally skipping YouTube ids */
@@ -94,12 +88,12 @@ export function next() {
     if (cur && cur.s === np.s && cur.i === np.i) {
       if (state.routeIdx + 1 < route.flat.length) { playRouteAt(state.routeIdx + 1); return; }
       // the end of the line: 2001 for odysseys, the Guide for hitchhikers
-      state.routeIdx = -1; renderRoutePanel();
+      state.routeIdx = -1; ui.showRoute();
       const lastYear = galaxy.meta.years?.[1] ?? new Date().getFullYear();
-      $("routeMeta").textContent = route.years
+      ui.routeEnded(route.years
         ? (route.years[1] >= lastYear - 1 ? `NOW PLAYING · ${route.years[1]} · AUTOPILOT RESUMES` : `LAST TRANSMISSION · ${route.years[1]} · AUTOPILOT RESUMES`)
-        : route.star !== undefined ? "SO LONG, AND THANKS FOR ALL THE TRACKS · AUTOPILOT RESUMES" : "MY GOD, IT'S FULL OF STARS · ODYSSEY COMPLETE, AUTOPILOT RESUMES";
-    } else { state.routeIdx = -1; renderRoutePanel(); }
+        : route.star !== undefined ? "SO LONG, AND THANKS FOR ALL THE TRACKS · AUTOPILOT RESUMES" : "MY GOD, IT'S FULL OF STARS · ODYSSEY COMPLETE, AUTOPILOT RESUMES");
+    } else { state.routeIdx = -1; ui.showRoute(); }
   }
   if (state.orbit !== null) { playOrbit(state.orbit); return; }
   const n = nearestTracks(np, 1, state.played)[0]; if (n) select({ kind: "track", ...n }, true, true);
@@ -117,7 +111,7 @@ export function playOrbit(pi: number) {
   if (!all.length) { state.orbit = null; return; } // every signal here has gone dark
   const fresh = all.filter((i) => !state.played.has(ch.yt[i]) && !(np && np.s === p.s && np.i === i));
   const pool = fresh.length ? fresh : all, i = pool[Math.floor(Math.random() * pool.length)];
-  if (state.routeIdx >= 0) { state.routeIdx = -1; renderRoutePanel(); }
+  if (state.routeIdx >= 0) { state.routeIdx = -1; ui.showRoute(); }
   if (state.orbit !== pi) state.orbitSince = Date.now(); // a new station starts its clock
   state.orbit = pi;
   select({ kind: "track", s: p.s, i }, true, true);
@@ -139,12 +133,12 @@ export async function buildRoute(a: number, b: number) {
   const plan = planRoute(galaxy, a, b), pending = { ...plan, tracks: plan.stops.map(() => []), flat: [], loading: true };
   state.route = pending; state.routeIdx = -1;
   replaceHash(`#r${a}-${b}`);
-  renderRoutePanel(); fitRoute(); state.dirty = true;
+  ui.showRoute(); fitRoute(); state.dirty = true;
   await Promise.all([...new Set(plan.stops.map((i) => galaxy.planets[i].s))].map((s) => tracks.load(s)));
   if (state.route !== pending) return; // replaced or closed meanwhile
   const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, undefined, dead);
   state.route = { ...plan, tracks: t, flat: t.flat() };
-  renderRoutePanel();
+  ui.showRoute();
 }
 /** frame the whole route, clear of the route panel */
 export function fitRoute() {
@@ -152,14 +146,14 @@ export function fitRoute() {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const i of route.stops) { const q = motion.planetPos(i); x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
   const w = Math.max(200, x1 - x0), h = Math.max(200, y1 - y0);
-  cam.setFollow(null); state.sel = null; renderDossier();
-  const pw = routePanelWidth();
+  cam.setFollow(null); state.sel = null; ui.showSelection(0);
+  const pw = ui.routePanelWidth();
   const k = Math.max(cam.minS(), Math.min((cam.W - pw) / w, cam.H / h) * 0.78);
   cam.fly((x0 + x1) / 2 - pw / 2 / k, (y0 + y1) / 2, k, 1600);
 }
 /** start an odyssey from a planet (default) or from a whole star system */
 export function startPick(i: number, kind: "planet" | "star" = "planet") {
-  state.routePick = { kind, i }; showPickHint((kind === "star" ? galaxy.stars[i] : galaxy.planets[i]).name);
+  state.routePick = { kind, i }; ui.pickHint((kind === "star" ? galaxy.stars[i] : galaxy.planets[i]).name);
   // pull back far enough to see where to go: the home system with the nearest systems around it
   const st = kind === "star" ? i : galaxy.planets[i].s, S = galaxy.stars[st];
   const near = galaxy.stars.map((n, k) => ({ k, d: k === st ? Infinity : Math.hypot(n.x - S.x, n.y - S.y) + n.R })).sort((a, b) => a.d - b.d);
@@ -167,13 +161,13 @@ export function startPick(i: number, kind: "planet" | "star" = "planet") {
   const k = Math.min(cam.s, Math.max(cam.minS(), Math.min(cam.W, cam.H) / (2 * r) * 0.92));
   cam.setFollow(null); cam.fly(S.x, S.y, k, 1100);
 }
-export function endPick() { state.routePick = null; hidePickHint(); }
+export function endPick() { state.routePick = null; ui.pickHint(null); }
 /** TIME WARP: a label's history from first release to last, played at once */
 export async function playLightYears(pi: number) {
   if (galaxy.meta.sample) return;
   const s = galaxy.planets[pi].s, ch = await tracks.load(s);
   const r = planLightYears(galaxy, pi, ch, state.played, Math.random, dead); if (!r) return;
-  state.route = r; state.routeIdx = -1; renderRoutePanel(); state.dirty = true;
+  state.route = r; state.routeIdx = -1; ui.showRoute(); state.dirty = true;
   playRouteAt(0);
 }
 
@@ -185,7 +179,7 @@ export async function playSystem(st: number) {
   const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS, dead);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
   replaceHash(`#s${st}`);
-  renderRoutePanel(); state.dirty = true;
+  ui.showRoute(); state.dirty = true;
   playRouteAt(0);
 }
 async function openSystemTour(st: number) {
@@ -193,20 +187,19 @@ async function openSystemTour(st: number) {
   await tracks.load(st);
   const t = pickStopTracks(galaxy, plan, (s) => chunk(s)!, state.played, Math.random, HITCHHIKE_TRACKS, dead);
   state.route = { ...plan, tracks: t, flat: t.flat() }; state.routeIdx = -1;
-  renderRoutePanel(); fitRoute(); state.dirty = true;
+  ui.showRoute(); fitRoute(); state.dirty = true;
 }
 export function clearRoute() {
-  state.route = null; state.routeIdx = -1; renderRoutePanel(); state.dirty = true;
+  state.route = null; state.routeIdx = -1; ui.showRoute(); state.dirty = true;
   if (/^#[rs]/.test(location.hash)) replaceHash(location.pathname + location.search);
 }
 export function playRouteAt(k: number) {
   const route = state.route; if (!route || !route.flat[k]) return;
-  state.routeIdx = k; state.orbit = null; renderRoutePanel();
+  state.routeIdx = k; state.orbit = null; ui.showRoute();
   select({ kind: "track", ...route.flat[k] }, true, true);
-  $("routeList").querySelector(".rt.on")?.scrollIntoView({ block: "nearest" });
 }
 export function toggleRoutePlayback() {
-  if (state.routeIdx >= 0) { state.routeIdx = -1; renderRoutePanel(); if (player.playing) player.toggle(); }
+  if (state.routeIdx >= 0) { state.routeIdx = -1; ui.showRoute(); if (ui.isPlaying()) ui.togglePlay(); }
   else playRouteAt(0);
 }
 /** #r<a>-<b> in the address bar opens that odyssey, #s<star> that system tour */
@@ -247,7 +240,7 @@ export function warp() {
 export function flyToNebula(k: number) {
   const n = galaxy.nebulae[k]; if (!n) return;
   select(null);
-  const pw = routePanelWidth();
+  const pw = ui.routePanelWidth();
   cam.fly(n.x - pw / 2 / cam.s, n.y, Math.min((cam.W - pw) / (n.r * 2.5), cam.H / (n.r * 2.5)), 1500);
 }
 export function zoomBy(k: number) { cam.s = cam.clampS(cam.s * k); state.dirty = true; }

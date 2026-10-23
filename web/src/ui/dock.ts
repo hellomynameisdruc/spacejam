@@ -10,6 +10,7 @@ import { onFrame, viewportEl } from "../render/scene";
 import { cam, LOD_TRACKS } from "../render/camera";
 import { ticker } from "./ticker";
 import { say } from "./rail";
+import { provide } from "../app/ports";
 
 // Player keys use one family of pixel icons (14×14 grid), so they match in size and weight
 const svgI = (body: string) => `<svg class="ico" viewBox="0 0 14 14" aria-hidden="true" shape-rendering="crispEdges">${body}</svg>`;
@@ -86,6 +87,14 @@ export function playTestSignal(id: string) {
 }
 
 export function initDock() {
+  provide({
+    loadTrack: loadInDock, isPlaying: () => player.playing, togglePlay: () => player.toggle(),
+    media: {
+      ready: () => player.ready, time: () => player.time(), playing: () => player.playing, buffering: () => player.buffering,
+      toggle: () => player.toggle(), seek: (t) => player.seek(t), title: () => $("npTitle").textContent ?? "",
+      playOffMap: (yt, title, artist) => { playTestSignal(yt); $("npTitle").textContent = title; $("npArtist").textContent = artist; },
+    },
+  });
   dock = $("playerBox"); pill = $("dockPill"); seekEl = $<HTMLInputElement>("seek"); volEl = $<HTMLInputElement>("vol");
   $("pPrev").innerHTML = ICON.prev; $("pNext").innerHTML = ICON.next; $("pToggle").innerHTML = ICON.pause; $("pLike").innerHTML = ICON.beacon; $("dockCast").innerHTML = ICON.cast;
 

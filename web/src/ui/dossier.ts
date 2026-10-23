@@ -10,7 +10,8 @@ import { sc } from "../render/palette";
 import { onFrame } from "../render/scene";
 import { drawPulsarHero, drawRadar, drawSphere, drawWave, fitCanvas, fitted } from "./scopes";
 import { ICON, player, scrub } from "./dock";
-import { scramble } from "./glitch";
+import { decodeDossier, scramble } from "./glitch";
+import { provide } from "../app/ports";
 
 let dosAnim: ((t: number) => void) | null = null;
 /** objects behind data-r buttons of the current render */
@@ -174,6 +175,7 @@ export function paintDossierBeacon() {
 }
 
 export function initDossier() {
+  provide({ showSelection: (ms) => { renderDossier(); if (ms) decodeDossier(ms); } });
   $("detail").addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
     const ps = t.closest<HTMLElement>("[data-route-star]"); if (ps) { startPick(+ps.dataset.routeStar!, "star"); return; }
