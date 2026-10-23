@@ -107,7 +107,7 @@ async function sendLink() {
   const sb = await cloud();
   const { error } = await sb.auth.signInWithOtp({ email: mail, options: { emailRedirectTo: location.origin + location.pathname } });
   busy = false;
-  if (error) note = /rate|seconds/i.test(error.message) ? "TOO MANY LINKS IN A SHORT TIME. WAIT A LITTLE AND TRY AGAIN." : `COULD NOT SEND: ${error.message}`;
+  if (error) note = /rate|seconds/i.test(error.message) ? `THE MAIL SERVICE IS BUSY: ${error.message.toUpperCase()}` : `COULD NOT SEND: ${error.message}`;
   else sentTo = mail;
   render();
 }
