@@ -6,8 +6,16 @@ import { $ } from "../core/dom";
 import { beacons, flightLog } from "../app/state";
 import { cloud, cloudWanted } from "../cloud/client";
 import { avatarSvg, avatarTraits } from "./avatar";
+import { rankTag } from "./ranks";
 
-export type Pilot = { id: string; nick: string; avatar: number };
+export type Pilot = { id: string; nick: string; avatar: number; rank?: string; admin?: boolean };
+/** the pilot columns to read; without ranks if the database hasn't got them yet */
+let COLS = "id,nick,avatar,rank,admin";
+export async function readPilots<T>(q: (cols: string) => PromiseLike<{ data: T; error: { message: string } | null }>) {
+  let r = await q(COLS);
+  if (r.error && /rank|admin/.test(r.error.message) && COLS !== "id,nick,avatar") { COLS = "id,nick,avatar"; r = await q(COLS); }
+  return r;
+}
 export const pilot = { session: null as Session | null, me: null as Pilot | null };
 const listeners: (() => void)[] = [];
 export const onPilot = (fn: () => void) => { listeners.push(fn); };
@@ -21,8 +29,8 @@ async function loadMe() {
   const sb = await cloud();
   // the pilot row is made by the database on sign-up; give it a moment on the very first sign-in
   for (let k = 0; k < 4; k++) {
-    const { data } = await sb.from("pilots").select("id,nick,avatar").eq("id", s.user.id).maybeSingle();
-    if (data) { pilot.me = data as Pilot; return; }
+    const { data } = await readPilots((c) => sb.from("pilots").select(c).eq("id", s.user.id).maybeSingle());
+    if (data) { pilot.me = data as unknown as Pilot; return; }
     await new Promise((r) => setTimeout(r, 600));
   }
 }
@@ -58,7 +66,7 @@ function render() {
   const body = me
     ? `<div class="pl-id">${avatarSvg(me.avatar, 96, "ava big")}
         <div class="pl-f">
-          <label for="plNick">CALL SIGN</label>
+          <label for="plNick">CALL SIGN ${rankTag(me.rank)}</label>
           <div class="pl-row"><input id="plNick" value="${esc(me.nick)}" maxlength="20" autocomplete="off" spellcheck="false"><button type="button" class="key" id="plSave">SAVE</button></div>
           <button type="button" class="key" id="plFace">↻ NEW PORTRAIT</button>
           <p class="pl-traits">${avatarTraits(me.avatar).map((t) => esc(t.toUpperCase())).join(" · ")}</p>

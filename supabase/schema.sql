@@ -79,3 +79,27 @@ grant execute on function public.delete_me() to authenticated;
 
 -- live updates for the chat
 alter publication supabase_realtime add table public.messages;
+
+-- RANKS: given by the founder from COMMS (/rank CALLSIGN RANK); wardens and the founder keep the channel clean
+alter table public.pilots add column rank text not null default 'cadet'
+  check (rank in ('cadet','pilot','navigator','captain','commander','admiral','dj','digger','warden','founder'));
+alter table public.pilots add column admin boolean not null default false;
+
+create function public.is_staff() returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.pilots where id = auth.uid() and (admin or rank in ('warden','founder')))
+$$;
+create policy "staff delete any message" on public.messages for delete to authenticated using (public.is_staff());
+
+create function public.grant_rank(target text, new_rank text) returns text language plpgsql security definer set search_path = public as $$
+declare n text;
+begin
+  if not exists (select 1 from public.pilots where id = auth.uid() and admin) then raise exception 'NOT AUTHORISED'; end if;
+  update public.pilots set rank = lower(new_rank) where lower(nick) = lower(target) returning nick into n;
+  if n is null then raise exception 'NO SUCH PILOT'; end if;
+  return n;
+end $$;
+revoke execute on function public.grant_rank(text, text) from public, anon;
+grant execute on function public.grant_rank(text, text) to authenticated;
+
+-- the first pilot to sign up (the founder) gets the keys
+update public.pilots set admin = true, rank = 'founder' where id = (select id from auth.users order by created_at limit 1);

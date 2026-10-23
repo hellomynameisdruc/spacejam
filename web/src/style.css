@@ -520,3 +520,5 @@ body.briefing .dock { border-color: var(--faint); box-shadow: none }
 .pl-traits { margin: 0; font-family: var(--f-dot); font-size: 10px; letter-spacing: .12em; line-height: 1.6; color: var(--dim) }
 .msg .ava { border: 1px solid var(--faint) }
 .pilot-btn .ava { image-rendering: pixelated }
+.rk { color: var(--rk); font-family: var(--f-dot); font-size: 9px; letter-spacing: .12em; border: 1px solid var(--rk); padding: 0 3px; line-height: 13px; white-space: nowrap; text-shadow: 0 0 4px var(--rk) }
+.m-h { flex-wrap: wrap; row-gap: 2px }
