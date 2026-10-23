@@ -5,7 +5,7 @@
 import { esc, pad } from "../core/util";
 import { $ } from "../core/dom";
 import { ALL, dropRoom, goLive, grantRank, loadRoom, messages, onComms, remove, report, transmit, type Msg } from "../cloud/comms";
-import { onPilot, pilot, roster, wake } from "../cloud/pilots";
+import { lookup, onPilot, pilot, roster, wake } from "../cloud/pilots";
 import { fleet, fleetRoom, inviteLink, known, leave, onFleet, tuneIn, watchOnAir } from "../cloud/fleet";
 import { chunk, galaxy } from "../app/state";
 import { select } from "../app/actions";
@@ -48,9 +48,22 @@ function body(text: string, nick?: string) {
   if (parseSignal(text)) return signalCard(text);
   const f = text.match(/#fleet-([\w-]{6,64})/);
   if (!f) return `<span class="m-t">${esc(text)}</span>`;
-  const rest = text.replace(/\S*#fleet-[\w-]{6,64}\S*/, "").trim();
-  return `${rest ? `<span class="m-t">${esc(rest)}</span>` : ""}<button type="button" class="key sm dashed m-card" data-join="${esc(f[1])}">▶ JOIN ${esc((nick ?? "THE").toUpperCase())}${nick ? "’S" : ""} FLEET <i>TUNE IN</i></button>`;
+  const rest = text.replace(/\S*#fleet-[\w-]{6,64}\S*/, "").replace(/^tune in with me:?$/i, "").trim();
+  return `${rest ? `<span class="m-t">${esc(rest)}</span>` : ""}${fleetCard(f[1], nick)}`;
 }
+/** an invite to a fleet: the host, and — while they're on air — what's playing and who's aboard */
+function fleetCard(hostId: string, nick?: string) {
+  const live = fleet.hosts.find((h) => h.id === hostId), p = roster.get(hostId) ?? (live && known(live));
+  if (!p && !looked.has(hostId)) { looked.add(hostId); lookup([hostId]).then(() => paint()).catch(() => {}); }
+  const name = esc((p?.nick ?? nick ?? "A PILOT").toUpperCase()), k = rankOf(p?.rank), aboard = fleet.role === "crew" && fleet.hostId === hostId, self = hostId === pilot.me?.id;
+  const head = `<span class="fc-h"><span class="fc-lamp${live ? " on" : ""}">${live ? "● LIVE" : "○ OFF AIR"}</span><b${k.color ? ` style="color:${k.color}"` : ""}>${name}</b><span class="fc-k">FLEET</span></span>`;
+  if (!live) return `<div class="fleet-card off">${avatarSvg(p?.avatar ?? 0, 40)}<span class="fc-i">${head}<span class="fc-t">This broadcast has ended. Look for it in ON AIR next time.</span></span></div>`;
+  const n = live.n, key = self ? `<span class="fc-go you">YOU</span>` : aboard ? `<span class="fc-go you">ABOARD</span>` : `<span class="fc-go">▶ TUNE IN</span>`;
+  return `<button type="button" class="fleet-card" ${self || aboard ? "disabled" : `data-join="${esc(hostId)}"`} title="Listen along with ${name}">${avatarSvg(p?.avatar ?? 0, 40)}<span class="fc-i">${head}
+    <span class="fc-t">♪ ${esc(live.artist)}${live.artist ? " — " : ""}${esc(live.title)}</span>
+    <span class="fc-m">${esc(live.style.toUpperCase())} · ${n + 1} ${n === 0 ? "PILOT" : "PILOTS"} ABOARD</span></span>${key}</button>`;
+}
+const looked = new Set<string>();
 function line(m: Msg) {
   const p = roster.get(m.pilot), mine = m.pilot === pilot.me?.id;
   const act = !pilot.me ? "" : mine || isStaff(pilot.me)
@@ -132,7 +145,7 @@ async function act(e: Event) {
   if (t.closest("[data-fl-post]")) {
     if (!pilot.me) { openPilot(); return; }
     view = "all"; paint();
-    const err = await transmit(ALL, `Tune in with me: ${inviteLink()}`);
+    const err = await transmit(ALL, inviteLink());
     if (err) tell(err === "too-fast" ? "Too fast. One message every few seconds" : "Transmission failed. Try again"); else say("Invite posted to ALL");
     return;
   }
