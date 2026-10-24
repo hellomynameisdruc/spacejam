@@ -3,7 +3,8 @@
 // signing out and deleting the account. The data lives in cloud/pilots.ts.
 import { esc } from "../core/util";
 import { $ } from "../core/dom";
-import { beacons, flightLog } from "../app/state";
+import { beacons } from "../app/state";
+import { flightsTotal } from "../cloud/sync";
 import { cloudWanted } from "../cloud/client";
 import { deleteAccount, newPortrait, onPilot, onSignInReturn, pilot, sendSignInLink, setNick, signInGoogle, signOut, wake } from "../cloud/pilots";
 import { avatarSvg, avatarTraits } from "./avatar";
@@ -29,7 +30,7 @@ function body() {
         <button type="button" class="key" id="plFace">↻ NEW PORTRAIT</button>
         <p class="pl-traits">${avatarTraits(me.avatar).map((t) => esc(t.toUpperCase())).join(" · ")}</p>
       </div></div>
-    <dl class="pl-stats"><dt>BEACONS</dt><dd>${beacons.size}</dd><dt>FLIGHTS LOGGED</dt><dd>${flightLog.size}</dd><dt>EMAIL</dt><dd>${esc(pilot.session?.user.email ?? "")}</dd></dl>
+    <dl class="pl-stats"><dt>BEACONS</dt><dd>${beacons.size}</dd><dt>FLIGHTS LOGGED</dt><dd>${flightsTotal()}</dd><dt>EMAIL</dt><dd>${esc(pilot.session?.user.email ?? "")}</dd></dl>
     <p class="pl-small">Beacons and the flight log are kept with your account, on every device you sign in on.</p>
     <div class="pl-foot"><button type="button" class="key" id="plOut">SIGN OUT</button>
       <button type="button" class="key danger" id="plDel">${confirmDelete ? "CONFIRM: DELETE FOREVER" : "DELETE ACCOUNT"}</button></div>`;
