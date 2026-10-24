@@ -4,6 +4,6 @@ import { defineConfig } from "vite";
 const banner = "/*! Sound Cosmos \u00a9 2026 hellomynameisdruc. All rights reserved. https://github.com/hellomynameisdruc/spacejam */";
 export default defineConfig({
   base: "./",
-  build: { target: "es2022", rollupOptions: { output: { banner } } },
+  build: { target: "es2022", rollupOptions: { input: { main: "index.html", comms: "comms.html" }, output: { banner } } },
   server: { port: 5173 },
 });

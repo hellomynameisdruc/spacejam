@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-phosphor="violet">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>COMMS · Sound Cosmos</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#07060e">
+  <meta name="author" content="hellomynameisdruc">
+  <meta name="robots" content="noindex">
+</head>
+<body class="chat-page">
+  <div class="term chat-term">
+    <header class="bar">
+      <div class="brand"><span class="inv">SOUND COSMOS</span><span class="sub">COMMS // THE PILOTS' CHANNEL</span></div>
+      <div class="sys">
+        <span class="chat-me" id="chatMe"></span>
+        <a class="key sm" href="./" target="sound-cosmos" title="The observatory">MAP ↗</a>
+      </div>
+    </header>
+    <main class="panel chat-panel">
+      <div class="ph-head"><div class="tabs sub" role="tablist"><button type="button" data-ch="all" aria-selected="true">ALL</button><button type="button" data-ch="air">ON AIR <b id="airN"></b></button></div><span id="chatCount"></span></div>
+      <div class="comms chat-comms">
+        <div class="rail" id="rail" role="status" aria-live="polite" hidden></div>
+        <div class="comms-list" id="commsList" aria-live="polite"></div>
+        <p class="fmsg" id="commsNote" role="status" hidden></p>
+        <form class="comms-form" id="commsForm" autocomplete="off"><span class="prompt" aria-hidden="true">&gt;</span><input class="field" id="commsIn" maxlength="400" spellcheck="false" aria-label="Message to all pilots"><button class="key sm">SEND</button></form>
+      </div>
+    </main>
+    <footer class="cmd chat-foot"><span class="note">Tracks and fleets you open here play in the observatory tab.</span><span class="copy">HELLOMYNAMEISDRUC © 2026</span></footer>
+  </div>
+  <script type="module" src="/src/chat.ts"></script>
+</body>
+</html>

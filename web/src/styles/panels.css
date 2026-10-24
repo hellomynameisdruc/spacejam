@@ -93,3 +93,17 @@
 .fc-go { flex: none; font-family: var(--f-dot); font-size: var(--fs-xs); letter-spacing: .1em; background: var(--red); color: #fff; padding: 5px 7px; text-shadow: none }
 .fc-go.you { background: none; color: var(--dim); border: 1px solid var(--line) }
 @media (prefers-reduced-motion: reduce) { .fc-lamp.on { animation: none } }
+.pop-out { margin-left: auto; color: var(--dim); text-decoration: none; border-bottom: 1px dotted var(--faint) }
+.pop-out:hover { color: var(--ink) }
+
+/* COMMS on a page of its own */
+.chat-term { max-width: 760px; margin: 0 auto }
+.chat-panel { min-height: 0 }
+.chat-comms { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 8px 12px 10px }
+.chat-comms #rail { top: 6px }
+.chat-me { display: inline-flex; align-items: center; gap: 8px; font-family: var(--f-dot); font-size: var(--fs-xs); letter-spacing: .1em }
+.chat-me a { color: var(--ink) }
+.chat-me .ava { image-rendering: pixelated }
+.chat-foot { justify-content: space-between }
+.chat-page .comms-list { font-size: var(--fs-m) }
+.chat-page .msg .m-t { font-size: var(--fs-m) }

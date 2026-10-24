@@ -92,6 +92,7 @@ function paint() {
   $("chFleet").hidden = !fleet.role;
   $("fleetN").textContent = fleet.role ? String(fleet.crew.length + 1) : "";
   $("airN").textContent = fleet.hosts.length ? String(fleet.hosts.length) : "";
+  $("popOut").hidden = !pilot.me?.admin; // COMMS in a tab of its own: the founder's console
   const f = $("commsForm"), inp = $<HTMLInputElement>("commsIn");
   f.hidden = view === "air"; f.classList.toggle("off", !pilot.me);
   inp.disabled = !pilot.me;

@@ -34,6 +34,7 @@ import { initModals } from "./ui/modal";
 import { initRail } from "./ui/rail";
 import { initComms } from "./ui/comms";
 import { initFleet } from "./ui/fleet";
+import { tuneIn } from "./cloud/fleet";
 import { initShareKey } from "./ui/share";
 import { initSync } from "./cloud/sync";
 
@@ -70,9 +71,23 @@ document.fonts?.ready.then(() => { state.dirty = true; });
 const tm = location.hash.match(/^#test-([A-Za-z0-9_-]{11})$/);
 if (tm) playTestSignal(tm[1]);
 routeFromHash();
+// the COMMS page (comms.html) asks this tab to play a shared track or tune in to a fleet
+window.name = "sound-cosmos";
+if (typeof BroadcastChannel === "function") {
+  const bus = new BroadcastChannel("sound-cosmos");
+  bus.onmessage = (e) => {
+    const go = String(e.data?.go ?? "");
+    const s = parseSignal(go), f = go.match(/^#fleet-([\w-]{6,64})$/);
+    if (s) find(s).then((r) => { if (r) select({ kind: "track", ...r }, true, true); });
+    else if (f) tuneIn(f[1]);
+    else return;
+    bus.postMessage({ ack: go });
+  };
+}
 addEventListener("hashchange", () => {
   if (routeFromHash()) return;
   const s = parseSignal(location.hash); if (s) find(s).then((r) => { if (r) select({ kind: "track", ...r }); });
+  const f = location.hash.match(/^#fleet-([\w-]{6,64})$/); if (f) tuneIn(f[1]);
 });
 const sig = parseSignal(location.hash);
 if (sig) find(sig).then((r) => { if (r) select({ kind: "track", ...r }); });
